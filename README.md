@@ -163,19 +163,21 @@ systemProp.org.gradle.java.installations.paths=/path/to/jdk8
 
 ### CI
 
-`.github/workflows/build.yml` assembles all four loader jars and uploads them as artifacts. It runs
-**only on changes that actually need a build** — `paths-ignore` skips docs/site-only commits
-(`site/**`, `*.md`, …). A routine code push just rebuilds the jars using the **committed** natives; the
-expensive native (Rust) build does **not** run on a plain push. Build natives on demand from the Actions
-tab (`workflow_dispatch`, `build_natives: true`, optional `easytier_ref`) or via the release workflow.
-When the native build does run it still only builds platforms whose library isn't already committed
-under `natives/<os>-<arch>/`, and is cached two ways (built-native cache keyed on EasyTier ref +
-`Cargo.lock`; `rust-cache` for misses). Gradle deps are cached via `gradle/actions/setup-gradle`.
+Three workflows:
 
-`.github/workflows/release.yml` — push a tag like `v0.1.0` to cut a release. It reuses the full build
-pipeline at the **release commit** (so it takes the natives committed there and builds only what's
-missing), then attaches every loader jar to the GitHub Release. `workflow_dispatch` runs the same build
-without publishing, for a dry run.
+- **`build.yml`** — runs **only on changes that actually need a build** (`paths-ignore` skips
+  docs/site-only commits like `site/**`, `*.md`). It assembles all four loader jars from the natives
+  **committed** in the repo and never compiles natives itself — so a routine push is a single fast
+  `assemble jars` job, with no Rust build and no skipped native matrix.
+- **`natives.yml`** — builds the EasyTier FFI natives (matrix over Windows / Linux x64+arm64 / macOS
+  x64+arm64). It skips any platform already committed under `natives/<os>-<arch>/` and caches the rest
+  two ways (built-native cache keyed on EasyTier ref + `Cargo.lock`; `rust-cache` for misses). Run it
+  from the Actions tab (`workflow_dispatch`, optional `easytier_ref`); it's also reused by `release.yml`.
+- **`release.yml`** — push a tag like `v0.1.0`: it builds any natives missing at the **release commit**
+  (reusing whatever's committed there), assembles the jars with them, and attaches every jar to the
+  GitHub Release. `workflow_dispatch` runs the same build without publishing (dry run).
+
+Gradle deps are cached via `gradle/actions/setup-gradle`.
 
 ### CI
 

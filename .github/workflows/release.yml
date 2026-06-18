@@ -1,8 +1,8 @@
 name: release
 
-# Cut a release by pushing a tag (e.g. `v0.1.0`). The build reuses the natives committed at the
-# release commit (only a genuinely missing platform is built), then attaches every loader jar to the
-# GitHub Release. `workflow_dispatch` builds the release jars without publishing (handy for a dry run).
+# Cut a release by pushing a tag (e.g. `v0.1.0`): build any missing natives at the release commit
+# (reusing whatever's committed there), assemble the loader jars with them, and attach the jars to the
+# GitHub Release. `workflow_dispatch` runs the same build WITHOUT publishing (a dry run).
 on:
   push:
     tags: [ 'v*' ]
@@ -20,17 +20,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Reuse the full build pipeline. Because this runs at the release commit, `build` picks up the
-  # natives committed there and only builds whatever platform is missing.
-  build:
-    uses: ./.github/workflows/build.yml
+  # Build only the natives missing at the release commit (committed ones are reused).
+  natives:
+    uses: ./.github/workflows/natives.yml
     with:
       easytier_ref: ${{ github.event.inputs.easytier_ref || 'main' }}
-      build_natives: true
+
+  # Assemble the loader jars; picks up the freshly-built native-* artifacts from the natives job above.
+  jars:
+    needs: natives
+    uses: ./.github/workflows/build.yml
 
   publish:
     name: publish release
-    needs: build
+    needs: jars
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:

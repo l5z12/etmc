@@ -1,0 +1,139 @@
+name: natives
+
+# Builds the EasyTier FFI native (easytier_ffi) for each platform whose library isn't already committed
+# under natives/<os>-<arch>/ — so committed platforms do no Rust work and only a genuinely missing one
+# (e.g. macOS) is built. Reusable (workflow_call) + manually runnable (workflow_dispatch). It is NOT
+# wired to push, so a routine commit never triggers a native build.
+on:
+  workflow_call:
+    inputs:
+      easytier_ref:
+        description: "EasyTier git ref to build missing natives from"
+        type: string
+        required: false
+        default: "main"
+  workflow_dispatch:
+    inputs:
+      easytier_ref:
+        description: "EasyTier git ref (branch/tag/sha) to build missing natives from"
+        default: "main"
+
+permissions:
+  contents: read
+
+env:
+  EASYTIER_REF: ${{ inputs.easytier_ref || 'main' }}
+
+jobs:
+  native:
+    name: native (${{ matrix.tag }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, tag: windows-x86_64, target: x86_64-pc-windows-msvc,   lib: easytier_ffi.dll }
+          - { os: ubuntu-latest,  tag: linux-x86_64,   target: x86_64-unknown-linux-gnu,  lib: libeasytier_ffi.so }
+          - { os: ubuntu-latest,  tag: linux-aarch64,  target: aarch64-unknown-linux-gnu, lib: libeasytier_ffi.so, cross: aarch64 }
+          - { os: macos-14,       tag: macos-aarch64,  target: aarch64-apple-darwin,      lib: libeasytier_ffi.dylib }
+          - { os: macos-13,       tag: macos-x86_64,   target: x86_64-apple-darwin,       lib: libeasytier_ffi.dylib }
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v4
+
+      # If the native is already committed at this commit, use it and skip the (expensive) Rust build.
+      - name: Native already committed?
+        id: have
+        shell: bash
+        run: |
+          if [ -s "common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}" ]; then
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Using committed native for ${{ matrix.tag }} (skipping build)"
+          else
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout EasyTier (${{ env.EASYTIER_REF }})
+        if: steps.have.outputs.committed != 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: EasyTier/EasyTier
+          ref: ${{ env.EASYTIER_REF }}
+          path: easytier
+
+      # Cache the finished native: a hit means we don't rebuild EasyTier at all.
+      - name: Cache built native
+        id: natcache
+        if: steps.have.outputs.committed != 'true'
+        uses: actions/cache@v4
+        with:
+          path: common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}
+          key: native-${{ matrix.tag }}-full-${{ env.EASYTIER_REF }}-${{ hashFiles('easytier/Cargo.lock') }}
+
+      - name: Install protoc
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust 1.95.0
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95.0"
+          targets: ${{ matrix.target }}
+
+      # The `full` feature pulls in vendored OpenSSL, which needs NASM (+ perl, preinstalled) on Windows.
+      - name: Install NASM (Windows, for vendored OpenSSL)
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+
+      - name: Cache cargo build (cache-miss only)
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: easytier
+          key: ${{ matrix.target }}
+
+      - name: Linux linkers / cross toolchain
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mold lld
+          if [ "${{ matrix.cross }}" = "aarch64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          fi
+
+      - name: Build easytier-ffi
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
+        shell: bash
+        env:
+          RUSTUP_TOOLCHAIN: "1.95.0"   # override EasyTier's rust-toolchain.toml ("1.95" doesn't resolve)
+        run: |
+          cd easytier
+          if [ "${{ matrix.cross }}" = "aarch64" ]; then
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-Clink-arg=-fuse-ld=lld"
+            export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+            export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+            export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar   # vendored OpenSSL cross build
+          fi
+          # --features easytier/full = all transports/connectors + crypto backends (aes-gcm, vendored openssl).
+          cargo build -p easytier-ffi --release --features easytier/full --target ${{ matrix.target }}
+
+      - name: Stage native
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p "common/src/main/resources/natives/${{ matrix.tag }}"
+          cp "easytier/target/${{ matrix.target }}/release/${{ matrix.lib }}" \
+             "common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}"
+
+      # Only freshly-built natives are uploaded; committed ones are already in the repo for `assemble`.
+      - name: Upload native
+        if: steps.have.outputs.committed != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.tag }}
+          path: common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}
+          if-no-files-found: error
