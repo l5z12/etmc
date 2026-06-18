@@ -1,6 +1,5 @@
 package dev.l5z12.etmc.core;
 
-import dev.l5z12.etmc.ffi.Panama;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.AbstractChannel;
 import io.netty.channel.ChannelConfig;
@@ -163,14 +162,11 @@ public final class EtmcChannel extends AbstractChannel {
 
     private void startReader() {
         Thread t = new Thread(() -> {
-            Object arena = Panama.newArena();
+            byte[] tmp = new byte[BUF];
             try {
-                Object nbuf = Panama.alloc(arena, BUF);
-                byte[] tmp = new byte[BUF];
                 while (open) {
-                    int n = target.et().tcpRead(stream, nbuf, BUF, READ_TIMEOUT_MS);
+                    int n = target.et().tcpRead(stream, tmp, BUF, READ_TIMEOUT_MS);
                     if (n <= 0) break;
-                    Panama.buffer(nbuf).get(0, tmp, 0, n);
                     ByteBuf out = config.getAllocator().buffer(n);
                     out.writeBytes(tmp, 0, n);
                     eventLoop().execute(() -> {
@@ -181,7 +177,6 @@ public final class EtmcChannel extends AbstractChannel {
             } catch (Throwable ignored) {
                 // fall through to close
             } finally {
-                Panama.closeArena(arena);
                 eventLoop().execute(() -> close(voidPromise()));
             }
         }, "etmc-channel-rx");
@@ -197,16 +192,9 @@ public final class EtmcChannel extends AbstractChannel {
                 while (open) {
                     byte[] data = writeQueue.take(); // blocks until there's something to send
                     if (data.length == 0) continue;
-                    Object arena = Panama.newArena();
-                    try {
-                        Object nbuf = Panama.alloc(arena, data.length);
-                        Panama.buffer(nbuf).put(0, data, 0, data.length);
-                        int w = target.et().tcpWrite(stream, nbuf, data.length, WRITE_TIMEOUT_MS);
-                        if (w < 0) {
-                            throw new java.io.IOException("etmc data-plane write failed");
-                        }
-                    } finally {
-                        Panama.closeArena(arena);
+                    int w = target.et().tcpWrite(stream, data, data.length, WRITE_TIMEOUT_MS);
+                    if (w < 0) {
+                        throw new java.io.IOException("etmc data-plane write failed");
                     }
                 }
             } catch (InterruptedException ignored) {

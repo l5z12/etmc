@@ -1,12 +1,10 @@
 package dev.l5z12.etmc.core;
 
 import dev.l5z12.etmc.ffi.EasyTier;
-import dev.l5z12.etmc.ffi.Panama;
 
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -49,46 +47,36 @@ public final class TcpBridge {
     }
 
     private void pumpMeshToLocal() {
-        Object arena = Panama.newArena();
+        byte[] tmp = new byte[BUF];
         try {
-            Object buf = Panama.alloc(arena, BUF);
-            ByteBuffer bb = Panama.buffer(buf);
-            byte[] tmp = new byte[BUF];
             OutputStream out = local.getOutputStream();
             while (!closed.get()) {
-                int n = et.tcpRead(stream, buf, BUF, READ_TIMEOUT_MS);
+                int n = et.tcpRead(stream, tmp, BUF, READ_TIMEOUT_MS);
                 if (n <= 0) break; // 0 = EOF, -1 = error/closed
-                bb.get(0, tmp, 0, n);
                 out.write(tmp, 0, n);
                 out.flush();
             }
         } catch (Throwable ignored) {
             // fall through to close
         } finally {
-            Panama.closeArena(arena);
             close();
         }
     }
 
     private void pumpLocalToMesh() {
-        Object arena = Panama.newArena();
+        byte[] tmp = new byte[BUF];
         try {
-            Object buf = Panama.alloc(arena, BUF);
-            ByteBuffer bb = Panama.buffer(buf);
-            byte[] tmp = new byte[BUF];
             InputStream in = local.getInputStream();
             while (!closed.get()) {
                 int n = in.read(tmp);
                 if (n < 0) break; // EOF
                 if (n == 0) continue;
-                bb.put(0, tmp, 0, n);
-                int w = et.tcpWrite(stream, buf, n, WRITE_TIMEOUT_MS);
+                int w = et.tcpWrite(stream, tmp, n, WRITE_TIMEOUT_MS);
                 if (w < 0) break;
             }
         } catch (Throwable ignored) {
             // fall through to close
         } finally {
-            Panama.closeArena(arena);
             close();
         }
     }
