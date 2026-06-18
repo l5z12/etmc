@@ -2,29 +2,47 @@
 import DocsLayout from '../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Joining" description="Join a hosted world with a code.">
-  <p>To join a friend's world:</p>
+<DocsLayout title="Joining" description="Join a hosted world with an etmc:// link or a join code.">
+  <h2>With an <code>etmc://</code> link (recommended)</h2>
+  <p>
+    The host shares an <code>etmc://v1/…</code> link (from <strong>Session status → Copy etmc:// link</strong>,
+    <code>/etmc invite</code>, or a dedicated server's console). Joining needs no etmc menu and opens
+    <strong>no local port</strong>:
+  </p>
+  <ol>
+    <li>Minecraft → <strong>Multiplayer</strong> → <strong>Add Server</strong> (or <strong>Direct Connect</strong>).</li>
+    <li>Paste the <code>etmc://…</code> link into the <em>Server Address</em> field.</li>
+    <li><strong>Join Server</strong>. etmc shows <em>Establishing P2P connection</em> while it sets up a direct link, then connects.</li>
+  </ol>
+  <p>
+    If a direct peer-to-peer link can't be established quickly (e.g. strict NAT), click
+    <strong>Join now anyway</strong> to connect over the relay instead.
+  </p>
+
+  <h2>With a join code</h2>
   <ol>
     <li>Open the menu (<span class="kbd">G</span>) → <strong>Join with a code</strong>.</li>
     <li>Paste the <code>ETMC1:…</code> code (or use <strong>Paste from clipboard</strong>).</li>
-    <li>Click <strong>Join</strong> — etmc connects you automatically.</li>
+    <li>etmc adds the server to your <strong>Multiplayer</strong> list — open it and click to connect.</li>
   </ol>
   <p>Or via command: <code>/etmc join &lt;code&gt;</code>.</p>
 
   <h2>What happens</h2>
   <ul>
     <li>etmc starts an EasyTier instance (no-TUN, DHCP) on the host's network;</li>
-    <li>opens a loopback proxy and points Minecraft at <code>127.0.0.1:&lt;port&gt;</code>;</li>
-    <li>tunnels that connection to the host over the mesh.</li>
+    <li>an <strong><code>etmc://</code> link</strong> rides the mesh's data plane directly — <em>no loopback socket, no port</em>;</li>
+    <li>a <strong>join code</strong> opens a loopback proxy at <code>127.0.0.1:&lt;port&gt;</code> and tunnels it to the host over the mesh.</li>
   </ul>
   <p>
-    From Minecraft's perspective it's a normal server connection, so resource packs, mods and the
-    server list all behave as usual. See <a href="/docs/compatibility">Mod compatibility</a>.
+    Either way, from Minecraft's perspective it's a normal server connection, so resource packs, mods and the
+    server list all behave as usual. The HUD shows each peer as <em>p2p</em> or <em>relay</em>. See
+    <a href="/docs/compatibility">Mod compatibility</a>.
   </p>
 
   <h2>Joining a dedicated server</h2>
   <p>
-    If an admin published a config file, use <a href="/docs/connect-url">Connect via config URL</a> instead — you
-    only need the link.
+    A Paper server prints both a join code and an <code>etmc://</code> link on startup (and via <code>/etmc code</code>) —
+    paste the link into Add Server / Direct Connect, or use the code. If an admin published a config file instead,
+    use <a href="/docs/connect-url">Connect via config URL</a>.
   </p>
 </DocsLayout>
