@@ -1,0 +1,217 @@
+/* ============================================================================
+   etmc — Minecraft-styled theme
+   Mojangles (the real Minecraft typeface) for everything, mono only for code.
+   Beveled "GUI" panels and buttons, blocky stone backdrop, grass/dirt accents.
+   ========================================================================== */
+
+@font-face {
+  font-family: 'Mojangles';
+  src: url('/fonts/Mojangles.woff2') format('woff2');
+  font-display: swap;
+  font-weight: 400;
+}
+
+@font-face {
+  font-family: 'Mojangles';
+  src: url('/fonts/Mojangles-Bold.woff2') format('woff2');
+  font-display: swap;
+  font-weight: 700;
+}
+
+:root {
+  --pixel: 'Mojangles', 'Courier New', monospace;
+  --mono: ui-monospace, 'Cascadia Code', 'JetBrains Mono', Consolas, 'Courier New', monospace;
+
+  --bg: #15151a;
+  --bg2: #1e1e26;
+  --panel: #2b2b33;
+  --panel-bg: rgba(18, 18, 22, 0.86);
+  --slot: #1a1a20;
+
+  --text: #e9e9ee;
+  --muted: #9a9aa6;
+  --gold: #fcdc5f;     /* Minecraft title yellow */
+  --green: #6abe30;    /* grass */
+  --green-d: #4a8a22;
+  --green-l: #8fdc52;
+  --dirt: #79553a;
+  --dirt-d: #5a3f2b;
+  --red: #ff5f5f;
+  --aqua: #62d0e0;
+
+  --bevel-l: rgba(255, 255, 255, 0.32);
+  --bevel-d: rgba(0, 0, 0, 0.55);
+
+  --maxw: 1080px;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  /* sticky footer: column layout that always fills the viewport */
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: var(--pixel);
+  font-size: 17px;
+  color: var(--text);
+  background-color: var(--bg);
+  /* blocky stone grid + soft vignette */
+  background-image:
+    radial-gradient(120% 90% at 50% -10%, rgba(106, 190, 48, 0.10), transparent 60%),
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 100% 100%, 16px 16px, 16px 16px;
+  line-height: 1.7;
+  image-rendering: pixelated;
+}
+
+/* main grows to push the footer to the bottom on short pages */
+#main { flex: 1 0 auto; }
+.footer { flex-shrink: 0; }
+
+img, canvas { image-rendering: pixelated; }
+
+h1, h2, h3, h4, nav, .btn, .tag, .logo, .kbd {
+  font-family: var(--pixel);
+  font-weight: 400;
+  text-shadow: 2px 2px 0 #000;
+  line-height: 1.5;
+}
+
+h1 { color: var(--gold); font-size: clamp(30px, 6vw, 50px); font-weight: 700; }
+h2 { color: var(--green-l); font-size: clamp(22px, 3.4vw, 30px); margin-top: 1.7em; font-weight: 700; }
+h3 { color: #fff; font-size: 20px; margin-top: 1.5em; font-weight: 700; }
+
+a { color: var(--aqua); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+p { color: var(--text); }
+small, .muted { color: var(--muted); }
+
+.container { max-width: var(--maxw); margin: 0 auto; padding: 0 18px; }
+
+/* ----- top hotbar nav ----- */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  background: linear-gradient(#2a2a31, #1c1c22);
+  border-bottom: 3px solid #000;
+  box-shadow: inset 0 2px 0 var(--bevel-l), inset 0 -2px 0 var(--bevel-d);
+}
+.nav-inner { display: flex; align-items: center; gap: 18px; height: 58px; }
+.logo { color: var(--green); font-size: 24px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.logo .cube { width: 18px; height: 18px; background: var(--green); border: 2px solid #000;
+  box-shadow: inset 2px 2px 0 var(--green-l), inset -2px -2px 0 var(--green-d); }
+.nav a.navlink { color: var(--text); font-family: var(--pixel); font-size: 16px; text-shadow: 2px 2px 0 #000; }
+.nav a.navlink:hover { color: var(--gold); text-decoration: none; }
+.nav .spacer { flex: 1; }
+
+/* ----- GUI panel (inventory look) ----- */
+.panel {
+  background: var(--panel-bg);
+  border: 3px solid #000;
+  box-shadow: inset 3px 3px 0 var(--bevel-l), inset -3px -3px 0 var(--bevel-d);
+  padding: 22px;
+  margin: 18px 0;
+}
+.panel.slot { background: var(--slot); box-shadow: inset 3px 3px 0 var(--bevel-d), inset -3px -3px 0 rgba(255,255,255,0.06); }
+
+/* ----- buttons (classic MC button) ----- */
+.btn {
+  display: inline-block;
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  background: #6e6e76;
+  border: 3px solid #000;
+  box-shadow: inset 2px 2px 0 #b9b9c2, inset -2px -2px 0 #43434b;
+  padding: 13px 18px;
+  cursor: pointer;
+  user-select: none;
+  text-align: center;
+}
+.btn:hover { background: #5d7a52; box-shadow: inset 2px 2px 0 #a7d18f, inset -2px -2px 0 #3a5730; text-decoration: none; color: #fff; outline: 2px solid #fff; }
+.btn:active { box-shadow: inset -2px -2px 0 #b9b9c2, inset 2px 2px 0 #43434b; }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.btn-primary { background: var(--green-d); box-shadow: inset 2px 2px 0 var(--green-l), inset -2px -2px 0 #2e5a14; }
+.btn-primary:hover { background: var(--green); box-shadow: inset 2px 2px 0 #b6f08a, inset -2px -2px 0 #356218; }
+
+.btn-row { display: flex; flex-wrap: wrap; gap: 12px; }
+
+/* ----- hero (grass block) ----- */
+.hero { position: relative; padding: 56px 0 40px; text-align: center; overflow: hidden; }
+.hero .tag { display: inline-block; font-size: 14px; font-weight: 700; color: #042; background: var(--green);
+  border: 2px solid #000; box-shadow: inset 2px 2px 0 var(--green-l), inset -2px -2px 0 var(--green-d);
+  padding: 6px 10px; margin-bottom: 18px; text-shadow: none; }
+.hero h1 { font-size: clamp(44px, 9vw, 78px); margin: 6px 0 14px; }
+.hero p.lead { max-width: 680px; margin: 0 auto 26px; color: #d6d6dd; font-size: 19px; }
+.grassbar { height: 22px; background:
+  repeating-linear-gradient(90deg, var(--green) 0 12px, var(--green-d) 12px 24px);
+  border-top: 3px solid #000; border-bottom: 3px solid #000; }
+.dirtbar { height: 14px; background:
+  repeating-linear-gradient(90deg, var(--dirt) 0 12px, var(--dirt-d) 12px 24px); }
+
+/* ----- feature grid ----- */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.feature h3 { margin-top: 0; color: var(--gold); }
+.feature .ico { font-size: 22px; }
+
+/* ----- code ----- */
+pre, code { font-family: var(--mono); }
+code { background: #000; color: var(--green-l); padding: 2px 6px; border: 1px solid #333; font-size: 0.92em; }
+pre { background: #0c0c10; border: 3px solid #000; box-shadow: inset 2px 2px 0 var(--bevel-d);
+  padding: 14px 16px; overflow-x: auto; color: #d4d4d8; }
+pre code { background: none; border: none; color: inherit; padding: 0; }
+
+.kbd { display:inline-block; background:#3a3a42; border:2px solid #000; box-shadow: inset 1px 1px 0 var(--bevel-l), inset -1px -1px 0 var(--bevel-d);
+  padding: 1px 8px; font-size: 14px; color:#fff; }
+
+/* ----- forms ----- */
+label.field { display: block; margin: 14px 0 6px; font-family: var(--pixel); font-size: 14px; color: var(--green-l); text-shadow: 2px 2px 0 #000; }
+.mc-input, textarea.mc-input, select.mc-input {
+  width: 100%; font-family: var(--mono); font-size: 14px; color: #fff;
+  background: #0c0c10; border: 3px solid #000;
+  box-shadow: inset 2px 2px 0 var(--bevel-d);
+  padding: 10px 12px;
+}
+.mc-input:focus { outline: 2px solid var(--green); }
+textarea.mc-input { resize: vertical; min-height: 70px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.check { display: flex; align-items: center; gap: 10px; margin: 12px 0; font-family: var(--mono); }
+.check input { width: 20px; height: 20px; accent-color: var(--green); }
+
+.out-toml { white-space: pre; }
+.toast { color: var(--green-l); font-family: var(--pixel); font-size: 13px; min-height: 16px; }
+.err { color: var(--red); }
+
+/* ----- docs layout ----- */
+.docs { display: grid; grid-template-columns: 220px 1fr; gap: 26px; align-items: start; padding: 26px 0 60px; }
+.sidebar { position: sticky; top: 74px; }
+.sidebar .panel { padding: 14px; }
+.sidebar a { display: block; padding: 7px 8px; color: var(--text); font-size: 16px; }
+.sidebar a:hover, .sidebar a.active { background: #000; color: var(--gold); text-decoration: none; }
+.sidebar .grp { font-family: var(--pixel); font-size: 13px; font-weight: 700; color: var(--muted); margin: 14px 0 6px; text-shadow: 2px 2px 0 #000; }
+.content { min-width: 0; }
+.content :first-child { margin-top: 0; }
+
+/* ----- footer ----- */
+.footer { border-top: 3px solid #000; background: #121216; }
+.footer .container { padding: 22px 18px; display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: center; }
+.footer, .footer a { color: var(--muted); font-size: 15px; }
+
+/* ----- misc ----- */
+.center { text-align: center; }
+.note { border-left: 4px solid var(--gold); background: rgba(252,220,95,0.06); padding: 10px 14px; margin: 14px 0; }
+hr { border: none; border-top: 2px dashed #000; margin: 26px 0; }
+
+@media (max-width: 760px) {
+  .docs { grid-template-columns: 1fr; }
+  .sidebar { position: static; }
+  .row2 { grid-template-columns: 1fr; }
+  .nav-inner { gap: 12px; }
+  .nav a.navlink { font-size: 14px; }
+}

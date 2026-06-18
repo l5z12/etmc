@@ -1,0 +1,58 @@
+---
+import BaseLayout from './BaseLayout.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+
+const path = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
+
+const groups = [
+  {
+    grp: 'Start',
+    items: [
+      { href: '/docs', label: 'Overview' },
+      { href: '/docs/getting-started', label: 'Getting started' },
+    ],
+  },
+  {
+    grp: 'Use',
+    items: [
+      { href: '/docs/hosting', label: 'Hosting a world' },
+      { href: '/docs/joining', label: 'Joining' },
+      { href: '/docs/connect-url', label: 'Connect via config URL' },
+      { href: '/docs/commands', label: 'Commands' },
+    ],
+  },
+  {
+    grp: 'More',
+    items: [
+      { href: '/docs/compatibility', label: 'Mod compatibility' },
+      { href: '/docs/building', label: 'Building' },
+    ],
+  },
+];
+---
+
+<BaseLayout title={title} description={description}>
+  <div class="container docs">
+    <aside class="sidebar">
+      <div class="panel">
+        {groups.map((g) => (
+          <>
+            <div class="grp">{g.grp}</div>
+            {g.items.map((i) => (
+              <a href={i.href} class={path === i.href ? 'active' : ''}>{i.label}</a>
+            ))}
+          </>
+        ))}
+      </div>
+    </aside>
+    <article class="content">
+      <h1>{title}</h1>
+      <slot />
+    </article>
+  </div>
+</BaseLayout>

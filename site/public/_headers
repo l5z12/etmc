@@ -1,0 +1,14 @@
+# Response headers for static assets (applied by Workers static assets, no Worker
+# invocation). Docs: https://developers.cloudflare.com/workers/static-assets/headers/
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+
+# Fingerprinted/immutable assets — cache hard.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

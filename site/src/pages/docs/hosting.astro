@@ -1,0 +1,28 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Hosting a world" description="Share your singleplayer world over the mesh.">
+  <p>Open a singleplayer world, then host it:</p>
+  <ol>
+    <li>Open the menu (<span class="kbd">G</span>) → <strong>Host this world</strong>.</li>
+    <li>Enter a <strong>network name</strong> and optional <strong>secret</strong> (peers must match both).</li>
+    <li>Click <strong>Start hosting</strong>.</li>
+  </ol>
+
+  <h2>What happens</h2>
+  <p>etmc:</p>
+  <ul>
+    <li>starts an EasyTier instance (no-TUN) with a fixed virtual IP <code>10.126.126.1</code>;</li>
+    <li>runs Minecraft's <em>Open to LAN</em> on a loopback port;</li>
+    <li>forwards each peer that connects over the mesh to that local port.</li>
+  </ul>
+
+  <h2>Invite</h2>
+  <p>
+    A <strong>join code</strong> (<code>ETMC1:…</code>) is generated containing the network name, secret, relays and
+    host address. Share it in chat. <code>/etmc invite</code> copies it to your clipboard at any time.
+  </p>
+
+  <div class="note">Keep the world open while friends are connected — leaving stops the mesh instance.</div>
+</DocsLayout>

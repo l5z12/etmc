@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="404" description="Chunk not found.">
+  <div class="container" style="text-align:center; padding:70px 18px 90px">
+    <h1 style="font-size:clamp(40px,12vw,90px); margin:0">404</h1>
+    <div class="grassbar" style="max-width:360px; margin:22px auto"></div>
+    <p class="lead" style="margin:0 auto">Chunk not found. This page didn't generate.</p>
+    <div class="btn-row" style="justify-content:center; margin-top:24px">
+      <a class="btn btn-primary" href="/">Back to spawn</a>
+      <a class="btn" href="/docs">Docs</a>
+    </div>
+  </div>
+</BaseLayout>

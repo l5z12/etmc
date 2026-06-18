@@ -1,0 +1,27 @@
+---
+const links = [
+  { href: '/', label: 'Home' },
+  { href: '/docs', label: 'Docs' },
+  { href: '/generator', label: 'Generator' },
+  { href: 'https://github.com/L5Z12/etmc', label: 'GitHub', ext: true },
+];
+const path = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
+---
+
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="logo" href="/" aria-label="etmc home">
+      <span class="cube"></span>etmc
+    </a>
+    <span class="spacer"></span>
+    {links.map((l) => (
+      <a
+        class="navlink"
+        href={l.href}
+        target={l.ext ? '_blank' : undefined}
+        rel={l.ext ? 'noopener' : undefined}
+        aria-current={!l.ext && (path === l.href || (l.href !== '/' && path.startsWith(l.href))) ? 'page' : undefined}
+      >{l.label}</a>
+    ))}
+  </div>
+</nav>

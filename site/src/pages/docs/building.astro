@@ -1,0 +1,40 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+
+const linux = `# Linux x86_64 (native) + aarch64 (cross)
+sudo apt install build-essential protobuf-compiler cmake clang \\
+                 libclang-dev mold lld gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+cargo build -p easytier-ffi --release
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc \\
+CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS=-Clink-arg=-fuse-ld=lld \\
+CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc \\
+cargo build -p easytier-ffi --release --target aarch64-unknown-linux-gnu`;
+---
+
+<DocsLayout title="Building" description="Build the mod and its native libraries.">
+  <p>The mod needs the EasyTier FFI native (<code>easytier_ffi</code>) per platform, under
+    <code>src/main/resources/natives/&lt;os&gt;-&lt;arch&gt;/</code>. Build with Rust 1.95 + <code>protoc</code> + <strong>mold</strong>.</p>
+
+  <h2>Natives</h2>
+  <pre><code>{linux}</code></pre>
+  <p>Windows: <code>cargo build -p easytier-ffi --release</code> → <code>easytier_ffi.dll</code>.
+    macOS must be built on a Mac (Apple SDK).</p>
+
+  <h2>The jar</h2>
+  <pre><code>{`./gradlew copyNatives   # copy the Windows dll into resources
+./gradlew build         # -> build/libs/etmc-<version>.jar`}</code></pre>
+
+  <h2>CI</h2>
+  <p>
+    <code>.github/workflows/build.yml</code> builds the native for all five targets (Windows, Linux x64/arm64,
+    macOS x64/arm64) on their own runners and assembles a jar bundling them — this is how macOS natives are
+    produced.
+  </p>
+
+  <h2>This site</h2>
+  <pre><code>{`cd site
+bun install
+bun run dev        # local dev
+bun run build      # static build -> dist/
+bun run deploy     # astro build && wrangler deploy`}</code></pre>
+</DocsLayout>

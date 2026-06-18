@@ -1,0 +1,181 @@
+name: build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      easytier_ref:
+        description: "EasyTier git ref (branch/tag/sha) to build the FFI library from"
+        default: "main"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EASYTIER_REF: ${{ github.event.inputs.easytier_ref || 'main' }}
+
+jobs:
+  # Build the EasyTier FFI native (easytier_ffi) for every platform we ship — incl. macOS, which
+  # can't be cross-built off a Mac. Cached two ways: the finished library is keyed on the EasyTier
+  # ref + Cargo.lock (a hit skips the Rust build entirely), and rust-cache speeds up cache-misses.
+  natives:
+    name: native (${{ matrix.tag }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, tag: windows-x86_64, target: x86_64-pc-windows-msvc,   lib: easytier_ffi.dll }
+          - { os: ubuntu-latest,  tag: linux-x86_64,   target: x86_64-unknown-linux-gnu,  lib: libeasytier_ffi.so }
+          - { os: ubuntu-latest,  tag: linux-aarch64,  target: aarch64-unknown-linux-gnu, lib: libeasytier_ffi.so, cross: aarch64 }
+          - { os: macos-14,       tag: macos-aarch64,  target: aarch64-apple-darwin,      lib: libeasytier_ffi.dylib }
+          - { os: macos-13,       tag: macos-x86_64,   target: x86_64-apple-darwin,       lib: libeasytier_ffi.dylib }
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v4
+
+      - name: Checkout EasyTier (${{ env.EASYTIER_REF }})
+        uses: actions/checkout@v4
+        with:
+          repository: EasyTier/EasyTier
+          ref: ${{ env.EASYTIER_REF }}
+          path: easytier
+
+      # Cache the finished native: a hit means we don't rebuild EasyTier at all.
+      - name: Cache built native
+        id: natcache
+        uses: actions/cache@v4
+        with:
+          path: common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}
+          key: native-${{ matrix.tag }}-full-${{ env.EASYTIER_REF }}-${{ hashFiles('easytier/Cargo.lock') }}
+
+      - name: Install protoc
+        if: steps.natcache.outputs.cache-hit != 'true'
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust 1.95.0
+        if: steps.natcache.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95.0"
+          targets: ${{ matrix.target }}
+
+      # The `full` feature pulls in vendored OpenSSL, which needs NASM (+ perl, preinstalled) on Windows.
+      - name: Install NASM (Windows, for vendored OpenSSL)
+        if: steps.natcache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        uses: ilammy/setup-nasm@v1
+
+      - name: Cache cargo build (cache-miss only)
+        if: steps.natcache.outputs.cache-hit != 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: easytier
+          key: ${{ matrix.target }}
+
+      - name: Linux linkers / cross toolchain
+        if: steps.natcache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mold lld
+          if [ "${{ matrix.cross }}" = "aarch64" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          fi
+
+      - name: Build easytier-ffi
+        if: steps.natcache.outputs.cache-hit != 'true'
+        shell: bash
+        env:
+          RUSTUP_TOOLCHAIN: "1.95.0"   # override EasyTier's rust-toolchain.toml ("1.95" doesn't resolve)
+        run: |
+          cd easytier
+          if [ "${{ matrix.cross }}" = "aarch64" ]; then
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-Clink-arg=-fuse-ld=lld"
+            export CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+            export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+            export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar   # vendored OpenSSL cross build
+          fi
+          # --features easytier/full = all transports/connectors + crypto backends (aes-gcm, vendored openssl).
+          cargo build -p easytier-ffi --release --features easytier/full --target ${{ matrix.target }}
+
+      - name: Stage native
+        if: steps.natcache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p "common/src/main/resources/natives/${{ matrix.tag }}"
+          cp "easytier/target/${{ matrix.target }}/release/${{ matrix.lib }}" \
+             "common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}"
+
+      - name: Upload native
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.tag }}
+          path: common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}
+          if-no-files-found: error
+
+  # Collect all natives and build every platform jar (fabric, paper, neoforge, forge), Gradle-cached.
+  assemble:
+    name: assemble jars
+    needs: natives
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v4
+
+      - name: Download natives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: staging
+
+      - name: Place natives
+        run: |
+          for d in staging/native-*; do
+            tag="$(basename "$d" | sed 's/^native-//')"
+            mkdir -p "common/src/main/resources/natives/$tag"
+            cp "$d"/* "common/src/main/resources/natives/$tag/"
+          done
+          echo "Bundled natives:"
+          find common/src/main/resources/natives -type f -printf '  %p (%s bytes)\n'
+
+      # ForgeGradle's mavenizer needs a JDK 8; the build itself runs on 21.
+      - name: Set up JDK 8 (Forge mavenizer)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '8'
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '21'
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build all platform jars
+        run: |
+          chmod +x ./gradlew
+          # Point ForgeGradle's toolchain locator at the JDK 8 set up above (no GitHub auto-download).
+          export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64"
+          ./gradlew build --no-daemon --stacktrace
+
+      - name: Upload mod jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: etmc-jars
+          path: |
+            fabric/build/libs/*.jar
+            paper/build/libs/*.jar
+            neoforge/build/libs/*.jar
+            forge/build/libs/*.jar
+          if-no-files-found: error

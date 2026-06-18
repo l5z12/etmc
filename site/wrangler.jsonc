@@ -1,0 +1,26 @@
+// Cloudflare Workers config — serves the static Astro build as Worker assets.
+//
+// IMPORTANT (cost): `run_worker_first` is deliberately NOT set. With it off
+// (the default), requests that match a static asset are served directly by the
+// assets layer and DO NOT invoke the Worker — they don't count against Worker
+// request limits. The Worker (worker/index.js) only runs for unmatched routes,
+// so normal page/asset traffic is free. Response headers come from public/_headers.
+// Docs: https://developers.cloudflare.com/workers/static-assets/
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "etmc",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-06-16",
+  "assets": {
+    "directory": "./dist",
+    // Exposed to the Worker as env.ASSETS (see worker/index.js).
+    "binding": "ASSETS",
+    // build.format: 'file' emits /docs/hosting.html etc.; resolve clean URLs.
+    "html_handling": "auto-trailing-slash",
+    // Serve src/pages/404.astro on any unmatched route.
+    "not_found_handling": "404-page"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

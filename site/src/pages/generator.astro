@@ -1,0 +1,211 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title="Config generator" description="Generate the Paper server config.yml or a shareable player config — everything runs in your browser.">
+  <div class="container" style="padding-top:24px">
+    <h1>Config generator</h1>
+
+    <div class="btn-row seg" style="margin:6px 0 8px">
+      <button id="mode-paper" class="btn btn-primary" type="button">Paper server (config.yml)</button>
+      <button id="mode-player" class="btn" type="button">Player config (URL)</button>
+    </div>
+
+    <p class="lead paper-only" style="max-width:760px">
+      Build <code>plugins/etmc/config.yml</code> for a Paper server. Drop it in, restart (or
+      <code>/etmc reload</code>), and the server joins the mesh — players connect with the join code
+      it prints. Everything below runs in your browser.
+    </p>
+    <p class="lead client-only" style="max-width:760px">
+      Build the config file players join with. Host the result at any HTTP(S) URL, then players use
+      <strong>Connect via config URL</strong> (or <code>/etmc connect &lt;url&gt;</code>) — no join code needed.
+      Everything below runs in your browser.
+    </p>
+
+    <div class="gen" id="gen" data-mode="paper">
+      <div class="row2">
+        <div class="panel">
+          <label class="field" for="f-network">Network name</label>
+          <input id="f-network" class="mc-input" type="text" value="my-smp" autocomplete="off" spellcheck="false" />
+
+          <label class="field" for="f-secret">Network secret <span class="muted">(shared password)</span></label>
+          <input id="f-secret" class="mc-input" type="text" value="" autocomplete="off" spellcheck="false" placeholder="optional but recommended" />
+
+          <label class="field" for="f-relays">Relays <span class="muted">(one per line, e.g. tcp://my.relay:11010)</span></label>
+          <textarea id="f-relays" class="mc-input" rows="3" spellcheck="false" placeholder="tcp://my.relay:11010"></textarea>
+
+          <div class="check client-only">
+            <input id="f-dhcp" type="checkbox" checked />
+            <label for="f-dhcp">Assign client IPs automatically (DHCP)</label>
+          </div>
+
+          <div class="client-only">
+            <label class="field" for="f-ipv4">Static client IPv4 <span class="muted">(only if DHCP is off)</span></label>
+            <input id="f-ipv4" class="mc-input" type="text" value="10.126.126.2" autocomplete="off" spellcheck="false" disabled />
+          </div>
+
+          <div class="row2">
+            <div class="client-only">
+              <label class="field" for="f-serverip">Server mesh IP</label>
+              <input id="f-serverip" class="mc-input" type="text" value="10.126.126.1" autocomplete="off" spellcheck="false" />
+            </div>
+            <div>
+              <label class="field" for="f-serverport" id="lbl-port">Virtual port <span class="muted">(mesh)</span></label>
+              <input id="f-serverport" class="mc-input" type="number" value="25565" min="1" max="65535" />
+            </div>
+          </div>
+
+          <div class="client-only">
+            <label class="field" for="f-label">Label <span class="muted">(shown in the client)</span></label>
+            <input id="f-label" class="mc-input" type="text" value="My Server" autocomplete="off" spellcheck="false" />
+          </div>
+        </div>
+
+        <div class="panel slot">
+          <label class="field" id="lbl-out">Generated config.yml</label>
+          <pre class="out-toml"><code id="out">…</code></pre>
+          <div class="btn-row" style="margin-top:8px">
+            <button id="copy" class="btn btn-primary" type="button">Copy</button>
+            <button id="download" class="btn" type="button">Download</button>
+          </div>
+          <p id="toast" class="toast">&nbsp;</p>
+          <p id="errs" class="err"></p>
+        </div>
+      </div>
+
+      <div class="panel paper-only">
+        <h3>Then what?</h3>
+        <ol>
+          <li>Save the file as <code>plugins/etmc/config.yml</code> on the server.</li>
+          <li>Restart the server, or run <code>/etmc reload</code>.</li>
+          <li>Copy the join code it logs (or <code>/etmc code</code>) and share it with players.</li>
+          <li>Players paste <code>etmc://…</code> into <strong>Add Server</strong> / <strong>Direct Connect</strong>, or use the join code.</li>
+        </ol>
+        <p class="muted">The server's own port is read from <code>server.properties</code> automatically — only the mesh
+          <em>virtual port</em> lives in this file.</p>
+      </div>
+
+      <div class="panel client-only">
+        <h3>Then what?</h3>
+        <ol>
+          <li>Run EasyTier on the server host so the world is reachable on the mesh at the <em>Server mesh IP</em>.</li>
+          <li>Upload the generated file somewhere served over HTTP(S) (a gist raw link, your site, R2…).</li>
+          <li>Players: <code>/etmc connect &lt;url&gt;</code> or the <strong>Connect via config URL</strong> screen.</li>
+        </ol>
+        <p class="muted">The target server does not need to run etmc — only to be on the same EasyTier network.</p>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    .gen[data-mode="paper"] .client-only { display: none; }
+    .gen[data-mode="player"] .paper-only { display: none; }
+    .seg .btn { flex: 0 0 auto; }
+  </style>
+
+  <script>
+    import { buildToml, buildPaperYaml, validate, validatePaper, splitList, type GenInput } from '../lib/genConfig';
+
+    const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+
+    const gen = $<HTMLDivElement>('gen');
+    const modePaper = $<HTMLButtonElement>('mode-paper');
+    const modePlayer = $<HTMLButtonElement>('mode-player');
+
+    const network = $<HTMLInputElement>('f-network');
+    const secret = $<HTMLInputElement>('f-secret');
+    const relays = $<HTMLTextAreaElement>('f-relays');
+    const dhcp = $<HTMLInputElement>('f-dhcp');
+    const ipv4 = $<HTMLInputElement>('f-ipv4');
+    const serverip = $<HTMLInputElement>('f-serverip');
+    const serverport = $<HTMLInputElement>('f-serverport');
+    const label = $<HTMLInputElement>('f-label');
+
+    const lblPort = $<HTMLLabelElement>('lbl-port');
+    const lblOut = $<HTMLElement>('lbl-out');
+    const out = $<HTMLElement>('out');
+    const errs = $<HTMLElement>('errs');
+    const toast = $<HTMLElement>('toast');
+    const copyBtn = $<HTMLButtonElement>('copy');
+    const dlBtn = $<HTMLButtonElement>('download');
+
+    type Mode = 'paper' | 'player';
+    let mode: Mode = 'paper';
+
+    function read(): GenInput {
+      const port = parseInt(serverport.value, 10) || 0;
+      return {
+        network: network.value,
+        secret: secret.value,
+        relays: splitList(relays.value),
+        dhcp: dhcp.checked,
+        ipv4: ipv4.value,
+        serverIp: serverip.value,
+        serverPort: port,
+        label: label.value,
+        virtualPort: port,
+      };
+    }
+
+    let current = '';
+    function render() {
+      ipv4.disabled = dhcp.checked;
+      const input = read();
+      const paper = mode === 'paper';
+      const problems = paper ? validatePaper(input) : validate(input);
+      current = paper ? buildPaperYaml(input) : buildToml(input);
+      out.textContent = current;
+      errs.textContent = problems.length ? '⚠ ' + problems.join('  ') : '';
+      const ok = problems.length === 0;
+      copyBtn.disabled = !ok;
+      dlBtn.disabled = !ok;
+      lblPort.innerHTML = paper ? 'Virtual port <span class="muted">(mesh)</span>' : 'Server port';
+      lblOut.textContent = paper ? 'Generated config.yml' : 'Generated etmc.toml';
+      dlBtn.textContent = paper ? 'Download config.yml' : 'Download etmc.toml';
+    }
+
+    function setMode(m: Mode) {
+      mode = m;
+      gen.dataset.mode = m;
+      modePaper.classList.toggle('btn-primary', m === 'paper');
+      modePlayer.classList.toggle('btn-primary', m === 'player');
+      render();
+    }
+
+    function flash(msg: string) {
+      toast.textContent = msg;
+      window.setTimeout(() => { toast.innerHTML = '&nbsp;'; }, 2200);
+    }
+
+    [network, secret, relays, ipv4, serverip, serverport, label].forEach((el) =>
+      el.addEventListener('input', render));
+    dhcp.addEventListener('change', render);
+    modePaper.addEventListener('click', () => setMode('paper'));
+    modePlayer.addEventListener('click', () => setMode('player'));
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(current);
+        flash('Copied to clipboard ✓');
+      } catch {
+        flash('Copy failed — select and copy manually');
+      }
+    });
+
+    dlBtn.addEventListener('click', () => {
+      const paper = mode === 'paper';
+      const blob = new Blob([current], { type: paper ? 'text/yaml' : 'application/toml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = paper ? 'config.yml' : 'etmc.toml';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      flash(paper ? 'Downloaded config.yml ✓' : 'Downloaded etmc.toml ✓');
+    });
+
+    setMode('paper');
+  </script>
+</BaseLayout>

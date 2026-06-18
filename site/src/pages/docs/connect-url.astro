@@ -1,0 +1,42 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+
+const toml = `# EasyTier config the client joins with
+dhcp = true
+[network_identity]
+network_name = "my-smp"
+network_secret = "shared-secret"
+[[peer]]
+uri = "tcp://relay.example.com:11010"
+
+# where the Minecraft server lives on the mesh
+# (etmc extension; stripped before EasyTier sees it)
+[etmc]
+server = "10.144.144.1:25565"
+label  = "My SMP"`;
+---
+
+<DocsLayout title="Connect via config URL" description="Join an EasyTier-networked server from a hosted config file.">
+  <p>
+    Server admins can publish a single config file over HTTP(S) so players join with just a link —
+    no join code. In the menu choose <strong>Connect via config URL</strong>, or run
+    <code>/etmc connect &lt;url&gt;</code>.
+  </p>
+
+  <h2>The config file</h2>
+  <p>It's a normal EasyTier TOML (network, relay, addressing) plus an optional etmc block naming the
+    in-mesh Minecraft server:</p>
+  <pre><code>{toml}</code></pre>
+
+  <p>etmc fetches it, forces <code>no_tun</code>, joins the mesh, and tunnels to <code>server</code>.
+    If the file omits <code>[etmc] server</code>, fill the Server field (or pass <code>ip:port</code> to the
+    command). An <code>ETMC1:…</code> join code at the URL works too.</p>
+
+  <div class="note">
+    The target server does <strong>not</strong> need to run etmc — it only needs to be reachable on the
+    EasyTier network (for example a server box already running EasyTier).
+  </div>
+
+  <h2>Generate one</h2>
+  <p>Use the <a href="/generator">config generator</a> to build and download the file in your browser, then host it anywhere (a gist raw link, your site, R2…).</p>
+</DocsLayout>

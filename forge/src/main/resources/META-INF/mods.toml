@@ -1,0 +1,28 @@
+modLoader = "javafml"
+loaderVersion = "[60,)"
+license = "GPL-3.0-or-later"
+issueTrackerURL = "https://github.com/L5Z12/etmc/issues"
+
+[[mods]]
+modId = "etmc"
+version = "${version}"
+displayName = "etmc"
+authors = "L5Z12"
+description = "EasyTier P2P multiplayer, in-game — no port-forwarding, no TUN, no admin."
+
+[[mixins]]
+config = "etmc.mixins.json"
+
+[[dependencies.etmc]]
+modId = "forge"
+mandatory = true
+versionRange = "[60,)"
+ordering = "NONE"
+side = "CLIENT"
+
+[[dependencies.etmc]]
+modId = "minecraft"
+mandatory = true
+versionRange = "[1.21.10,1.22)"
+ordering = "NONE"
+side = "CLIENT"

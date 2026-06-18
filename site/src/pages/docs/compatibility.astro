@@ -1,0 +1,27 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Mod compatibility" description="How etmc coexists with other mods, including ViaFabricPlus.">
+  <p>etmc is built to stay out of the way of other mods, including protocol-translation mods like
+    <strong>ViaFabricPlus</strong>.</p>
+
+  <h2>Why it composes</h2>
+  <ul>
+    <li><strong>Thin, transport-level mixins.</strong> etmc only swaps the connection's transport and tweaks
+      the multiplayer screens — it never touches packet handling.</li>
+    <li><strong>Below the protocol.</strong> Connections are carried at the raw byte level (a custom netty
+      channel on the mesh, or a loopback relay for the config-URL path), <em>below</em> the Minecraft protocol.
+      ViaFabricPlus translates in the client's netty pipeline and etmc carries the already-translated bytes
+      verbatim, so the two stack cleanly.</li>
+    <li><strong>Auto version detection.</strong> ViaFabricPlus pings <em>through</em> the proxy, so it sees the
+      real server version.</li>
+  </ul>
+
+  <h2>Stable loopback port</h2>
+  <p>
+    ViaFabricPlus stores per-server settings by address. Set <code>joinLocalPort</code> in
+    <code>config/etmc.json</code> to a fixed port so a forced version persists across sessions
+    (default <code>0</code> = ephemeral; etmc falls back to ephemeral if the port is taken).
+  </p>
+</DocsLayout>

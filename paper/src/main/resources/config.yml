@@ -1,0 +1,20 @@
+# etmc — expose this server over an EasyTier P2P mesh (no port-forwarding).
+# Players connect with the etmc client mod using the join code (/etmc code) or a
+# hosted config file (/etmc config).
+
+# EasyTier network identity. Players must use the same name + secret.
+network: "my-server"
+secret: "change-me"
+
+# Your EasyTier relay node(s) — REQUIRED. e.g.
+# relays:
+#   - "tcp://my.relay:11010"
+relays: []
+
+# Virtual port the server is reachable at on the mesh.
+virtual-port: 25565
+
+# NOTE: all mesh players reach the server via the local loopback, so to the server
+# they appear to connect from 127.0.0.1. If you expect several players joining at
+# once, lower or disable connection throttling in server.properties
+# (e.g. connection-throttle=0), and don't rely on per-player IPs.

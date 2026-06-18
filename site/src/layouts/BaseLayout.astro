@@ -1,0 +1,54 @@
+---
+import '../styles/global.css';
+import { ClientRouter } from 'astro:transitions';
+import TopNav from '../components/TopNav.astro';
+import Footer from '../components/Footer.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = 'etmc — EasyTier P2P multiplayer for Minecraft, in-game. Host or join over a peer-to-peer mesh: no port-forwarding, no TUN driver, no admin.',
+} = Astro.props;
+
+const fullTitle = title === 'etmc' ? 'etmc — P2P Minecraft multiplayer' : `${title} · etmc`;
+const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://etmc.l5z12.dev').toString();
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#15151a" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="preload"
+      href="/fonts/Mojangles.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+
+    <ClientRouter />
+  </head>
+  <body>
+    <TopNav />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
+  </body>
+</html>

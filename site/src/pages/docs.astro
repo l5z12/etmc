@@ -1,0 +1,38 @@
+---
+import DocsLayout from '../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Overview" description="What etmc is and how it works.">
+  <p>
+    <strong>etmc</strong> brings P2P multiplayer into Minecraft using
+    <a href="https://github.com/EasyTier/EasyTier" target="_blank" rel="noopener">EasyTier</a>.
+    Host your singleplayer world or join a friend over a peer-to-peer mesh — no port-forwarding, no
+    TUN driver, no admin rights.
+  </p>
+
+  <h2>No-TUN design</h2>
+  <p>
+    EasyTier normally creates a virtual network adapter (TUN) and routes traffic through it. etmc runs
+    EasyTier with <code>no_tun = true</code> and uses its userspace <em>data plane</em> instead: it
+    bridges Minecraft's loopback "Open to LAN" socket to the mesh entirely in userspace. Nothing
+    touches your OS networking, so there's no driver and no elevation.
+  </p>
+
+  <div class="panel slot">
+    <pre><code>Minecraft (127.0.0.1) ⇄ etmc bridge ⇄ EasyTier data plane ⇄ peer</code></pre>
+  </div>
+
+  <h2>Status</h2>
+  <ul>
+    <li>Fabric client mod, Minecraft 1.21.x (Java 21).</li>
+    <li>Native EasyTier library bundled for Windows + Linux (x64/arm64); macOS via CI.</li>
+    <li>FFI to EasyTier via Java's Foreign Function &amp; Memory API (reflection facade → portable across Java 21–26).</li>
+  </ul>
+
+  <h2>Next</h2>
+  <p>
+    Head to <a href="/docs/getting-started">Getting started</a>, or jump to
+    <a href="/docs/connect-url">Connect via config URL</a> and the
+    <a href="/generator">config generator</a>.
+  </p>
+</DocsLayout>

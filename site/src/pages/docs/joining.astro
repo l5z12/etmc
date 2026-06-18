@@ -1,0 +1,30 @@
+---
+import DocsLayout from '../../layouts/DocsLayout.astro';
+---
+
+<DocsLayout title="Joining" description="Join a hosted world with a code.">
+  <p>To join a friend's world:</p>
+  <ol>
+    <li>Open the menu (<span class="kbd">G</span>) → <strong>Join with a code</strong>.</li>
+    <li>Paste the <code>ETMC1:…</code> code (or use <strong>Paste from clipboard</strong>).</li>
+    <li>Click <strong>Join</strong> — etmc connects you automatically.</li>
+  </ol>
+  <p>Or via command: <code>/etmc join &lt;code&gt;</code>.</p>
+
+  <h2>What happens</h2>
+  <ul>
+    <li>etmc starts an EasyTier instance (no-TUN, DHCP) on the host's network;</li>
+    <li>opens a loopback proxy and points Minecraft at <code>127.0.0.1:&lt;port&gt;</code>;</li>
+    <li>tunnels that connection to the host over the mesh.</li>
+  </ul>
+  <p>
+    From Minecraft's perspective it's a normal server connection, so resource packs, mods and the
+    server list all behave as usual. See <a href="/docs/compatibility">Mod compatibility</a>.
+  </p>
+
+  <h2>Joining a dedicated server</h2>
+  <p>
+    If an admin published a config file, use <a href="/docs/connect-url">Connect via config URL</a> instead — you
+    only need the link.
+  </p>
+</DocsLayout>

@@ -1,0 +1,22 @@
+// Root aggregator. Each platform module (fabric/, paper/, neoforge/, forge/) applies its own
+// toolchain and pulls in the shared sources from common/ (FFI + networking, no Minecraft) and,
+// for the Mojmap loaders, mc-common/ (shared client UI). See each module's build.gradle.
+subprojects {
+    group = project.maven_group
+    version = project.mod_version
+}
+
+/**
+ * Convenience: copy a locally-built Windows easytier_ffi.dll into the shared natives so every
+ * module packages it. Not wired into the build graph (writes into the source tree). Other platforms
+ * are produced by CI (.github/workflows/build.yml).
+ */
+def easytierRepo = project.findProperty('easytier_repo') ?: 'D:/cloned/EasyTier'
+tasks.register('copyNatives', Copy) {
+    description = 'Copy the built easytier_ffi.dll into common/ natives'
+    group = 'etmc'
+    def dll = file("${easytierRepo}/target/release/easytier_ffi.dll")
+    onlyIf { dll.exists() }
+    from dll
+    into file('common/src/main/resources/natives/windows-x86_64')
+}

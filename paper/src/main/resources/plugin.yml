@@ -1,0 +1,16 @@
+name: etmc
+version: '${version}'
+main: dev.l5z12.etmc.paper.EtmcPlugin
+api-version: '1.21'
+authors: [L5Z12]
+description: Expose this server over an EasyTier P2P mesh — no port-forwarding.
+website: https://github.com/L5Z12/etmc
+commands:
+  etmc:
+    description: etmc mesh controls
+    usage: /etmc <status|code|config|reload>
+    permission: etmc.admin
+permissions:
+  etmc.admin:
+    description: Manage the etmc mesh
+    default: op
