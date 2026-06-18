@@ -22,5 +22,11 @@
   },
   "observability": {
     "enabled": true
-  }
+  },
+  "routes": [
+    {
+      "pattern": "etmc.l5z12.dev",
+      "custom_domain": true
+    }
+  ]
 }
