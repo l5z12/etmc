@@ -163,11 +163,19 @@ systemProp.org.gradle.java.installations.paths=/path/to/jdk8
 
 ### CI
 
-`.github/workflows/build.yml` builds the EasyTier FFI natives for **every platform — Windows, Linux
-(x64/arm64) and macOS (x64/arm64)** — then assembles all four loader jars and uploads them as
-artifacts. It's cached on both ends: each finished native is keyed on the EasyTier ref + `Cargo.lock`
-(a hit skips the Rust build entirely), `rust-cache` covers cache-misses, and Gradle dependencies are
-cached via `gradle/actions/setup-gradle`. Run it from the Actions tab to pass a custom EasyTier ref.
+`.github/workflows/build.yml` assembles all four loader jars and uploads them as artifacts. It runs
+**only on changes that actually need a build** — `paths-ignore` skips docs/site-only commits
+(`site/**`, `*.md`, …). A routine code push just rebuilds the jars using the **committed** natives; the
+expensive native (Rust) build does **not** run on a plain push. Build natives on demand from the Actions
+tab (`workflow_dispatch`, `build_natives: true`, optional `easytier_ref`) or via the release workflow.
+When the native build does run it still only builds platforms whose library isn't already committed
+under `natives/<os>-<arch>/`, and is cached two ways (built-native cache keyed on EasyTier ref +
+`Cargo.lock`; `rust-cache` for misses). Gradle deps are cached via `gradle/actions/setup-gradle`.
+
+`.github/workflows/release.yml` — push a tag like `v0.1.0` to cut a release. It reuses the full build
+pipeline at the **release commit** (so it takes the natives committed there and builds only what's
+missing), then attaches every loader jar to the GitHub Release. `workflow_dispatch` runs the same build
+without publishing, for a dry run.
 
 ### CI
 

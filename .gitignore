@@ -32,5 +32,8 @@ run/
 scratch/
 *.iml
 
+# ide
+/.vscode
+
 # Bundled EasyTier native library (large; build it locally, see README "Building")
 /src/main/resources/natives/

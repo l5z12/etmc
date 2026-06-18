@@ -1,0 +1,50 @@
+name: release
+
+# Cut a release by pushing a tag (e.g. `v0.1.0`). The build reuses the natives committed at the
+# release commit (only a genuinely missing platform is built), then attaches every loader jar to the
+# GitHub Release. `workflow_dispatch` builds the release jars without publishing (handy for a dry run).
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      easytier_ref:
+        description: "EasyTier git ref to build any missing natives from"
+        default: "main"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Reuse the full build pipeline. Because this runs at the release commit, `build` picks up the
+  # natives committed there and only builds whatever platform is missing.
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      easytier_ref: ${{ github.event.inputs.easytier_ref || 'main' }}
+      build_natives: true
+
+  publish:
+    name: publish release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the release and upload assets
+    steps:
+      - name: Download built jars
+        uses: actions/download-artifact@v4
+        with:
+          name: etmc-jars
+          path: jars
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: jars/**/*.jar
+          fail_on_unmatched_files: true
+          generate_release_notes: true

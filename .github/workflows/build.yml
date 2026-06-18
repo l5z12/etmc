@@ -1,14 +1,45 @@
 name: build
 
+# Only run when something that actually affects a build changes — docs/site-only commits don't trigger
+# CI. Routine code pushes rebuild the jars (using the committed natives); the expensive native (Rust)
+# build runs only on demand (`workflow_dispatch`) or from the release workflow, never on a plain push.
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'site/**'
+      - '**/*.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.github/workflows/release.yml'
   pull_request:
+    paths-ignore:
+      - 'site/**'
+      - '**/*.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - '.github/workflows/release.yml'
   workflow_dispatch:
     inputs:
       easytier_ref:
-        description: "EasyTier git ref (branch/tag/sha) to build the FFI library from"
+        description: "EasyTier git ref (branch/tag/sha) to build any MISSING FFI natives from"
         default: "main"
+      build_natives:
+        description: "Build missing FFI natives (off = jars only, using committed natives)"
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      easytier_ref:
+        description: "EasyTier git ref to build any missing natives from"
+        type: string
+        required: false
+        default: "main"
+      build_natives:
+        description: "Build missing FFI natives"
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   contents: read
@@ -18,14 +49,17 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  EASYTIER_REF: ${{ github.event.inputs.easytier_ref || 'main' }}
+  EASYTIER_REF: ${{ inputs.easytier_ref || 'main' }}
 
 jobs:
-  # Build the EasyTier FFI native (easytier_ffi) for every platform we ship — incl. macOS, which
-  # can't be cross-built off a Mac. Cached two ways: the finished library is keyed on the EasyTier
-  # ref + Cargo.lock (a hit skips the Rust build entirely), and rust-cache speeds up cache-misses.
+  # Build the EasyTier FFI native (easytier_ffi) ONLY for platforms whose library isn't already
+  # committed in the repo — so a normal build does no Rust work (the committed natives are used as-is)
+  # and only a genuinely missing platform (e.g. macOS) is built. Cached two ways: the finished library
+  # is keyed on the EasyTier ref + Cargo.lock (a hit skips the Rust build), and rust-cache speeds misses.
   natives:
     name: native (${{ matrix.tag }})
+    # Only build natives on demand / for a release — never on a routine push (jars reuse committed natives).
+    if: ${{ inputs.build_natives }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -40,7 +74,20 @@ jobs:
       - name: Checkout etmc
         uses: actions/checkout@v4
 
+      # If the native is already committed at this commit, use it and skip the (expensive) Rust build.
+      - name: Native already committed?
+        id: have
+        shell: bash
+        run: |
+          if [ -s "common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}" ]; then
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Using committed native for ${{ matrix.tag }} (skipping build)"
+          else
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Checkout EasyTier (${{ env.EASYTIER_REF }})
+        if: steps.have.outputs.committed != 'true'
         uses: actions/checkout@v4
         with:
           repository: EasyTier/EasyTier
@@ -50,19 +97,20 @@ jobs:
       # Cache the finished native: a hit means we don't rebuild EasyTier at all.
       - name: Cache built native
         id: natcache
+        if: steps.have.outputs.committed != 'true'
         uses: actions/cache@v4
         with:
           path: common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}
           key: native-${{ matrix.tag }}-full-${{ env.EASYTIER_REF }}-${{ hashFiles('easytier/Cargo.lock') }}
 
       - name: Install protoc
-        if: steps.natcache.outputs.cache-hit != 'true'
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Rust 1.95.0
-        if: steps.natcache.outputs.cache-hit != 'true'
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.95.0"
@@ -70,18 +118,18 @@ jobs:
 
       # The `full` feature pulls in vendored OpenSSL, which needs NASM (+ perl, preinstalled) on Windows.
       - name: Install NASM (Windows, for vendored OpenSSL)
-        if: steps.natcache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true' && runner.os == 'Windows'
         uses: ilammy/setup-nasm@v1
 
       - name: Cache cargo build (cache-miss only)
-        if: steps.natcache.outputs.cache-hit != 'true'
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: easytier
           key: ${{ matrix.target }}
 
       - name: Linux linkers / cross toolchain
-        if: steps.natcache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true' && runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y mold lld
@@ -90,7 +138,7 @@ jobs:
           fi
 
       - name: Build easytier-ffi
-        if: steps.natcache.outputs.cache-hit != 'true'
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
         shell: bash
         env:
           RUSTUP_TOOLCHAIN: "1.95.0"   # override EasyTier's rust-toolchain.toml ("1.95" doesn't resolve)
@@ -107,30 +155,34 @@ jobs:
           cargo build -p easytier-ffi --release --features easytier/full --target ${{ matrix.target }}
 
       - name: Stage native
-        if: steps.natcache.outputs.cache-hit != 'true'
+        if: steps.have.outputs.committed != 'true' && steps.natcache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           mkdir -p "common/src/main/resources/natives/${{ matrix.tag }}"
           cp "easytier/target/${{ matrix.target }}/release/${{ matrix.lib }}" \
              "common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}"
 
+      # Only freshly-built natives are uploaded; committed ones are already in the repo for `assemble`.
       - name: Upload native
+        if: steps.have.outputs.committed != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.tag }}
           path: common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}
           if-no-files-found: error
 
-  # Collect all natives and build every platform jar (fabric, paper, neoforge, forge), Gradle-cached.
+  # Collect any freshly-built natives, overlay them on the committed ones, and build every loader jar.
+  # Runs whether or not `natives` ran (when it's skipped, the committed natives are used as-is).
   assemble:
     name: assemble jars
     needs: natives
+    if: ${{ !cancelled() && needs.natives.result != 'failure' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout etmc
         uses: actions/checkout@v4
 
-      - name: Download natives
+      - name: Download freshly-built natives
         uses: actions/download-artifact@v4
         with:
           pattern: native-*
@@ -138,11 +190,14 @@ jobs:
 
       - name: Place natives
         run: |
-          for d in staging/native-*; do
-            tag="$(basename "$d" | sed 's/^native-//')"
-            mkdir -p "common/src/main/resources/natives/$tag"
-            cp "$d"/* "common/src/main/resources/natives/$tag/"
-          done
+          if [ -d staging ]; then
+            for d in staging/native-*; do
+              [ -e "$d" ] || continue
+              tag="$(basename "$d" | sed 's/^native-//')"
+              mkdir -p "common/src/main/resources/natives/$tag"
+              cp "$d"/* "common/src/main/resources/natives/$tag/"
+            done
+          fi
           echo "Bundled natives:"
           find common/src/main/resources/natives -type f -printf '  %p (%s bytes)\n'
 
