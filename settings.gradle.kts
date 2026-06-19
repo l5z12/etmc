@@ -28,6 +28,7 @@ stonecutter {
         version("1.21.10-fabric", "1.21.10")
         version("1.20.6-fabric", "1.20.6")
         version("1.20.1-fabric", "1.20.1")
+        version("1.19.4-fabric", "1.19.4")
         vcsVersion = "1.21.10-fabric"
     }
 }

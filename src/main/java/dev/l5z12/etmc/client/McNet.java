@@ -117,8 +117,11 @@ public final class McNet {
         ServerAddress addr = ServerAddress.parse("127.0.0.1:25565");
         //? if >=1.20.5 {
         ConnectScreen.connect(parent, client, addr, info, false, null);
-        //?} else
+        //?} else if >=1.20 {
         /*ConnectScreen.connect(parent, client, addr, info, false);*/
+        //?} else {
+        /*ConnectScreen.connect(parent, client, addr, info);*/
+        //?}
     }
 
     private static int freePort() {

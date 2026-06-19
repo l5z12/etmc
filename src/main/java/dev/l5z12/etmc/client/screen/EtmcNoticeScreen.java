@@ -1,6 +1,10 @@
 package dev.l5z12.etmc.client.screen;
 
+import dev.l5z12.etmc.client.Gfx;
+//? if >=1.20 {
 import net.minecraft.client.gui.DrawContext;
+//?} else
+/*import net.minecraft.client.util.math.MatrixStack;*/
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
@@ -24,10 +28,14 @@ public final class EtmcNoticeScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    //? if >=1.20 {
+    public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
+    //?} else
+    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
+    {
         super.render(ctx, mouseX, mouseY, delta);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, this.height / 2 - 34, 0xFFFF5555);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, Text.literal(message), this.width / 2, this.height / 2 - 12, 0xFFFFFFFF);
+        Gfx.centered(ctx, this.textRenderer, this.title, this.width / 2, this.height / 2 - 34, 0xFFFF5555);
+        Gfx.centered(ctx, this.textRenderer, Text.literal(message), this.width / 2, this.height / 2 - 12, 0xFFFFFFFF);
     }
 
     @Override

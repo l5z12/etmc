@@ -28,8 +28,11 @@ public class ConnectScreenMixin {
     //? if >=1.20.5 {
     @Inject(method = "connect(Lnet/minecraft/client/gui/screen/Screen;Lnet/minecraft/client/MinecraftClient;Lnet/minecraft/client/network/ServerAddress;Lnet/minecraft/client/network/ServerInfo;ZLnet/minecraft/client/network/CookieStorage;)V",
             at = @At("HEAD"), cancellable = true)
-    //?} else {
+    //?} else if >=1.20 {
     /*@Inject(method = "connect(Lnet/minecraft/client/gui/screen/Screen;Lnet/minecraft/client/MinecraftClient;Lnet/minecraft/client/network/ServerAddress;Lnet/minecraft/client/network/ServerInfo;Z)V",
+            at = @At("HEAD"), cancellable = true)*/
+    //?} else {
+    /*@Inject(method = "connect(Lnet/minecraft/client/gui/screen/Screen;Lnet/minecraft/client/MinecraftClient;Lnet/minecraft/client/network/ServerAddress;Lnet/minecraft/client/network/ServerInfo;)V",
             at = @At("HEAD"), cancellable = true)*/
     //?}
     private static void etmc$interceptLink(Screen screen, MinecraftClient client, ServerAddress address,

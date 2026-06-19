@@ -2,7 +2,11 @@ package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.core.EtmcSession;
+import dev.l5z12.etmc.client.Gfx;
+//? if >=1.20 {
 import net.minecraft.client.gui.DrawContext;
+//?} else
+/*import net.minecraft.client.util.math.MatrixStack;*/
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
@@ -65,9 +69,13 @@ public final class EtmcScreen extends Screen {
     }
 
     @Override
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
+    //? if >=1.20 {
+    public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
+    //?} else
+    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
+    {
         super.render(ctx, mouseX, mouseY, delta);
-        ctx.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 28, 0xFFFFFF);
+        Gfx.centered(ctx, this.textRenderer, this.title, this.width / 2, 28, 0xFFFFFF);
 
         EtmcManager m = EtmcManager.get();
         String sub;
@@ -84,7 +92,7 @@ public final class EtmcScreen extends Screen {
         } else {
             sub = "EasyTier P2P multiplayer, in-game";
         }
-        ctx.drawCenteredTextWithShadow(this.textRenderer, Text.literal(sub), this.width / 2, 44, color);
+        Gfx.centered(ctx, this.textRenderer, Text.literal(sub), this.width / 2, 44, color);
     }
 
     @Override

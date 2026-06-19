@@ -4,7 +4,10 @@ import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.NetworkStatus;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+//? if >=1.20 {
 import net.minecraft.client.gui.DrawContext;
+//?} else
+/*import net.minecraft.client.util.math.MatrixStack;*/
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
@@ -24,7 +27,11 @@ public final class EtmcHud {
 
     private EtmcHud() {}
 
-    public static void render(DrawContext ctx) {
+    //? if >=1.20 {
+    public static void render(DrawContext ctx)
+    //?} else
+    /*public static void render(MatrixStack ctx)*/
+    {
         EtmcManager m = EtmcManager.get();
         if (!m.isReady()) return;
         ModConfig cfg = m.config();
@@ -78,10 +85,10 @@ public final class EtmcHud {
         int x = 4;
         int y = 4;
 
-        ctx.fill(x, y, x + boxW, y + boxH, BG);
+        Gfx.fill(ctx, x, y, x + boxW, y + boxH, BG);
         int ty = y + pad;
         for (Line l : lines) {
-            ctx.drawTextWithShadow(tr, Text.literal(l.text), x + pad, ty, l.color);
+            Gfx.text(ctx, tr, Text.literal(l.text), x + pad, ty, l.color);
             ty += lineH;
         }
     }

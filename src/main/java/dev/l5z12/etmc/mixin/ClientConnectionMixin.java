@@ -19,9 +19,15 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(ClientConnection.class)
 public class ClientConnectionMixin {
 
+    //? if >=1.20 {
     @Redirect(method = "connect(Ljava/net/InetSocketAddress;ZLnet/minecraft/network/ClientConnection;)Lio/netty/channel/ChannelFuture;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))
+    //?} else {
+    /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;Z)Lnet/minecraft/network/ClientConnection;",
+            at = @At(value = "INVOKE",
+                    target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/
+    //?}
     private static AbstractBootstrap<?, ?> etmc$swapChannel(Bootstrap bootstrap, Class<? extends Channel> channelClass) {
         EtmcConnect.Target target = EtmcConnect.takePending();
         if (target != null) {
