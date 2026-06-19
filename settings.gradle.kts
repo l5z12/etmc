@@ -13,6 +13,8 @@ pluginManagement {
 
 plugins {
     id("dev.kikugie.stonecutter") version "0.9.2"
+    // Auto-provision JDK toolchains (17/21/25) per version node.
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.9.0"
 }
 
 rootProject.name = "etmc"

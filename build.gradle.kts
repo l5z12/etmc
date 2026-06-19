@@ -6,6 +6,9 @@ plugins {
 
 base { archivesName = "etmc-fabric-${stonecutter.current.version}" }
 
+// Java per MC version: 17 for 1.17.1-1.20.4, 21 for 1.20.5+/1.21.x, 25 for 26.x.
+val javaVersion = (property("java_version") as String).toInt()
+
 repositories {
     mavenCentral()
 }
@@ -33,8 +36,14 @@ dependencies {
     mappings("net.fabricmc:yarn:${property("deps.yarn")}:v2")
     modImplementation("net.fabricmc:fabric-loader:${property("deps.fabric_loader")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric_api")}")
-    // JNA backend (Java 17 fallback); compileOnly on Java-21 versions where FFM is used.
-    compileOnly("net.java.dev.jna:jna:${property("jna_version")}")
+    // JNA is the FFI fallback for Java 17 (no java.lang.foreign): bundle it via Loom JiJ on those
+    // versions so the runtime has it; on Java 19+ FFM is used so it's compileOnly (not bundled).
+    if (javaVersion >= 19) {
+        compileOnly("net.java.dev.jna:jna:${property("jna_version")}")
+    } else {
+        implementation("net.java.dev.jna:jna:${property("jna_version")}")
+        include("net.java.dev.jna:jna:${property("jna_version")}")
+    }
 }
 
 tasks.processResources {
@@ -45,10 +54,10 @@ tasks.processResources {
 }
 
 tasks.withType<JavaCompile>().configureEach {
-    options.release = 21
+    options.release = javaVersion
     options.encoding = "UTF-8"
 }
 
 java {
-    toolchain { languageVersion = JavaLanguageVersion.of(21) }
+    toolchain { languageVersion = JavaLanguageVersion.of(javaVersion) }
 }
