@@ -3,7 +3,10 @@ package dev.l5z12.etmc.client;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
+//? if >=1.20.2 {
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
+//?} else
+/*import net.minecraft.client.gui.screen.ConnectScreen;*/
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
 import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
@@ -81,7 +84,10 @@ public final class McNet {
             ServerInfo s = list.get(i);
             if (s != null && name.equals(s.name)) list.remove(s);
         }
+        //? if >=1.20.2 {
         list.add(new ServerInfo(name, address, ServerInfo.ServerType.OTHER), true);
+        //?} else
+        /*list.add(new ServerInfo(name, address, false), true);*/
         list.saveFile();
 
         if (client.world == null) {
@@ -104,9 +110,15 @@ public final class McNet {
      */
     public static void connectViaChannel(Screen parent, String label) {
         MinecraftClient client = MinecraftClient.getInstance();
+        //? if >=1.20.2 {
         ServerInfo info = new ServerInfo("etmc: " + label, "127.0.0.1:25565", ServerInfo.ServerType.OTHER);
+        //?} else
+        /*ServerInfo info = new ServerInfo("etmc: " + label, "127.0.0.1:25565", false);*/
         ServerAddress addr = ServerAddress.parse("127.0.0.1:25565");
+        //? if >=1.20.5 {
         ConnectScreen.connect(parent, client, addr, info, false, null);
+        //?} else
+        /*ConnectScreen.connect(parent, client, addr, info, false);*/
     }
 
     private static int freePort() {
