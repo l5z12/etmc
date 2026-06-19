@@ -31,6 +31,11 @@ neoForge {
     }
 }
 
+dependencies {
+    // JNA backend (Java 17 fallback); compileOnly on 1.21.x where FFM is used.
+    compileOnly "net.java.dev.jna:jna:${project.jna_version}"
+}
+
 tasks.withType(JavaCompile).configureEach {
     it.options.release = 21
     it.options.encoding = 'UTF-8'

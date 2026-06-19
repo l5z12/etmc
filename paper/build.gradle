@@ -26,6 +26,8 @@ dependencies {
     // classpath. It's unused on the server (no client connection), but must still compile. netty is
     // present at runtime (the server bundles it), so compileOnly is correct.
     compileOnly "io.netty:netty-transport:4.1.118.Final"
+    // JNA backend (Java 17 fallback); compileOnly on 1.21.x where FFM is used.
+    compileOnly "net.java.dev.jna:jna:${project.jna_version}"
 }
 
 tasks.withType(JavaCompile).configureEach {

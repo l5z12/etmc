@@ -30,6 +30,8 @@ repositories {
 
 dependencies {
     implementation minecraft.dependency("net.minecraftforge:forge:${project.forge_version}")
+    // JNA backend (Java 17 fallback); compileOnly on 1.21.x where FFM is used.
+    compileOnly "net.java.dev.jna:jna:${project.jna_version}"
 }
 
 tasks.withType(JavaCompile).configureEach {

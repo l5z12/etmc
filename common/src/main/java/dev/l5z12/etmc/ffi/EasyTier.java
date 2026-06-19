@@ -49,18 +49,16 @@ public interface EasyTier {
 
     // ------------------------------------------------------------------ process-wide singleton
 
-    /** Loads the native library at {@code lib} with the best available backend. Idempotent. */
+    /**
+     * Loads the native library at {@code lib} with the best available backend: FFM
+     * ({@code java.lang.foreign}) on Java 19+, falling back to JNA on Java 17. Idempotent.
+     */
     static EasyTier load(Path lib) {
         synchronized (Holder.class) {
             if (Holder.instance == null) {
-                if (FfmEasyTier.isSupported()) {
-                    Holder.instance = FfmEasyTier.create(lib);
-                } else {
-                    // JNA backend (Java 17) is wired in a later stage of multi-version support.
-                    throw new EasyTierException(
-                            "FFM (java.lang.foreign) unavailable on this JVM and the JNA backend is not wired yet",
-                            Panama.initError());
-                }
+                Holder.instance = FfmEasyTier.isSupported()
+                        ? FfmEasyTier.create(lib)
+                        : JnaEasyTier.create(lib);
             }
             return Holder.instance;
         }

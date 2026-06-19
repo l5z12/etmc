@@ -29,6 +29,9 @@ dependencies {
     mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
+    // JNA is the FFI fallback for Java 17 runtimes. On 1.21.x (Java 21) FFM is used, so it's
+    // compileOnly here (no bundling); the Java-17 build variant bundles it instead.
+    compileOnly "net.java.dev.jna:jna:${project.jna_version}"
 }
 
 processResources {
