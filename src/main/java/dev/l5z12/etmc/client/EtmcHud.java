@@ -5,7 +5,6 @@ import dev.l5z12.etmc.core.NetworkStatus;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
@@ -25,7 +24,7 @@ public final class EtmcHud {
 
     private EtmcHud() {}
 
-    public static void render(DrawContext ctx, RenderTickCounter tickCounter) {
+    public static void render(DrawContext ctx) {
         EtmcManager m = EtmcManager.get();
         if (!m.isReady()) return;
         ModConfig cfg = m.config();

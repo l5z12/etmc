@@ -6,7 +6,11 @@ import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+//? if >=1.21 {
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+//?} else {
+/*import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;*/
+//?}
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
@@ -39,7 +43,11 @@ public final class EtmcClient implements ClientModInitializer {
                 "key.etmc.open_menu",
                 InputUtil.Type.KEYSYM,
                 GLFW.GLFW_KEY_G,
+                //? if >=1.21 {
                 KeyBinding.Category.MISC));
+                //?} else {
+                /*"key.categories.misc"));*/
+                //?}
 
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             EtmcManager.get().tick();
@@ -52,8 +60,12 @@ public final class EtmcClient implements ClientModInitializer {
             }
         });
 
-        // HudRenderCallback is deprecated and no longer renders on 1.21.x; use the HUD element API.
-        HudElementRegistry.addLast(Identifier.of("etmc", "status"), EtmcHud::render);
+        // 1.21+: HudRenderCallback is deprecated/no-op, use the HUD element API. Older: HudRenderCallback.
+        //? if >=1.21 {
+        HudElementRegistry.addLast(Identifier.of("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));
+        //?} else {
+        /*HudRenderCallback.EVENT.register((ctx, tickDelta) -> EtmcHud.render(ctx));*/
+        //?}
 
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
                 EtmcCommands.register(dispatcher));

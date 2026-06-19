@@ -24,6 +24,7 @@ include("paper", "neoforge", "forge")
 stonecutter {
     create(rootProject) {
         version("1.21.10-fabric", "1.21.10")
+        version("1.20.6-fabric", "1.20.6")
         vcsVersion = "1.21.10-fabric"
     }
 }
