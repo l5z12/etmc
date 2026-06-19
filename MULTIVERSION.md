@@ -49,6 +49,32 @@ built via **Stonecutter** (`dev.kikugie.stonecutter`). CI builds everything.
 6. ⏳ CI: `natives.yml` already version-agnostic; extend `build.yml`/`release.yml` to the Stonecutter
    matrix with the right JDK (16/17/21/25) per target.
 
+## Confirmed Stonecutter blueprint (0.9.2, from rotgruengelb template — docs site is anti-scrape-blocked, used raw GitHub)
+```kotlin
+// settings.gradle.kts
+plugins { id("dev.kikugie.stonecutter") version "0.9.2" }
+stonecutter {
+  create(rootProject) {
+    fun match(v: String, vararg loaders: String) =
+      loaders.forEach { version("$v-$it", v).buildscript = getBuildscript(it, v) }
+    match("26.2",    "fabric", "neoforge", "forge")
+    match("1.21.10", "fabric", "neoforge", "forge")
+    // ... 1.20.6 / 1.20.1 / 1.19.4 / 1.18.2 / 1.17.1 ...
+    vcsVersion = "1.21.10-fabric"
+  }
+}
+// getBuildscript: fabric+1.x -> build.fabric-o.gradle.kts (yarn); fabric+26.x -> build.fabric-m.gradle.kts (mojmap/unobf)
+```
+- `create(rootProject)` ⇒ **single source tree at root** + `build.<loader>.gradle.kts` per loader; Stonecutter generates `versions/<v>-<loader>/` nodes. Controller `stonecutter.gradle.kts` sets active version + `parameters { swaps/constants }`.
+- pluginManagement repos add: `maven.kikugie.dev/releases` + `/snapshots`, fabric, neoforged, parchmentmc.
+- **Implication**: the current `fabric/ neoforge/ forge/ paper/ common/ mc-common/` split must merge into one root `src/` with `//? if fabric {` / `//? if >=1.20 {` preprocessor guards. Big restructure — do it incrementally, Fabric branch first.
+
+### Stage 3 order (Fabric-first, per user)
+- 3a: Stonecutter harness, **Fabric 1.21.10 only**, green + committed.
+- 3b…: add Fabric 1.20.6, 1.20.1, 1.19.4, 1.18.2, 1.17.1, 26.2 — each built green, fixing GUI/mixin/mapping breaks, bundling JNA on Java-16/17 rows.
+- then NeoForge, Forge, Paper branches.
+- Per-Fabric-version coordinates to resolve (yarn build, fabric-loader, fabric-api) via fabricmc meta/maven.
+
 ## Verification reality
 Local JDKs 16?/17/21/25 cover most runtime checks, but each Neo/Forge version downloads a toolchain
 (slow), 26.2 postdates training, and the JNA runtime path only exercises on Java 16/17 builds. Off-target
