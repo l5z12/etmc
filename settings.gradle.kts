@@ -34,6 +34,7 @@ stonecutter {
         // Mojmap loader nodes (own buildscript): the shared root src/ is processed with fabric=false.
         version("1.21.10-neoforge", "1.21.10").buildscript("build.neoforge.gradle.kts")
         version("1.20.6-neoforge", "1.20.6").buildscript("build.neoforge.gradle.kts")
+        version("1.21.10-forge", "1.21.10").buildscript("build.forge.gradle")
         vcsVersion = "1.21.10-fabric"
     }
 }
