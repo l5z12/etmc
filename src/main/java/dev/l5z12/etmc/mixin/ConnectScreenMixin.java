@@ -55,9 +55,14 @@ public class ConnectScreenMixin {
     /*private static void etmc$interceptLink(Screen screen, Minecraft client, ServerAddress address,
                                            ServerData info, CallbackInfo ci) {*/
     //?}
-        if (info != null && JoinCode.isLink(info.address)) {
+        //? if fabric {
+        String serverAddr = info == null ? null : info.address;
+        //?} else {
+        /*String serverAddr = info == null ? null : info.ip;*/
+        //?}
+        if (serverAddr != null && JoinCode.isLink(serverAddr)) {
             ci.cancel();
-            EtmcManager.get().connectViaLink(screen, info.address);
+            EtmcManager.get().connectViaLink(screen, serverAddr);
         }
     }
 }
