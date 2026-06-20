@@ -4,7 +4,9 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.JoinCode;
+//? if fabric {
 import net.fabricmc.loader.api.FabricLoader;
+//?}
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -38,8 +40,17 @@ public final class ModConfig {
 
     private transient Path file;
 
+    /** {@code <config>/etmc.json}: Fabric resolves it via FabricLoader; NeoForge/Forge via the game dir. */
+    private static Path configFile() {
+        //? if fabric {
+        return FabricLoader.getInstance().getConfigDir().resolve("etmc.json");
+        //?} else {
+        /*return net.minecraft.client.Minecraft.getInstance().gameDirectory.toPath().resolve("config").resolve("etmc.json");*/
+        //?}
+    }
+
     public static ModConfig load() {
-        Path file = FabricLoader.getInstance().getConfigDir().resolve("etmc.json");
+        Path file = configFile();
         ModConfig cfg;
         if (Files.exists(file)) {
             try {
@@ -63,7 +74,7 @@ public final class ModConfig {
 
     public void save() {
         if (file == null) {
-            file = FabricLoader.getInstance().getConfigDir().resolve("etmc.json");
+            file = configFile();
         }
         try {
             Files.createDirectories(file.getParent());

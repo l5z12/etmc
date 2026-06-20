@@ -11,9 +11,14 @@ import dev.l5z12.etmc.core.RemoteConfig;
 import dev.l5z12.etmc.ffi.EasyTier;
 import dev.l5z12.etmc.ffi.NativeLoader;
 import dev.l5z12.etmc.ffi.Panama;
+//? if fabric {
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
+//?} else {
+/*import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;*/
+//?}
 
 import java.nio.file.Path;
 import java.util.List;
@@ -29,12 +34,25 @@ public final class EtmcManager {
 
     private static final EtmcManager INSTANCE = new EtmcManager();
 
+    /** Shared logger (slf4j is present on Fabric, NeoForge and Forge), so this stays loader-neutral. */
+    public static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("etmc");
+
     /** How long to wait for a direct (p2p) route before auto-joining over the available path (relay). */
     private static final long P2P_WAIT_TIMEOUT_MS = 8000;
 
     public static EtmcManager get() {
         return INSTANCE;
     }
+
+    //? if fabric {
+    private static MinecraftClient mc() {
+        return MinecraftClient.getInstance();
+    }
+    //?} else {
+    /*private static net.minecraft.client.Minecraft mc() {
+        return net.minecraft.client.Minecraft.getInstance();
+    }*/
+    //?}
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "etmc-worker");
@@ -63,8 +81,13 @@ public final class EtmcManager {
     private void syncPlayerName() {
         if (session == null) return;
         try {
-            var s = MinecraftClient.getInstance().getSession();
+            //? if fabric {
+            var s = mc().getSession();
             if (s != null) session.setPlayerName(s.getUsername());
+            //?} else {
+            /*var u = mc().getUser();
+            if (u != null) session.setPlayerName(u.getName());*/
+            //?}
         } catch (Throwable ignored) {
         }
     }
@@ -76,7 +99,11 @@ public final class EtmcManager {
             if (!Panama.isAvailable()) {
                 throw new IllegalStateException("FFM unavailable: " + Panama.initError());
             }
+            //? if fabric {
             Path cacheRoot = FabricLoader.getInstance().getConfigDir().resolve("etmc");
+            //?} else {
+            /*Path cacheRoot = mc().gameDirectory.toPath().resolve("config").resolve("etmc");*/
+            //?}
             NativeLoader.Native nat = NativeLoader.extract(cacheRoot);
             EasyTier et = EasyTier.load(nat.path());
             this.session = new EtmcSession(et);
@@ -139,7 +166,7 @@ public final class EtmcManager {
                     String label = code.label == null || code.label.isBlank() ? code.networkName : code.label;
                     McNet.presentJoin(label, localPort);
                     return localPort;
-                }, MinecraftClient.getInstance());
+                }, mc());
     }
 
     /**
@@ -169,7 +196,7 @@ public final class EtmcManager {
             String label = cc != null && cc.label != null && !cc.label.isBlank() ? cc.label : "etmc server";
             McNet.presentJoin(label, localPort);
             return localPort;
-        }, MinecraftClient.getInstance());
+        }, mc());
     }
 
     /**
@@ -188,7 +215,7 @@ public final class EtmcManager {
         try {
             code = JoinCode.decode(link);
         } catch (IllegalArgumentException e) {
-            EtmcClient.LOGGER.warn("[etmc] bad etmc:// link: {}", e.getMessage());
+            LOGGER.warn("[etmc] bad etmc:// link: {}", e.getMessage());
             showError(parent, "Invalid etmc:// link", e.getMessage());
             return;
         }
@@ -196,12 +223,12 @@ public final class EtmcManager {
         String label = code.label != null && !code.label.isBlank() ? code.label : code.networkName;
         LinkAttempt a = new LinkAttempt(parent, code, label);
         this.linkAttempt = a;
-        EtmcClient.LOGGER.info("[etmc] etmc:// join: starting link instance for host {}:{} (network '{}')",
+        LOGGER.info("[etmc] etmc:// join: starting link instance for host {}:{} (network '{}')",
                 code.hostIp, code.hostPort, code.networkName);
-        MinecraftClient.getInstance().setScreen(new EtmcConnectingScreen(parent, label,
+        mc().setScreen(new EtmcConnectingScreen(parent, label,
                 () -> linkProceed(a), () -> linkCancel(a)));
         CompletableFuture.supplyAsync(() -> session.startLinkInstance(code), worker)
-                .whenComplete((inst, err) -> MinecraftClient.getInstance().execute(() -> {
+                .whenComplete((inst, err) -> mc().execute(() -> {
                     if (a != linkAttempt) {
                         // cancelled or superseded while starting — tear the instance back down
                         if (err == null) leaveAsync();
@@ -210,7 +237,7 @@ public final class EtmcManager {
                     if (err != null) {
                         Throwable cause = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
                                 ? err.getCause() : err;
-                        EtmcClient.LOGGER.warn("[etmc] etmc:// join failed: {}", String.valueOf(cause.getMessage()), cause);
+                        LOGGER.warn("[etmc] etmc:// join failed: {}", String.valueOf(cause.getMessage()), cause);
                         showError(a.parent, "Couldn't start etmc network", cause.getMessage());
                         linkAttempt = null;
                         return;
@@ -218,7 +245,7 @@ public final class EtmcManager {
                     a.instName = inst;
                     a.startedAt = System.currentTimeMillis();
                     a.instanceReady = true;
-                    EtmcClient.LOGGER.info("[etmc] link instance '{}' up — waiting up to {}s for a direct P2P route to {}",
+                    LOGGER.info("[etmc] link instance '{}' up — waiting up to {}s for a direct P2P route to {}",
                             inst, P2P_WAIT_TIMEOUT_MS / 1000, code.hostIp);
                     if (a.proceedRequested) linkDoProceed(a); // user already hit "Join now anyway"
                 }));
@@ -244,16 +271,16 @@ public final class EtmcManager {
         }
         if (now - a.lastLog > 1000) {
             a.lastLog = now;
-            EtmcClient.LOGGER.info("[etmc] P2P wait {}s: host {} {} | peers: {}",
+            LOGGER.info("[etmc] P2P wait {}s: host {} {} | peers: {}",
                     (now - a.startedAt) / 1000, a.code.hostIp,
                     found ? "cost=" + hostCost + (direct ? " (p2p)" : " (relay)") : "not in route table yet",
                     peerSummary(cachedStatus()));
         }
         if (direct) {
-            EtmcClient.LOGGER.info("[etmc] direct P2P route to host ready — connecting");
+            LOGGER.info("[etmc] direct P2P route to host ready — connecting");
             linkDoProceed(a);
         } else if (now - a.startedAt > P2P_WAIT_TIMEOUT_MS) {
-            EtmcClient.LOGGER.info("[etmc] no direct route after {}s — connecting over the available path (relay)",
+            LOGGER.info("[etmc] no direct route after {}s — connecting over the available path (relay)",
                     P2P_WAIT_TIMEOUT_MS / 1000);
             linkDoProceed(a);
         }
@@ -294,7 +321,7 @@ public final class EtmcManager {
     }
 
     private static void showError(Screen parent, String title, String message) {
-        MinecraftClient.getInstance().setScreen(new EtmcNoticeScreen(parent, title, message));
+        mc().setScreen(new EtmcNoticeScreen(parent, title, message));
     }
 
     /** State for one in-progress {@code etmc://} link join (mutated only on the client thread). */
