@@ -18,6 +18,9 @@ sourceSets {
     named("main") {
         java.srcDir(rootProject.file("common/src/main/java"))
         resources.srcDir(rootProject.file("common/src/main/resources"))
+        // Loader entry points (EtmcKey/EtmcNeoForge/EtmcForge) live in the shared tree but use mojmap
+        // / loader APIs — they compile only on their own loader node, not in the Fabric build.
+        java.exclude("**/EtmcKey.java", "**/neoforge/**", "**/forge/**")
     }
 }
 
