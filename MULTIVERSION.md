@@ -97,21 +97,22 @@ node from the id suffix). The facades (`Txt`/`Ui`/`Gfx`) absorb text/button/draw
 cover the rest. Use **flat** `fabric && >=x` conditions (NOT nested) — a `//? if fabric {` block that
 gets commented when `fabric=false` must not contain `/* */`.
 
-- ✅ Done (merged, Fabric-green, committed): loader constants (controller `parameters`); `Txt`/`Ui`/
-  `Gfx` mojmap branches; `EtmcManager` (+ slf4j LOGGER, supersedes `EtmcClientCore`); `ModConfig`
-  (supersedes `McConfig`); `EtmcHud`; `McNet`.
-- ⏳ Remaining client files to merge (mojmap from `mc-common/`): `EtmcCommands` (~35 guards —
-  `FabricClientCommandSource`/`ClientCommandManager` vs `CommandSourceStack`/`Commands`, `sendError`/
-  `sendFeedback` vs `sendFailure`/`sendSuccess`); the 8 screens; `EtmcKey` (mojmap keybind, new in
-  src/, guarded `//? if !fabric`); mixins `ClientConnectionMixin`↔`ConnectionMixin`,
-  `ConnectScreenMixin` (yarn+mojmap targets), `ServerAddressMixin`, `AddServerScreenMixin`↔
-  `ManageServerScreenMixin`, `DirectConnectScreenMixin`↔`DirectJoinServerScreenMixin`.
-- ⏳ Entry points: guard `EtmcClient` `//? if fabric`; move `EtmcNeoForge`/`EtmcForge` into guarded
-  src/ (or loader srcDirs), retargeting to `EtmcManager` + guarding `ResourceLocation.fromNamespaceAndPath`.
-- ⏳ Infra: `build.neoforge.gradle.kts` / `build.forge.gradle.kts` node scripts; settings loader nodes
-  (`1.21.10-neoforge`, `1.20.6-neoforge`, forge eras with FG7/6/5); per-loader mixin config + mods.toml;
-  then delete the standalone `neoforge/`/`forge/` subprojects + `mc-common/`.
-- ⏳ Verify: compile each loader node; extend CI matrix; Forge's FG5/6/7-per-era is the hardest.
+- ✅ **MERGE DONE + VERIFIED**: the whole client tree is unified in root `src/` with `//? if fabric`
+  guards, and **both `etmc-fabric-1.21.10.jar` (yarn) and `etmc-neoforge-1.21.10.jar` (mojmap) build
+  green from that one tree** (Stonecutter `fabric` constant selects the branch). Merged: loader
+  constants; `Txt`/`Ui`/`Gfx` facades; `EtmcManager` (+slf4j LOGGER, supersedes `EtmcClientCore`);
+  `ModConfig` (supersedes `McConfig`); `EtmcHud`; `McNet`; `EtmcCommands`; `EtmcBaseScreen` + all 8
+  screens; all 5 mixins; entry points `EtmcKey`/`EtmcNeoForge` (Fabric build excludes them via
+  `java.exclude`). Key facade trick: `EtmcBaseScreen.mc()/font()/add()` absorbed most per-screen
+  divergence. Only mojmap fix needed beyond the guards: `ServerData.ip` vs `ServerInfo.address`.
+- Infra: `build.neoforge.gradle.kts` (ModDevGradle node, uses the processed `src/` with fabric=false);
+  `1.21.10-neoforge` node in settings via `.buildscript(...)`; reuses the shared `etmc.mixins.json`
+  (yarn class names = the merged files) + `neoforge.mods.toml`.
+- ⏳ Remaining (extend the proven pattern): `1.20.6-neoforge` node (version-specific mojmap:
+  `EditServerScreen` vs `ManageServerScreen`, `KeyMapping.Category` vs string, `ResourceLocation`
+  ctor, NeoForge event-API deltas); Forge nodes (`EtmcForge` entry + FG7/1.21, FG6/1.18–1.20,
+  FG5/1.17 — different build scripts); delete the standalone `neoforge/`/`forge/` subprojects +
+  `mc-common/`; point CI at the loader nodes.
 
 ### Stage 3 order (Fabric-first, per user)
 - 3a: ✅ Stonecutter harness, **Fabric 1.21.10**, green + committed.
