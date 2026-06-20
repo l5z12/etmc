@@ -108,11 +108,17 @@ gets commented when `fabric=false` must not contain `/* */`.
 - Infra: `build.neoforge.gradle.kts` (ModDevGradle node, uses the processed `src/` with fabric=false);
   `1.21.10-neoforge` node in settings via `.buildscript(...)`; reuses the shared `etmc.mixins.json`
   (yarn class names = the merged files) + `neoforge.mods.toml`.
-- ⏳ Remaining (extend the proven pattern): `1.20.6-neoforge` node (version-specific mojmap:
-  `EditServerScreen` vs `ManageServerScreen`, `KeyMapping.Category` vs string, `ResourceLocation`
-  ctor, NeoForge event-API deltas); Forge nodes (`EtmcForge` entry + FG7/1.21, FG6/1.18–1.20,
-  FG5/1.17 — different build scripts); delete the standalone `neoforge/`/`forge/` subprojects +
-  `mc-common/`; point CI at the loader nodes.
+- ✅ **Loader nodes live + cleanup done.** `chiseledBuild` builds all 9 nodes from the one tree:
+  Fabric {1.17.1, 1.18.2, 1.19.4, 1.20.1, 1.20.6, 1.21.10}, NeoForge {1.20.6, 1.21.10}, Forge {1.21.10}
+  (+ Paper {1.17.1…1.21.10} via the CI matrix). `build.neoforge.gradle.kts` (MDG) and `build.forge.gradle`
+  (ForgeGradle 7, Groovy) are per-node buildscripts; each excludes the other loaders' entry points.
+  Standalone `neoforge/`/`forge/` subprojects + `mc-common/` deleted (kept only the loader resource
+  dirs). CI runs `chiseledBuild` + the Paper matrix. Only one runtime mojmap fix was needed across the
+  whole merge (`ServerData.ip`); 1.20.6-neoforge needed one more (`ResourceLocation` ctor).
+- ⏳ Remaining version gaps: **NeoForge 1.20.1** (47.1.x scheme; pre-1.20.5 so `startConnecting` lacks
+  `TransferState` — needs a mojmap version sub-guard like Fabric's). **Forge older eras** — the hard
+  one: FG6 (1.18–1.20) + FG5 (1.17) need different node buildscripts AND a per-era `EtmcForge` entry
+  (the current one uses Forge-1.21 EventBus 7; older Forge's event API differs).
 
 ### Stage 3 order (Fabric-first, per user)
 - 3a: ✅ Stonecutter harness, **Fabric 1.21.10**, green + committed.
