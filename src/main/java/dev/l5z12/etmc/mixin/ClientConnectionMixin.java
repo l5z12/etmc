@@ -6,7 +6,11 @@ import io.netty.bootstrap.AbstractBootstrap;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFactory;
+//? if fabric {
 import net.minecraft.network.ClientConnection;
+//?} else {
+/*import net.minecraft.network.Connection;*/
+//?}
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
@@ -15,16 +19,25 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * When an {@code etmc://} connection is pending, swaps the netty channel used by the client
  * connection for an {@link EtmcChannel} (which rides the EasyTier data plane) instead of a TCP
  * socket channel — no loopback socket, no port. For all other connections this is a no-op.
+ * Targets yarn {@code ClientConnection} on Fabric, mojmap {@code Connection} on NeoForge/Forge.
  */
+//? if fabric {
 @Mixin(ClientConnection.class)
+//?} else {
+/*@Mixin(Connection.class)*/
+//?}
 public class ClientConnectionMixin {
 
-    //? if >=1.20 {
+    //? if fabric && >=1.20 {
     @Redirect(method = "connect(Ljava/net/InetSocketAddress;ZLnet/minecraft/network/ClientConnection;)Lio/netty/channel/ChannelFuture;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))
-    //?} else {
+    //?} else if fabric {
     /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;Z)Lnet/minecraft/network/ClientConnection;",
+            at = @At(value = "INVOKE",
+                    target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/
+    //?} else {
+    /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;ZLnet/minecraft/network/Connection;)Lio/netty/channel/ChannelFuture;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/
     //?}
