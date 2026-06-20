@@ -90,6 +90,29 @@ stonecutter {
 - pluginManagement repos add: `maven.kikugie.dev/releases` + `/snapshots`, fabric, neoforged, parchmentmc.
 - **Implication**: the current `fabric/ neoforge/ forge/ paper/ common/ mc-common/` split must merge into one root `src/` with `//? if fabric {` / `//? if >=1.20 {` preprocessor guards. Big restructure — do it incrementally, Fabric branch first.
 
+### Stage 3.5: yarn+mojmap merge for multi-version NeoForge/Forge (in progress)
+Stonecutter processes ONE root `src/`, so loaders sharing it means merging the yarn (`src/`) and
+mojmap (`mc-common/`) client trees into one tree with `//? if fabric` guards (loader constants set per
+node from the id suffix). The facades (`Txt`/`Ui`/`Gfx`) absorb text/button/draw; per-file guards
+cover the rest. Use **flat** `fabric && >=x` conditions (NOT nested) — a `//? if fabric {` block that
+gets commented when `fabric=false` must not contain `/* */`.
+
+- ✅ Done (merged, Fabric-green, committed): loader constants (controller `parameters`); `Txt`/`Ui`/
+  `Gfx` mojmap branches; `EtmcManager` (+ slf4j LOGGER, supersedes `EtmcClientCore`); `ModConfig`
+  (supersedes `McConfig`); `EtmcHud`; `McNet`.
+- ⏳ Remaining client files to merge (mojmap from `mc-common/`): `EtmcCommands` (~35 guards —
+  `FabricClientCommandSource`/`ClientCommandManager` vs `CommandSourceStack`/`Commands`, `sendError`/
+  `sendFeedback` vs `sendFailure`/`sendSuccess`); the 8 screens; `EtmcKey` (mojmap keybind, new in
+  src/, guarded `//? if !fabric`); mixins `ClientConnectionMixin`↔`ConnectionMixin`,
+  `ConnectScreenMixin` (yarn+mojmap targets), `ServerAddressMixin`, `AddServerScreenMixin`↔
+  `ManageServerScreenMixin`, `DirectConnectScreenMixin`↔`DirectJoinServerScreenMixin`.
+- ⏳ Entry points: guard `EtmcClient` `//? if fabric`; move `EtmcNeoForge`/`EtmcForge` into guarded
+  src/ (or loader srcDirs), retargeting to `EtmcManager` + guarding `ResourceLocation.fromNamespaceAndPath`.
+- ⏳ Infra: `build.neoforge.gradle.kts` / `build.forge.gradle.kts` node scripts; settings loader nodes
+  (`1.21.10-neoforge`, `1.20.6-neoforge`, forge eras with FG7/6/5); per-loader mixin config + mods.toml;
+  then delete the standalone `neoforge/`/`forge/` subprojects + `mc-common/`.
+- ⏳ Verify: compile each loader node; extend CI matrix; Forge's FG5/6/7-per-era is the hardest.
+
 ### Stage 3 order (Fabric-first, per user)
 - 3a: ✅ Stonecutter harness, **Fabric 1.21.10**, green + committed.
 - 3b: ✅ Fabric **1.20.6, 1.20.1, 1.19.4, 1.18.2, 1.17.1** all build green (compile + remapJar, no remap
