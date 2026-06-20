@@ -130,11 +130,23 @@ gets commented when `fabric=false` must not contain `/* */`.
 - 3b: ✅ Fabric **1.20.6, 1.20.1, 1.19.4, 1.18.2, 1.17.1** all build green (compile + remapJar, no remap
   warnings) — `Gfx`/`Txt`/`Ui` facades + command-v1/v2, `onClose`, `ServerList`, Gson, connect-mixin
   guards. JNA bundled on the Java-17 rows (1.17.1–1.20.1). **Runtime not yet verified** (compile-only).
-- 3c: ⏳ Fabric **26.x** — Mojang ships 26.x **unobfuscated**, so there is **no mappings artifact**
-  (that's why Fabric meta's yarn list stops at 1.21.11). A 26.x node uses a **no-mappings (official
-  names) Loom variant** and its code uses official names → it shares the **mojmap/`mc-common` naming**,
-  not yarn `src/`. **Blocked: 26.x isn't published to the build's maven yet** (`/versions/game` had no
-  `26.*` on 2026-06-20) — can't build until the game/loader artifacts land. Java 25 toolchain.
+- 3c: ⏳ Fabric **26.x — attempted 2026-06-21, blocked at the Loom mappings layer.** What's confirmed
+  available now: the **26.2 game jar** (Mojang manifest), **fabric-api 0.152.2+26.2**, **loader 0.19.3**,
+  **intermediary 26.2** (302). **No yarn for 26.x** (404 — unobfuscated). The blocker: `loom
+  .officialMojangMappings()` fails with `Failed to find official mojang mappings for 26.2` on **both
+  Loom 1.17.11 and 1.17.12** (latest) — because an *unobfuscated* MC has **no Mojang Proguard mappings
+  file** to fetch. The correct unobf-26.x Loom mappings incantation (intermediary-as-named? a newer/
+  special Loom? a layered setup?) is the open question — postdates the Jan 2026 cutoff and isn't
+  derivable from maven metadata. **Build-side change that IS ready** (in case the mappings approach is
+  found): `build.gradle.kts` can select `officialMojangMappings()` for `mc≥26` vs yarn otherwise.
+  - **Code-side refactor is also fully scoped** (not yet applied): 26.x-fabric uses **official names**
+    (= the mojmap branch), so `fabric` no longer implies yarn. Add a `yarn` constant
+    (`loader==fabric && mcMajor<26`) in the controller and reclassify the ~126 `//? if fabric` guards:
+    the **name** guards (Txt/Ui/Gfx/EtmcHud/McNet/screens/EtmcBaseScreen/mixins — pure yarn-vs-official)
+    become `//? if yarn`; the **loader-API** guards stay `//? if fabric` (FabricLoader config dir in
+    EtmcManager/ModConfig; the FabricClientCommandSource/ClientCommandManager command API in
+    EtmcCommands). Once a working unobf-26.x Loom setup exists, that refactor + a `26.2-fabric` node
+    should compile.
 - **1.21.11 deferred**: it's the newest *buildable* version, but it refactored
   `ClientConnection.connect` arg2 `boolean`→`NetworkingBackend`; the channel-swap `@Redirect` descriptor
   won't tiny-remap against the very fresh yarn `1.21.11+build.6` mappings (the new class's intermediary
