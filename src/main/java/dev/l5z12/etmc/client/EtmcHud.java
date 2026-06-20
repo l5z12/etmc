@@ -2,20 +2,27 @@ package dev.l5z12.etmc.client;
 
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.NetworkStatus;
+//? if fabric {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
-//? if >=1.20 {
+//?} else {
+/*import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;*/
+//?}
+//? if fabric && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
-//?} else
+//?} else if fabric {
 /*import net.minecraft.client.util.math.MatrixStack;*/
-import net.minecraft.text.Text;
+//?}
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * A compact status overlay shown while an etmc session is active: role, virtual IP, peer count and
- * per-peer latency. Toggle with {@code /etmc hud} or in settings.
+ * per-peer latency. Toggle with {@code /etmc hud} or in settings. Loader/version-agnostic via the
+ * {@code Gfx}/{@code Txt} facades; only the client handle + font lookup differ (yarn vs mojmap).
  */
 public final class EtmcHud {
 
@@ -27,10 +34,13 @@ public final class EtmcHud {
 
     private EtmcHud() {}
 
-    //? if >=1.20 {
+    //? if fabric && >=1.20 {
     public static void render(DrawContext ctx)
-    //?} else
+    //?} else if fabric {
     /*public static void render(MatrixStack ctx)*/
+    //?} else {
+    /*public static void render(GuiGraphics ctx)*/
+    //?}
     {
         EtmcManager m = EtmcManager.get();
         if (!m.isReady()) return;
@@ -39,9 +49,15 @@ public final class EtmcHud {
         EtmcSession s = m.session();
         if (s == null || !s.isActive()) return;
 
+        //? if fabric {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options.hudHidden) return;
         TextRenderer tr = client.textRenderer;
+        //?} else {
+        /*Minecraft client = Minecraft.getInstance();
+        if (client.options.hideGui) return;
+        Font tr = client.font;*/
+        //?}
         NetworkStatus st = m.cachedStatus();
 
         List<Line> lines = new ArrayList<>();
@@ -75,10 +91,18 @@ public final class EtmcHud {
         }
 
         int pad = 3;
+        //? if fabric {
         int lineH = tr.fontHeight + 1;
+        //?} else {
+        /*int lineH = tr.lineHeight + 1;*/
+        //?}
         int w = 0;
         for (Line l : lines) {
+            //? if fabric {
             w = Math.max(w, tr.getWidth(l.text));
+            //?} else {
+            /*w = Math.max(w, tr.width(l.text));*/
+            //?}
         }
         int boxW = w + pad * 2;
         int boxH = lines.size() * lineH + pad * 2;
