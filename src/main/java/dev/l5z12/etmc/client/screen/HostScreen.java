@@ -4,22 +4,36 @@ import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
-//? if >=1.20 {
-import net.minecraft.client.gui.DrawContext;
-//?} else
-/*import net.minecraft.client.util.math.MatrixStack;*/
+//? if fabric {
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.text.Text;
+//?} else {
+/*import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.screens.Screen;*/
+//?}
+//? if fabric && >=1.20 {
+import net.minecraft.client.gui.DrawContext;
+//?} else if fabric {
+/*import net.minecraft.client.util.math.MatrixStack;*/
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;*/
+//?}
 
 /** Host the current singleplayer world: pick a network name + optional secret, then start. */
-public final class HostScreen extends Screen {
+public final class HostScreen extends EtmcBaseScreen {
 
     private final Screen parent;
+    //? if fabric {
     private TextFieldWidget networkField;
     private TextFieldWidget secretField;
     private ButtonWidget hostButton;
+    //?} else {
+    /*private EditBox networkField;
+    private EditBox secretField;
+    private Button hostButton;*/
+    //?}
     private volatile String message = "";
     private volatile int messageColor = 0xFFAAAAAA;
 
@@ -35,25 +49,25 @@ public final class HostScreen extends Screen {
         int w = 220;
         int y = this.height / 4;
 
-        networkField = new TextFieldWidget(this.textRenderer, cx - w / 2, y + 12, w, 20, Txt.literal("Network name"));
+        networkField = Ui.textField(font(), cx - w / 2, y + 12, w, 20, Txt.literal("Network name"));
         networkField.setMaxLength(64);
-        networkField.setText(orDefault(m.config().lastNetworkName, "my-world"));
-        addDrawableChild(networkField);
+        Ui.setText(networkField, orDefault(m.config().lastNetworkName, "my-world"));
+        add(networkField);
         y += 44;
 
-        secretField = new TextFieldWidget(this.textRenderer, cx - w / 2, y + 12, w, 20, Txt.literal("Secret (optional)"));
+        secretField = Ui.textField(font(), cx - w / 2, y + 12, w, 20, Txt.literal("Secret (optional)"));
         secretField.setMaxLength(128);
-        secretField.setText(orDefault(m.config().lastSecret, ""));
-        addDrawableChild(secretField);
+        Ui.setText(secretField, orDefault(m.config().lastSecret, ""));
+        add(secretField);
         y += 52;
 
         hostButton = Ui.button(Txt.literal("Start hosting"), b -> startHosting())
                 .dimensions(cx - w / 2, y, w, 20).build();
         hostButton.active = m.isReady() && m.config().hasRelay();
-        addDrawableChild(hostButton);
+        add(hostButton);
         y += 24;
 
-        addDrawableChild(Ui.button(Txt.literal("Back"), b -> this.close())
+        add(Ui.button(Txt.literal("Back"), b -> this.close())
                 .dimensions(cx - w / 2, y, w, 20).build());
 
         if (!m.config().hasRelay()) {
@@ -64,7 +78,7 @@ public final class HostScreen extends Screen {
 
     private void startHosting() {
         EtmcManager m = EtmcManager.get();
-        String network = networkField.getText().trim();
+        String network = Ui.getText(networkField).trim();
         if (network.isEmpty()) {
             setMessage("Enter a network name.", 0xFFFF5555);
             return;
@@ -75,32 +89,35 @@ public final class HostScreen extends Screen {
         }
         hostButton.active = false;
         setMessage("Starting…", 0xFFFFFF55);
-        m.hostAsync(network, secretField.getText()).whenComplete((code, err) ->
-                this.client.execute(() -> {
+        m.hostAsync(network, Ui.getText(secretField)).whenComplete((code, err) ->
+                mc().execute(() -> {
                     if (err != null) {
                         setMessage("Failed: " + rootMessage(err), 0xFFFF5555);
                         hostButton.active = true;
                     } else {
-                        this.client.setScreen(new StatusScreen(parent));
+                        mc().setScreen(new StatusScreen(parent));
                     }
                 }));
     }
 
     @Override
-    //? if >=1.20 {
+    //? if fabric && >=1.20 {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
-    //?} else
+    //?} else if fabric {
     /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
+    //?} else {
+    /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
+    //?}
     {
         super.render(ctx, mouseX, mouseY, delta);
-        Gfx.centered(ctx, this.textRenderer, this.title, this.width / 2, 24, 0xFFFFFF);
+        Gfx.centered(ctx, font(), this.title, this.width / 2, 24, 0xFFFFFF);
         int cx = this.width / 2;
         int w = 220;
-        Gfx.text(ctx, this.textRenderer, Txt.literal("Network name"), cx - w / 2, this.height / 4, 0xFFAAAAAA);
-        Gfx.text(ctx, this.textRenderer, Txt.literal("Secret (optional, must match for peers)"),
+        Gfx.text(ctx, font(), Txt.literal("Network name"), cx - w / 2, this.height / 4, 0xFFAAAAAA);
+        Gfx.text(ctx, font(), Txt.literal("Secret (optional, must match for peers)"),
                 cx - w / 2, this.height / 4 + 32, 0xFFAAAAAA);
         if (!message.isEmpty()) {
-            Gfx.centered(ctx, this.textRenderer, Txt.literal(message), cx, this.height - 40, messageColor);
+            Gfx.centered(ctx, font(), Txt.literal(message), cx, this.height - 40, messageColor);
         }
     }
 
@@ -109,14 +126,14 @@ public final class HostScreen extends Screen {
         this.messageColor = color;
     }
 
-    //? if >=1.18 {
+    //? if fabric && >=1.18 {
     @Override
     //?}
     public void close() {
-        this.client.setScreen(parent);
+        mc().setScreen(parent);
     }
 
-    //? if <1.18 {
+    //? if !fabric || <1.18 {
     /*@Override
     public void onClose() {
         this.close();

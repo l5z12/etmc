@@ -1,10 +1,14 @@
 package dev.l5z12.etmc.client;
 
 //? if fabric {
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 //?} else {
-/*import net.minecraft.client.gui.components.Button;
+/*import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;*/
 //?}
 
@@ -22,9 +26,33 @@ public final class Ui {
     public static Builder button(Text message, ButtonWidget.PressAction onPress) {
         return new Builder(message, onPress);
     }
+
+    public static TextFieldWidget textField(TextRenderer font, int x, int y, int w, int h, Text label) {
+        return new TextFieldWidget(font, x, y, w, h, label);
+    }
+
+    public static void setText(TextFieldWidget f, String s) {
+        f.setText(s);
+    }
+
+    public static String getText(TextFieldWidget f) {
+        return f.getText();
+    }
     //?} else {
     /*public static Builder button(Component message, Button.OnPress onPress) {
         return new Builder(message, onPress);
+    }
+
+    public static EditBox textField(Font font, int x, int y, int w, int h, Component label) {
+        return new EditBox(font, x, y, w, h, label);
+    }
+
+    public static void setText(EditBox f, String s) {
+        f.setValue(s);
+    }
+
+    public static String getText(EditBox f) {
+        return f.getValue();
     }
     *///?}
 

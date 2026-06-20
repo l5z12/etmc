@@ -1,22 +1,27 @@
 package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
-import dev.l5z12.etmc.core.EtmcSession;
-import dev.l5z12.etmc.core.JoinCode;
-import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
-//? if >=1.20 {
-import net.minecraft.client.gui.DrawContext;
-//?} else
-/*import net.minecraft.client.util.math.MatrixStack;*/
+import dev.l5z12.etmc.core.EtmcSession;
+import dev.l5z12.etmc.core.JoinCode;
+import dev.l5z12.etmc.core.NetworkStatus;
+//? if fabric {
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+//?} else {
+/*import net.minecraft.client.gui.screens.Screen;*/
+//?}
+//? if fabric && >=1.20 {
+import net.minecraft.client.gui.DrawContext;
+//?} else if fabric {
+/*import net.minecraft.client.util.math.MatrixStack;*/
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;*/
+//?}
 
 /** Live session status: virtual IP, peers/latency, the shareable code, and a Leave button. */
-public final class StatusScreen extends Screen {
+public final class StatusScreen extends EtmcBaseScreen {
 
     private final Screen parent;
     private volatile String toast = "";
@@ -35,47 +40,54 @@ public final class StatusScreen extends Screen {
 
         boolean host = m.session() != null && m.session().mode() == EtmcSession.Mode.HOST;
         if (host) {
-            addDrawableChild(Ui.button(Txt.literal("Copy join code"), b -> copyCode(false))
+            add(Ui.button(Txt.literal("Copy join code"), b -> copyCode(false))
                     .dimensions(cx - w / 2, y, w / 2 - 4, 20).build());
-            addDrawableChild(Ui.button(Txt.literal("Copy etmc:// link"), b -> copyCode(true))
+            add(Ui.button(Txt.literal("Copy etmc:// link"), b -> copyCode(true))
                     .dimensions(cx + 4, y, w / 2 - 4, 20).build());
             y += 24;
         }
 
-        addDrawableChild(Ui.button(Txt.literal("Leave network"), b -> leave())
+        add(Ui.button(Txt.literal("Leave network"), b -> leave())
                 .dimensions(cx - w / 2, y, w, 20).build());
         y += 24;
 
-        addDrawableChild(Ui.button(Txt.literal("Back"), b -> this.close())
+        add(Ui.button(Txt.literal("Back"), b -> this.close())
                 .dimensions(cx - w / 2, y, w, 20).build());
     }
 
     private void copyCode(boolean link) {
         JoinCode code = EtmcManager.get().session().currentCode();
         if (code != null) {
-            this.client.keyboard.setClipboard(link ? code.encodeLink() : code.encode());
+            //? if fabric {
+            mc().keyboard.setClipboard(link ? code.encodeLink() : code.encode());
+            //?} else {
+            /*mc().keyboardHandler.setClipboard(link ? code.encodeLink() : code.encode());*/
+            //?}
             toast = link ? "Copied etmc:// link" : "Copied join code";
         }
     }
 
     private void leave() {
         EtmcManager.get().leaveAsync().whenComplete((v, err) ->
-                this.client.execute(() -> this.client.setScreen(parent)));
+                mc().execute(() -> mc().setScreen(parent)));
     }
 
     @Override
-    //? if >=1.20 {
+    //? if fabric && >=1.20 {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
-    //?} else
+    //?} else if fabric {
     /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
+    //?} else {
+    /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
+    //?}
     {
         super.render(ctx, mouseX, mouseY, delta);
         EtmcManager m = EtmcManager.get();
-        Gfx.centered(ctx, this.textRenderer, this.title, this.width / 2, 18, 0xFFFFFF);
+        Gfx.centered(ctx, font(), this.title, this.width / 2, 18, 0xFFFFFF);
 
         EtmcSession s = m.session();
         if (s == null || !s.isActive()) {
-            Gfx.centered(ctx, this.textRenderer, Txt.literal("No active session"),
+            Gfx.centered(ctx, font(), Txt.literal("No active session"),
                     this.width / 2, 48, 0xFFAAAAAA);
             return;
         }
@@ -83,40 +95,40 @@ public final class StatusScreen extends Screen {
         int x = this.width / 2 - 110;
         int y = 44;
         String role = s.mode() == EtmcSession.Mode.HOST ? "Hosting" : "Joined";
-        Gfx.text(ctx, this.textRenderer, Txt.literal("Role: " + role), x, y, 0xFF55FF55);
+        Gfx.text(ctx, font(), Txt.literal("Role: " + role), x, y, 0xFF55FF55);
         y += 12;
-        Gfx.text(ctx, this.textRenderer, Txt.literal("Virtual IP: "
+        Gfx.text(ctx, font(), Txt.literal("Virtual IP: "
                 + (st.virtualIp() == null ? "(assigning…)" : st.virtualIp())), x, y, 0xFFFFFFFF);
         y += 12;
-        Gfx.text(ctx, this.textRenderer, Txt.literal("Active connections: " + s.activeConnections()), x, y, 0xFFFFFFFF);
+        Gfx.text(ctx, font(), Txt.literal("Active connections: " + s.activeConnections()), x, y, 0xFFFFFFFF);
         y += 12;
         if (s.mode() == EtmcSession.Mode.JOIN) {
-            Gfx.text(ctx, this.textRenderer, Txt.literal("Local proxy: 127.0.0.1:" + s.localPort()), x, y, 0xFFAAAAAA);
+            Gfx.text(ctx, font(), Txt.literal("Local proxy: 127.0.0.1:" + s.localPort()), x, y, 0xFFAAAAAA);
             y += 12;
         }
-        Gfx.text(ctx, this.textRenderer, Txt.literal("Peers (" + st.peerCount()
+        Gfx.text(ctx, font(), Txt.literal("Peers (" + st.peerCount()
                 + ", P2P " + st.directPeerCount() + "):"), x, y, 0xFFAAAAAA);
         y += 12;
         for (NetworkStatus.Peer p : st.peers()) {
             String ping = p.latencyMs() >= 0 ? p.latencyMs() + " ms" : "—";
             String line = "  " + p.hostname() + "  " + (p.ipv4() == null ? "" : p.ipv4()) + "  " + ping
                     + (p.relay() ? "  (relay)" : "");
-            Gfx.text(ctx, this.textRenderer, Txt.literal(line), x, y, p.relay() ? 0xFFFFAA00 : 0xFFDDDDDD);
+            Gfx.text(ctx, font(), Txt.literal(line), x, y, p.relay() ? 0xFFFFAA00 : 0xFFDDDDDD);
             y += 11;
         }
         if (!toast.isEmpty()) {
-            Gfx.centered(ctx, this.textRenderer, Txt.literal(toast), this.width / 2, this.height - 16, 0xFF55FF55);
+            Gfx.centered(ctx, font(), Txt.literal(toast), this.width / 2, this.height - 16, 0xFF55FF55);
         }
     }
 
-    //? if >=1.18 {
+    //? if fabric && >=1.18 {
     @Override
     //?}
     public void close() {
-        this.client.setScreen(parent);
+        mc().setScreen(parent);
     }
 
-    //? if <1.18 {
+    //? if !fabric || <1.18 {
     /*@Override
     public void onClose() {
         this.close();
