@@ -1,22 +1,27 @@
 package dev.l5z12.etmc.client;
 
+//? if fabric {
 import net.minecraft.text.MutableText;
-//? if <1.19 {
+//?} else {
+/*import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;*/
+//?}
+//? if fabric && <1.19 {
 /*import net.minecraft.text.LiteralText;
 import net.minecraft.text.TranslatableText;*/
 //?}
 
 /**
- * Tiny text-factory facade so the Fabric screens/commands are version-agnostic: 1.19+ build text via
- * the {@code Text.literal}/{@code Text.translatable} statics, while 1.16–1.18 use the concrete
- * {@code LiteralText}/{@code TranslatableText} constructors (the statics didn't exist yet). Only this
- * file carries that split; callers always go through {@code Txt}.
+ * Tiny text-factory facade so screens/commands are version- AND loader-agnostic. Fabric (yarn): 1.19+
+ * use the {@code Text.literal}/{@code translatable} statics, 1.16–1.18 the {@code LiteralText}/
+ * {@code TranslatableText} ctors. NeoForge/Forge (mojmap): {@code Component.literal}/{@code translatable}.
+ * Callers always go through {@code Txt}; only this file carries the split.
  */
 public final class Txt {
 
     private Txt() {}
 
-    //? if >=1.19 {
+    //? if fabric && >=1.19 {
     public static MutableText literal(String s) {
         return net.minecraft.text.Text.literal(s);
     }
@@ -24,13 +29,21 @@ public final class Txt {
     public static MutableText translatable(String key, Object... args) {
         return net.minecraft.text.Text.translatable(key, args);
     }
-    //?} else {
+    //?} else if fabric {
     /*public static MutableText literal(String s) {
         return new LiteralText(s);
     }
 
     public static MutableText translatable(String key, Object... args) {
         return new TranslatableText(key, args);
+    }
+    *///?} else {
+    /*public static MutableComponent literal(String s) {
+        return Component.literal(s);
+    }
+
+    public static MutableComponent translatable(String key, Object... args) {
+        return Component.translatable(key, args);
     }
     *///?}
 }
