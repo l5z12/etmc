@@ -115,10 +115,15 @@ gets commented when `fabric=false` must not contain `/* */`.
   Standalone `neoforge/`/`forge/` subprojects + `mc-common/` deleted (kept only the loader resource
   dirs). CI runs `chiseledBuild` + the Paper matrix. Only one runtime mojmap fix was needed across the
   whole merge (`ServerData.ip`); 1.20.6-neoforge needed one more (`ResourceLocation` ctor).
-- ⏳ Remaining version gaps: **NeoForge 1.20.1** (47.1.x scheme; pre-1.20.5 so `startConnecting` lacks
-  `TransferState` — needs a mojmap version sub-guard like Fabric's). **Forge older eras** — the hard
-  one: FG6 (1.18–1.20) + FG5 (1.17) need different node buildscripts AND a per-era `EtmcForge` entry
-  (the current one uses Forge-1.21 EventBus 7; older Forge's event API differs).
+- ⏳ Remaining version gaps are **legacy-toolchain long-tail** (separate, finicky, runtime-unverifiable
+  here — distinct from the proven unified-tree pattern):
+  - **NeoForge 1.20.1**: *not buildable with our MDG setup*. NeoForge's releases maven starts at
+    **20.2** (checked 2026-06-21); 1.20.1 (47.x) lived on a legacy maven and used **NeoGradle**, which
+    MDG 2.x doesn't support. Would need a separate NeoGradle node buildscript. NeoForge via MDG covers
+    1.20.2+ (we ship 1.20.6 + 1.21.10).
+  - **Forge older eras** (1.17–1.20.6): need **FG6** (1.18–1.20) / **FG5** (1.17) node buildscripts AND
+    a per-era `EtmcForge` entry — the current one uses Forge-1.21 **EventBus 7** (`BusGroup`,
+    `Event.getBus(...)`); 1.20.x and earlier use the older `IEventBus`/`@SubscribeEvent` API.
 
 ### Stage 3 order (Fabric-first, per user)
 - 3a: ✅ Stonecutter harness, **Fabric 1.21.10**, green + committed.
