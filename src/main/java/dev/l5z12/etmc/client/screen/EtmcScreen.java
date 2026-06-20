@@ -1,20 +1,25 @@
 package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
-import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
-//? if >=1.20 {
-import net.minecraft.client.gui.DrawContext;
-//?} else
-/*import net.minecraft.client.util.math.MatrixStack;*/
+import dev.l5z12.etmc.core.EtmcSession;
+//? if fabric {
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.text.Text;
+//?} else {
+/*import net.minecraft.client.gui.screens.Screen;*/
+//?}
+//? if fabric && >=1.20 {
+import net.minecraft.client.gui.DrawContext;
+//?} else if fabric {
+/*import net.minecraft.client.util.math.MatrixStack;*/
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphics;*/
+//?}
 
 /** Main etmc menu: host, join, status/leave, settings. */
-public final class EtmcScreen extends Screen {
+public final class EtmcScreen extends EtmcBaseScreen {
 
     private final Screen parent;
 
@@ -33,51 +38,54 @@ public final class EtmcScreen extends Screen {
         int y = this.height / 4 + 8;
         int w = 200;
 
-        ButtonWidget host = Ui.button(Txt.literal("Host this world"),
-                b -> this.client.setScreen(new HostScreen(this)))
+        var host = Ui.button(Txt.literal("Host this world"),
+                b -> mc().setScreen(new HostScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         host.active = ready && !active;
-        addDrawableChild(host);
+        add(host);
         y += 24;
 
-        ButtonWidget join = Ui.button(Txt.literal("Join with a code"),
-                b -> this.client.setScreen(new JoinScreen(this)))
+        var join = Ui.button(Txt.literal("Join with a code"),
+                b -> mc().setScreen(new JoinScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         join.active = ready && !active;
-        addDrawableChild(join);
+        add(join);
         y += 24;
 
-        ButtonWidget connectUrl = Ui.button(Txt.literal("Connect via config URL"),
-                b -> this.client.setScreen(new ConnectUrlScreen(this)))
+        var connectUrl = Ui.button(Txt.literal("Connect via config URL"),
+                b -> mc().setScreen(new ConnectUrlScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         connectUrl.active = ready && !active;
-        addDrawableChild(connectUrl);
+        add(connectUrl);
         y += 24;
 
         if (active) {
-            addDrawableChild(Ui.button(Txt.literal("Session status"),
-                            b -> this.client.setScreen(new StatusScreen(this)))
+            add(Ui.button(Txt.literal("Session status"),
+                            b -> mc().setScreen(new StatusScreen(this)))
                     .dimensions(cx - w / 2, y, w, 20).build());
             y += 24;
         }
 
-        addDrawableChild(Ui.button(Txt.literal("Settings & relays"),
-                        b -> this.client.setScreen(new SettingsScreen(this)))
+        add(Ui.button(Txt.literal("Settings & relays"),
+                        b -> mc().setScreen(new SettingsScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build());
         y += 24;
 
-        addDrawableChild(Ui.button(Txt.literal("Done"), b -> this.close())
+        add(Ui.button(Txt.literal("Done"), b -> this.close())
                 .dimensions(cx - w / 2, y, w, 20).build());
     }
 
     @Override
-    //? if >=1.20 {
+    //? if fabric && >=1.20 {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
-    //?} else
+    //?} else if fabric {
     /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
+    //?} else {
+    /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
+    //?}
     {
         super.render(ctx, mouseX, mouseY, delta);
-        Gfx.centered(ctx, this.textRenderer, this.title, this.width / 2, 28, 0xFFFFFF);
+        Gfx.centered(ctx, font(), this.title, this.width / 2, 28, 0xFFFFFF);
 
         EtmcManager m = EtmcManager.get();
         String sub;
@@ -94,17 +102,17 @@ public final class EtmcScreen extends Screen {
         } else {
             sub = "EasyTier P2P multiplayer, in-game";
         }
-        Gfx.centered(ctx, this.textRenderer, Txt.literal(sub), this.width / 2, 44, color);
+        Gfx.centered(ctx, font(), Txt.literal(sub), this.width / 2, 44, color);
     }
 
-    //? if >=1.18 {
+    //? if fabric && >=1.18 {
     @Override
     //?}
     public void close() {
-        this.client.setScreen(parent);
+        mc().setScreen(parent);
     }
 
-    //? if <1.18 {
+    //? if !fabric || <1.18 {
     /*@Override
     public void onClose() {
         this.close();
