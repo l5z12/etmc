@@ -61,12 +61,20 @@ jobs:
           echo "Bundled natives:"
           find common/src/main/resources/natives -type f -printf '  %p (%s bytes)\n'
 
-      # ForgeGradle's mavenizer needs a JDK 8; the build itself runs on 21.
+      # Fabric nodes need JDK 17 (1.17.1–1.20.1) and 21 (1.20.6+, loaders); ForgeGradle's mavenizer
+      # needs JDK 8. setup-java exports JAVA_HOME_<ver>_X64 for each; we hand all three to Gradle's
+      # toolchain locator so no JDK is auto-downloaded.
       - name: Set up JDK 8 (Forge mavenizer)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '8'
+
+      - name: Set up JDK 17 (Fabric 1.17.1–1.20.1)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -77,19 +85,20 @@ jobs:
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build all platform jars
+      - name: Build every Fabric version node + all loader jars
         run: |
           chmod +x ./gradlew
-          # Point ForgeGradle's toolchain locator at the JDK 8 set up above (no GitHub auto-download).
-          export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64"
-          ./gradlew build --no-daemon --stacktrace
+          # Hand Gradle's toolchain locator every JDK we set up (no GitHub auto-download).
+          export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64,$JAVA_HOME_17_X64,$JAVA_HOME_21_X64"
+          # chiseledBuild = all Stonecutter Fabric nodes (1.17.1 … 1.21.10); plus the loader subprojects.
+          ./gradlew chiseledBuild neoforge:build forge:build paper:build --no-daemon --stacktrace
 
       - name: Upload mod jars
         uses: actions/upload-artifact@v4
         with:
           name: etmc-jars
           path: |
-            fabric/build/libs/*.jar
+            versions/*/build/libs/*.jar
             paper/build/libs/*.jar
             neoforge/build/libs/*.jar
             forge/build/libs/*.jar
