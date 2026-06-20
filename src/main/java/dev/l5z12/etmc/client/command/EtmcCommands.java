@@ -5,12 +5,18 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.ModConfig;
+import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.screen.EtmcScreen;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
+//? if >=1.19 {
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
+//?} else {
+/*import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v1.FabricClientCommandSource;*/
+//?}
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 
@@ -67,7 +73,7 @@ public final class EtmcCommands {
         EtmcManager m = EtmcManager.get();
         if (!checkReady(src) || !checkRelay(src)) return 0;
         if (network == null || network.isBlank()) {
-            src.sendError(Text.literal("Usage: /etmc host <network> [secret]"));
+            src.sendError(Txt.literal("Usage: /etmc host <network> [secret]"));
             return 0;
         }
         feedback(src, "Hosting on network '" + network + "'…");
@@ -85,7 +91,7 @@ public final class EtmcCommands {
         try {
             jc = JoinCode.decode(code);
         } catch (IllegalArgumentException e) {
-            src.sendError(Text.literal("Bad join code: " + e.getMessage()));
+            src.sendError(Txt.literal("Bad join code: " + e.getMessage()));
             return 0;
         }
         feedback(src, "Joining '" + jc.networkName + "'…");
@@ -110,7 +116,7 @@ public final class EtmcCommands {
     private static int leave(CommandContext<FabricClientCommandSource> ctx) {
         EtmcManager m = EtmcManager.get();
         if (m.session() == null || !m.session().isActive()) {
-            ctx.getSource().sendError(Text.literal("Not in an etmc session."));
+            ctx.getSource().sendError(Txt.literal("Not in an etmc session."));
             return 0;
         }
         feedback(ctx.getSource(), "Leaving…");
@@ -122,7 +128,7 @@ public final class EtmcCommands {
         FabricClientCommandSource src = ctx.getSource();
         EtmcManager m = EtmcManager.get();
         if (!m.isReady()) {
-            src.sendError(Text.literal("etmc native library not loaded: " + m.nativeError()));
+            src.sendError(Txt.literal("etmc native library not loaded: " + m.nativeError()));
             return 0;
         }
         EtmcSession s = m.session();
@@ -147,7 +153,7 @@ public final class EtmcCommands {
         FabricClientCommandSource src = ctx.getSource();
         EtmcManager m = EtmcManager.get();
         if (m.session() == null || m.session().currentCode() == null) {
-            src.sendError(Text.literal("No active host session to invite to. Use /etmc host first."));
+            src.sendError(Txt.literal("No active host session to invite to. Use /etmc host first."));
             return 0;
         }
         JoinCode jc = m.session().currentCode();
@@ -203,7 +209,7 @@ public final class EtmcCommands {
 
     private static boolean checkReady(FabricClientCommandSource src) {
         if (!EtmcManager.get().isReady()) {
-            src.sendError(Text.literal("etmc native library not loaded: " + EtmcManager.get().nativeError()));
+            src.sendError(Txt.literal("etmc native library not loaded: " + EtmcManager.get().nativeError()));
             return false;
         }
         return true;
@@ -211,14 +217,14 @@ public final class EtmcCommands {
 
     private static boolean checkRelay(FabricClientCommandSource src) {
         if (!EtmcManager.get().config().hasRelay()) {
-            src.sendError(Text.literal("No relay configured. Add one with /etmc relay add <uri>."));
+            src.sendError(Txt.literal("No relay configured. Add one with /etmc relay add <uri>."));
             return false;
         }
         return true;
     }
 
     private static void feedback(FabricClientCommandSource src, String msg) {
-        src.sendFeedback(Text.literal(msg));
+        src.sendFeedback(Txt.literal(msg));
     }
 
     /** Posts a chat line from an async callback (back on the client thread). */
@@ -226,7 +232,7 @@ public final class EtmcCommands {
         MinecraftClient client = MinecraftClient.getInstance();
         client.execute(() -> {
             if (client.player != null) {
-                client.player.sendMessage(Text.literal("[etmc] " + msg), false);
+                client.player.sendMessage(Txt.literal("[etmc] " + msg), false);
             } else {
                 EtmcManager.get();
             }

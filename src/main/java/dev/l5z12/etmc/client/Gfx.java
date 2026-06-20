@@ -33,7 +33,8 @@ public final class Gfx {
     }
     //?} else {
     /*public static void centered(MatrixStack g, TextRenderer tr, Text t, int x, int y, int color) {
-        DrawableHelper.drawCenteredTextWithShadow(g, tr, t, x, y, color);
+        // Pre-1.20 only exposes the OrderedText overload of drawCenteredTextWithShadow.
+        DrawableHelper.drawCenteredTextWithShadow(g, tr, t.asOrderedText(), x, y, color);
     }
 
     public static void text(MatrixStack g, TextRenderer tr, Text t, int x, int y, int color) {

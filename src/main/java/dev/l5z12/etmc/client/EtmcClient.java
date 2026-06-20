@@ -3,7 +3,9 @@ package dev.l5z12.etmc.client;
 import dev.l5z12.etmc.client.command.EtmcCommands;
 import dev.l5z12.etmc.client.screen.EtmcScreen;
 import net.fabricmc.api.ClientModInitializer;
+//? if >=1.19 {
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+//?}
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 //? if >=1.21 {
@@ -67,8 +69,14 @@ public final class EtmcClient implements ClientModInitializer {
         /*HudRenderCallback.EVENT.register((ctx, tickDelta) -> EtmcHud.render(ctx));*/
         //?}
 
+        // 1.19+: register via the command-registration event (v2 API). 1.16-1.18: the v1 client
+        // command API has no event — register directly on the global ClientCommandManager.DISPATCHER.
+        //? if >=1.19 {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
                 EtmcCommands.register(dispatcher));
+        //?} else {
+        /*EtmcCommands.register(net.fabricmc.fabric.api.client.command.v1.ClientCommandManager.DISPATCHER);*/
+        //?}
     }
 
     public static MinecraftClient mc() {

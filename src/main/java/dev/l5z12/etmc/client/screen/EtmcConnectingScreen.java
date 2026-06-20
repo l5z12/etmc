@@ -1,6 +1,8 @@
 package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.Txt;
+import dev.l5z12.etmc.client.Ui;
 //? if >=1.20 {
 import net.minecraft.client.gui.DrawContext;
 //?} else
@@ -24,7 +26,7 @@ public final class EtmcConnectingScreen extends Screen {
     private int ticks;
 
     public EtmcConnectingScreen(Screen parent, String label, Runnable onProceed, Runnable onCancel) {
-        super(Text.literal("Establishing P2P connection"));
+        super(Txt.literal("Establishing P2P connection"));
         this.parent = parent;
         this.label = label;
         this.onProceed = onProceed;
@@ -33,11 +35,11 @@ public final class EtmcConnectingScreen extends Screen {
 
     @Override
     protected void init() {
-        addDrawableChild(ButtonWidget.builder(Text.literal("Join now anyway"), b -> {
+        addDrawableChild(Ui.button(Txt.literal("Join now anyway"), b -> {
                     if (onProceed != null) onProceed.run();
                 })
                 .dimensions(this.width / 2 - 100, this.height / 2 + 18, 200, 20).build());
-        addDrawableChild(ButtonWidget.builder(Text.translatable("gui.cancel"), b -> this.close())
+        addDrawableChild(Ui.button(Txt.translatable("gui.cancel"), b -> this.close())
                 .dimensions(this.width / 2 - 100, this.height / 2 + 42, 200, 20).build());
     }
 
@@ -56,15 +58,24 @@ public final class EtmcConnectingScreen extends Screen {
         String dots = ".".repeat((this.ticks / 5) % 4);
         String sub = (label == null || label.isBlank() ? "Connecting" : "Connecting to " + label) + dots;
         Gfx.centered(ctx, this.textRenderer, this.title, this.width / 2, this.height / 2 - 50, 0xFFFFFFFF);
-        Gfx.centered(ctx, this.textRenderer, Text.literal(sub), this.width / 2, this.height / 2 - 30, 0xFFAAAAAA);
+        Gfx.centered(ctx, this.textRenderer, Txt.literal(sub), this.width / 2, this.height / 2 - 30, 0xFFAAAAAA);
         Gfx.centered(ctx, this.textRenderer,
-                Text.literal("Waiting for a direct link — or join now over a relay."),
+                Txt.literal("Waiting for a direct link — or join now over a relay."),
                 this.width / 2, this.height / 2 - 14, 0xFF777777);
     }
 
+    //? if >=1.18 {
     @Override
+    //?}
     public void close() {
         if (onCancel != null) onCancel.run();
         this.client.setScreen(parent);
     }
+
+    //? if <1.18 {
+    /*@Override
+    public void onClose() {
+        this.close();
+    }*/
+    //?}
 }

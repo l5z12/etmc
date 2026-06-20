@@ -88,7 +88,7 @@ public final class EtmcHud {
         Gfx.fill(ctx, x, y, x + boxW, y + boxH, BG);
         int ty = y + pad;
         for (Line l : lines) {
-            Gfx.text(ctx, tr, Text.literal(l.text), x + pad, ty, l.color);
+            Gfx.text(ctx, tr, Txt.literal(l.text), x + pad, ty, l.color);
             ty += lineH;
         }
     }

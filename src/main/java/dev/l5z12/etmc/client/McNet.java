@@ -86,8 +86,11 @@ public final class McNet {
         }
         //? if >=1.20.2 {
         list.add(new ServerInfo(name, address, ServerInfo.ServerType.OTHER), true);
-        //?} else
+        //?} else if >=1.19 {
         /*list.add(new ServerInfo(name, address, false), true);*/
+        //?} else {
+        /*list.add(new ServerInfo(name, address, false));*/
+        //?}
         list.saveFile();
 
         if (client.world == null) {
@@ -95,7 +98,7 @@ public final class McNet {
         } else {
             client.setScreen(null);
             if (client.player != null) {
-                client.player.sendMessage(Text.literal("[etmc] Added '" + name
+                client.player.sendMessage(Txt.literal("[etmc] Added '" + name
                         + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
                         + address + ")."), false);
             }

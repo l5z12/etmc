@@ -3,6 +3,8 @@ package dev.l5z12.etmc.client.screen;
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.Txt;
+import dev.l5z12.etmc.client.Ui;
 //? if >=1.20 {
 import net.minecraft.client.gui.DrawContext;
 //?} else
@@ -17,7 +19,7 @@ public final class EtmcScreen extends Screen {
     private final Screen parent;
 
     public EtmcScreen(Screen parent) {
-        super(Text.literal("etmc"));
+        super(Txt.literal("etmc"));
         this.parent = parent;
     }
 
@@ -31,21 +33,21 @@ public final class EtmcScreen extends Screen {
         int y = this.height / 4 + 8;
         int w = 200;
 
-        ButtonWidget host = ButtonWidget.builder(Text.literal("Host this world"),
+        ButtonWidget host = Ui.button(Txt.literal("Host this world"),
                 b -> this.client.setScreen(new HostScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         host.active = ready && !active;
         addDrawableChild(host);
         y += 24;
 
-        ButtonWidget join = ButtonWidget.builder(Text.literal("Join with a code"),
+        ButtonWidget join = Ui.button(Txt.literal("Join with a code"),
                 b -> this.client.setScreen(new JoinScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         join.active = ready && !active;
         addDrawableChild(join);
         y += 24;
 
-        ButtonWidget connectUrl = ButtonWidget.builder(Text.literal("Connect via config URL"),
+        ButtonWidget connectUrl = Ui.button(Txt.literal("Connect via config URL"),
                 b -> this.client.setScreen(new ConnectUrlScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         connectUrl.active = ready && !active;
@@ -53,18 +55,18 @@ public final class EtmcScreen extends Screen {
         y += 24;
 
         if (active) {
-            addDrawableChild(ButtonWidget.builder(Text.literal("Session status"),
+            addDrawableChild(Ui.button(Txt.literal("Session status"),
                             b -> this.client.setScreen(new StatusScreen(this)))
                     .dimensions(cx - w / 2, y, w, 20).build());
             y += 24;
         }
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Settings & relays"),
+        addDrawableChild(Ui.button(Txt.literal("Settings & relays"),
                         b -> this.client.setScreen(new SettingsScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build());
         y += 24;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Done"), b -> this.close())
+        addDrawableChild(Ui.button(Txt.literal("Done"), b -> this.close())
                 .dimensions(cx - w / 2, y, w, 20).build());
     }
 
@@ -92,11 +94,20 @@ public final class EtmcScreen extends Screen {
         } else {
             sub = "EasyTier P2P multiplayer, in-game";
         }
-        Gfx.centered(ctx, this.textRenderer, Text.literal(sub), this.width / 2, 44, color);
+        Gfx.centered(ctx, this.textRenderer, Txt.literal(sub), this.width / 2, 44, color);
     }
 
+    //? if >=1.18 {
     @Override
+    //?}
     public void close() {
         this.client.setScreen(parent);
     }
+
+    //? if <1.18 {
+    /*@Override
+    public void onClose() {
+        this.close();
+    }*/
+    //?}
 }

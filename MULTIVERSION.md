@@ -12,7 +12,7 @@ built via **Stonecutter** (`dev.kikugie.stonecutter`). CI builds everything.
 
 | MC | Java | FFI backend | Fabric | NeoForge | Forge | Paper |
 |------|------|------|:--:|:--:|:--:|:--:|
-| 1.17.1 | 16 | JNA | ✅ | — | ✅ | ✅ |
+| 1.17.1 | 17 | JNA | ✅ | — | ✅ | ✅ |
 | 1.18.2 | 17 | JNA | ✅ | — | ✅ | ✅ |
 | 1.19.4 | 17 | JNA | ✅ | — | ✅ | ✅ |
 | 1.20.1 | 17 | JNA | ✅ | ✅ | ✅ | ✅ |
@@ -29,9 +29,25 @@ built via **Stonecutter** (`dev.kikugie.stonecutter`). CI builds everything.
 - JNA is `compileOnly` on FFM rows; the JNA rows (1.17–1.20.1) **bundle** it (per-version build).
 
 ## Per-version code variants (Stonecutter `//? if` comments)
-- **GUI**: `GuiGraphics` (1.20+) vs `MatrixStack`/`PoseStack` (1.17–1.19) in screens + HUD.
-- **Mixins**: `ConnectScreen` / `ServerAddress` / `Connection` method signatures differ per version
-  (yarn names on Fabric; official names on NeoForge/Forge; SRG vs official on old Forge).
+- **GUI**: `DrawContext` (1.20+) vs `MatrixStack` + `DrawableHelper` (1.17–1.19) — funnelled through
+  `client/Gfx.java` so screens/HUD call `Gfx.centered/text/fill` and only `Gfx` carries the split.
+  Pre-1.20 `drawCenteredTextWithShadow` only has the **`OrderedText`** overload → `Gfx.centered`
+  passes `t.asOrderedText()` (works 1.17–1.19; 1.19.4 has both overloads).
+- **Text factories**: `Text.literal/translatable` are **1.19+** only; 1.16–1.18 use `new LiteralText` /
+  `new TranslatableText`. Funnelled through `client/Txt.java` (`Txt.literal/translatable`).
+- **Buttons**: `ButtonWidget.builder(...).dimensions(...).build()` is **1.19.4+**; older uses the
+  `new ButtonWidget(x,y,w,h,text,onPress)` ctor. `client/Ui.java` mirrors the builder fluent shape so
+  call sites only change `ButtonWidget.builder(` → `Ui.button(`.
+- **Screen close hook**: `Screen.close()` is **1.18+**; 1.17.1 is `onClose()`. Each screen keeps a
+  plain `close()` and adds a guarded `onClose()` delegate for `<1.18` so callers are untouched.
+- **Client commands**: `…client.command.v2` (1.19+, registered via `ClientCommandRegistrationCallback`)
+  vs `…v1` (1.16–1.18, registered on the static `ClientCommandManager.DISPATCHER`). Guarded in
+  `EtmcCommands` (imports) + `EtmcClient` (registration).
+- **Gson** (shared `common/`, no Stonecutter preprocessing): `JsonParser.parseString` is 2.8.6+;
+  1.17/1.18 bundle older Gson → use the universal instance `new JsonParser().parse(json)`.
+- **Mixins**: `ClientConnection.connect` is the 2-arg `(InetSocketAddress, boolean)` form `<1.20` vs the
+  3-arg `→ChannelFuture` helper `>=1.20`; `ServerInfo`/`ServerList.add` arity also shifts (3-tier guard
+  in `McNet`). NeoForge/Forge use official names; SRG vs official on old Forge.
 - **Mappings**: yarn (Fabric ≤1.21) / mojmap (Neo/Forge, Fabric 26.x unobf); parchment where useful.
 - **26.x**: unobfuscated — Fabric also on official names; mixin configs use official names.
 
@@ -70,10 +86,15 @@ stonecutter {
 - **Implication**: the current `fabric/ neoforge/ forge/ paper/ common/ mc-common/` split must merge into one root `src/` with `//? if fabric {` / `//? if >=1.20 {` preprocessor guards. Big restructure — do it incrementally, Fabric branch first.
 
 ### Stage 3 order (Fabric-first, per user)
-- 3a: Stonecutter harness, **Fabric 1.21.10 only**, green + committed.
-- 3b…: add Fabric 1.20.6, 1.20.1, 1.19.4, 1.18.2, 1.17.1, 26.2 — each built green, fixing GUI/mixin/mapping breaks, bundling JNA on Java-16/17 rows.
+- 3a: ✅ Stonecutter harness, **Fabric 1.21.10**, green + committed.
+- 3b: ✅ Fabric **1.20.6, 1.20.1, 1.19.4, 1.18.2, 1.17.1** all build green (compile + remapJar, no remap
+  warnings) — `Gfx`/`Txt`/`Ui` facades + command-v1/v2, `onClose`, `ServerList`, Gson, connect-mixin
+  guards. JNA bundled on the Java-17 rows (1.17.1–1.20.1). **Runtime not yet verified** (compile-only).
+- 3c: ⏳ Fabric **26.2** (mojmap/unobf — different mappings/build variant; mixin configs may need
+  official names; Java 25 toolchain).
 - then NeoForge, Forge, Paper branches.
-- Per-Fabric-version coordinates to resolve (yarn build, fabric-loader, fabric-api) via fabricmc meta/maven.
+- Per-Fabric-version coordinates resolved (yarn build, fabric-loader, fabric-api) via fabricmc meta/maven.
+  Note: 1.17.1 + 1.18.2 use the **Java 17** toolchain (MC 1.17 needs Java 16+, 17 runs it fine).
 
 ## Verification reality
 Local JDKs 16?/17/21/25 cover most runtime checks, but each Neo/Forge version downloads a toolchain

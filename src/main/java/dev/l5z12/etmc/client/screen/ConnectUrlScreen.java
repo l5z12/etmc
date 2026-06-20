@@ -2,6 +2,8 @@ package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.Txt;
+import dev.l5z12.etmc.client.Ui;
 //? if >=1.20 {
 import net.minecraft.client.gui.DrawContext;
 //?} else
@@ -26,7 +28,7 @@ public final class ConnectUrlScreen extends Screen {
     private volatile int messageColor = 0xFFAAAAAA;
 
     public ConnectUrlScreen(Screen parent) {
-        super(Text.literal("Connect via config URL"));
+        super(Txt.literal("Connect via config URL"));
         this.parent = parent;
     }
 
@@ -36,29 +38,29 @@ public final class ConnectUrlScreen extends Screen {
         int w = 280;
         int y = this.height / 4;
 
-        urlField = new TextFieldWidget(this.textRenderer, cx - w / 2, y + 12, w, 20, Text.literal("Config URL"));
+        urlField = new TextFieldWidget(this.textRenderer, cx - w / 2, y + 12, w, 20, Txt.literal("Config URL"));
         urlField.setMaxLength(1024);
         addDrawableChild(urlField);
         setInitialFocus(urlField);
         y += 44;
 
-        serverField = new TextFieldWidget(this.textRenderer, cx - w / 2, y + 12, w, 20, Text.literal("Server"));
+        serverField = new TextFieldWidget(this.textRenderer, cx - w / 2, y + 12, w, 20, Txt.literal("Server"));
         serverField.setMaxLength(64);
         addDrawableChild(serverField);
         y += 48;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Paste URL"), b ->
+        addDrawableChild(Ui.button(Txt.literal("Paste URL"), b ->
                 urlField.setText(this.client.keyboard.getClipboard().trim()))
                 .dimensions(cx - w / 2, y, w, 20).build());
         y += 28;
 
-        connectButton = ButtonWidget.builder(Text.literal("Fetch & connect"), b -> connect())
+        connectButton = Ui.button(Txt.literal("Fetch & connect"), b -> connect())
                 .dimensions(cx - w / 2, y, w, 20).build();
         connectButton.active = EtmcManager.get().isReady();
         addDrawableChild(connectButton);
         y += 24;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Back"), b -> this.close())
+        addDrawableChild(Ui.button(Txt.literal("Back"), b -> this.close())
                 .dimensions(cx - w / 2, y, w, 20).build());
     }
 
@@ -91,12 +93,12 @@ public final class ConnectUrlScreen extends Screen {
         Gfx.centered(ctx, this.textRenderer, this.title, this.width / 2, 22, 0xFFFFFF);
         int cx = this.width / 2;
         int w = 280;
-        Gfx.text(ctx, this.textRenderer, Text.literal("Config URL (http/https to an EasyTier config)"),
+        Gfx.text(ctx, this.textRenderer, Txt.literal("Config URL (http/https to an EasyTier config)"),
                 cx - w / 2, this.height / 4, 0xFFAAAAAA);
-        Gfx.text(ctx, this.textRenderer, Text.literal("Server ip:port (optional if config has [etmc] server)"),
+        Gfx.text(ctx, this.textRenderer, Txt.literal("Server ip:port (optional if config has [etmc] server)"),
                 cx - w / 2, this.height / 4 + 44, 0xFFAAAAAA);
         if (!message.isEmpty()) {
-            Gfx.centered(ctx, this.textRenderer, Text.literal(message), cx, this.height - 38, messageColor);
+            Gfx.centered(ctx, this.textRenderer, Txt.literal(message), cx, this.height - 38, messageColor);
         }
     }
 
@@ -105,10 +107,19 @@ public final class ConnectUrlScreen extends Screen {
         this.messageColor = color;
     }
 
+    //? if >=1.18 {
     @Override
+    //?}
     public void close() {
         this.client.setScreen(parent);
     }
+
+    //? if <1.18 {
+    /*@Override
+    public void onClose() {
+        this.close();
+    }*/
+    //?}
 
     private static String rootMessage(Throwable t) {
         Throwable c = t;

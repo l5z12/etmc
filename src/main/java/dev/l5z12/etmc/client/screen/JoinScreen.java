@@ -3,6 +3,8 @@ package dev.l5z12.etmc.client.screen;
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.Txt;
+import dev.l5z12.etmc.client.Ui;
 //? if >=1.20 {
 import net.minecraft.client.gui.DrawContext;
 //?} else
@@ -22,7 +24,7 @@ public final class JoinScreen extends Screen {
     private volatile int messageColor = 0xFFAAAAAA;
 
     public JoinScreen(Screen parent) {
-        super(Text.literal("Join a world"));
+        super(Txt.literal("Join a world"));
         this.parent = parent;
     }
 
@@ -32,24 +34,24 @@ public final class JoinScreen extends Screen {
         int w = 260;
         int y = this.height / 4 + 12;
 
-        codeField = new TextFieldWidget(this.textRenderer, cx - w / 2, y, w, 20, Text.literal("Join code"));
+        codeField = new TextFieldWidget(this.textRenderer, cx - w / 2, y, w, 20, Txt.literal("Join code"));
         codeField.setMaxLength(4096);
         addDrawableChild(codeField);
         setInitialFocus(codeField);
         y += 28;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Paste from clipboard"), b -> {
+        addDrawableChild(Ui.button(Txt.literal("Paste from clipboard"), b -> {
             codeField.setText(this.client.keyboard.getClipboard().trim());
         }).dimensions(cx - w / 2, y, w, 20).build());
         y += 28;
 
-        joinButton = ButtonWidget.builder(Text.literal("Join"), b -> startJoining())
+        joinButton = Ui.button(Txt.literal("Join"), b -> startJoining())
                 .dimensions(cx - w / 2, y, w, 20).build();
         joinButton.active = EtmcManager.get().isReady();
         addDrawableChild(joinButton);
         y += 24;
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Back"), b -> this.close())
+        addDrawableChild(Ui.button(Txt.literal("Back"), b -> this.close())
                 .dimensions(cx - w / 2, y, w, 20).build());
     }
 
@@ -83,9 +85,9 @@ public final class JoinScreen extends Screen {
         super.render(ctx, mouseX, mouseY, delta);
         Gfx.centered(ctx, this.textRenderer, this.title, this.width / 2, 24, 0xFFFFFF);
         Gfx.centered(ctx, this.textRenderer,
-                Text.literal("Paste the ETMC1:… code your host shared"), this.width / 2, this.height / 4 - 4, 0xFFAAAAAA);
+                Txt.literal("Paste the ETMC1:… code your host shared"), this.width / 2, this.height / 4 - 4, 0xFFAAAAAA);
         if (!message.isEmpty()) {
-            Gfx.centered(ctx, this.textRenderer, Text.literal(message), this.width / 2, this.height - 40, messageColor);
+            Gfx.centered(ctx, this.textRenderer, Txt.literal(message), this.width / 2, this.height - 40, messageColor);
         }
     }
 
@@ -94,10 +96,19 @@ public final class JoinScreen extends Screen {
         this.messageColor = color;
     }
 
+    //? if >=1.18 {
     @Override
+    //?}
     public void close() {
         this.client.setScreen(parent);
     }
+
+    //? if <1.18 {
+    /*@Override
+    public void onClose() {
+        this.close();
+    }*/
+    //?}
 
     private static String rootMessage(Throwable t) {
         Throwable c = t;
