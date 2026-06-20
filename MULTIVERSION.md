@@ -18,7 +18,12 @@ built via **Stonecutter** (`dev.kikugie.stonecutter`). CI builds everything.
 | 1.20.1 | 17 | JNA | ✅ | ✅ | ✅ | ✅ |
 | 1.20.6 | 21 | FFM | ✅ | ✅ | ✅ | ✅ |
 | 1.21.10 | 21 | FFM | ✅ | ✅ | ✅ | ✅ |
-| 26.2 | 25 | FFM (unobf) | ✅ | ✅ | ✅ | ✅ |
+| 26.x | 25 | FFM (unobf) | ⏳ | ⏳ | ⏳ | ⏳ |
+
+> **26.x** ships **unobfuscated** (no mappings) — official names, shares the mojmap path — but is **not
+> on the build's maven yet** (not buildable until it publishes). **1.21.11** exists but is deferred
+> (its `NetworkingBackend` connect refactor breaks the channel-swap mixin remap on fresh mappings);
+> **1.21.10** is the verified ceiling.
 
 (1.20 split into 1.20.1/Java-17 and 1.20.6/Java-21 for the Java-version boundary. NeoForge starts at
 1.20.1. Manifest version ranges widen each row to cover its patch siblings.)
@@ -90,8 +95,17 @@ stonecutter {
 - 3b: ✅ Fabric **1.20.6, 1.20.1, 1.19.4, 1.18.2, 1.17.1** all build green (compile + remapJar, no remap
   warnings) — `Gfx`/`Txt`/`Ui` facades + command-v1/v2, `onClose`, `ServerList`, Gson, connect-mixin
   guards. JNA bundled on the Java-17 rows (1.17.1–1.20.1). **Runtime not yet verified** (compile-only).
-- 3c: ⏳ Fabric **26.2** (mojmap/unobf — different mappings/build variant; mixin configs may need
-  official names; Java 25 toolchain).
+- 3c: ⏳ Fabric **26.x** — Mojang ships 26.x **unobfuscated**, so there is **no mappings artifact**
+  (that's why Fabric meta's yarn list stops at 1.21.11). A 26.x node uses a **no-mappings (official
+  names) Loom variant** and its code uses official names → it shares the **mojmap/`mc-common` naming**,
+  not yarn `src/`. **Blocked: 26.x isn't published to the build's maven yet** (`/versions/game` had no
+  `26.*` on 2026-06-20) — can't build until the game/loader artifacts land. Java 25 toolchain.
+- **1.21.11 deferred**: it's the newest *buildable* version, but it refactored
+  `ClientConnection.connect` arg2 `boolean`→`NetworkingBackend`; the channel-swap `@Redirect` descriptor
+  won't tiny-remap against the very fresh yarn `1.21.11+build.6` mappings (the new class's intermediary
+  mapping is inconsistent), so the mixin would silently not apply → etmc:// joining broken. Kept
+  **1.21.10 as the verified ceiling** (clean remap, zero warnings) rather than ship a broken node.
+  Revisit when 1.21.11 mappings stabilize (or try refmap mode for that node).
 - then NeoForge, Forge, Paper branches.
 - Per-Fabric-version coordinates resolved (yarn build, fabric-loader, fabric-api) via fabricmc meta/maven.
   Note: 1.17.1 + 1.18.2 use the **Java 17** toolchain (MC 1.17 needs Java 16+, 17 runs it fine).
