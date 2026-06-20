@@ -90,8 +90,9 @@ jobs:
           chmod +x ./gradlew
           # Hand Gradle's toolchain locator every JDK we set up (no GitHub auto-download).
           export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64,$JAVA_HOME_17_X64,$JAVA_HOME_21_X64"
-          # chiseledBuild = all Stonecutter Fabric nodes (1.17.1 … 1.21.10); plus the loader subprojects.
-          ./gradlew chiseledBuild neoforge:build forge:build paper:build --no-daemon --stacktrace
+          # chiseledBuild = all Stonecutter Fabric nodes (1.17.1 … 1.21.10); plus the single-version
+          # NeoForge + Forge loaders. Paper is built across versions by the matrix job below.
+          ./gradlew chiseledBuild neoforge:build forge:build --no-daemon --stacktrace
 
       - name: Upload mod jars
         uses: actions/upload-artifact@v4
@@ -99,7 +100,66 @@ jobs:
           name: etmc-jars
           path: |
             versions/*/build/libs/*.jar
-            paper/build/libs/*.jar
             neoforge/build/libs/*.jar
             forge/build/libs/*.jar
+          if-no-files-found: error
+
+  # Paper is server-side and uses only stable Bukkit API + version-independent common/, so one source
+  # compiles across the whole range — only the paper-api version and the Java target change. Build each.
+  paper:
+    name: paper ${{ matrix.mc }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { mc: '1.17.1',  java: '17' }
+          - { mc: '1.18.2',  java: '17' }
+          - { mc: '1.19.4',  java: '17' }
+          - { mc: '1.20.1',  java: '17' }
+          - { mc: '1.20.6',  java: '21' }
+          - { mc: '1.21.10', java: '21' }
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v4
+
+      - name: Download freshly-built natives (if any)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: staging
+
+      - name: Place natives
+        run: |
+          if [ -d staging ]; then
+            for d in staging/native-*; do
+              [ -e "$d" ] || continue
+              tag="$(basename "$d" | sed 's/^native-//')"
+              mkdir -p "common/src/main/resources/natives/$tag"
+              cp "$d"/* "common/src/main/resources/natives/$tag/"
+            done
+          fi
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Paper jar (${{ matrix.mc }})
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :paper:build \
+            -Ppaper_version=${{ matrix.mc }}-R0.1-SNAPSHOT \
+            -Ppaper_java=${{ matrix.java }} \
+            --no-daemon --stacktrace
+
+      - name: Upload Paper jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: etmc-paper-${{ matrix.mc }}
+          path: paper/build/libs/*.jar
           if-no-files-found: error
