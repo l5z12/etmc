@@ -26,9 +26,15 @@ public final class EtmcNeoForge {
     public EtmcNeoForge(IEventBus modBus) {
         // Mod bus: registration events.
         modBus.addListener((RegisterKeyMappingsEvent e) -> e.register(EtmcKey.OPEN_MENU));
+        //? if >=1.21 {
         modBus.addListener((RegisterGuiLayersEvent e) ->
                 e.registerAboveAll(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));
+        //?} else {
+        /*modBus.addListener((RegisterGuiLayersEvent e) ->
+                e.registerAboveAll(new ResourceLocation("etmc", "status"),
+                        (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));*/
+        //?}
 
         // Game bus: client commands + ticking.
         NeoForge.EVENT_BUS.addListener((RegisterClientCommandsEvent e) -> EtmcCommands.register(e.getDispatcher()));
