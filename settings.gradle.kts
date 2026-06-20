@@ -19,8 +19,9 @@ plugins {
 
 rootProject.name = "etmc"
 
-// Other loaders stay single-version subprojects for now (Fabric-first migration).
-include("paper", "neoforge", "forge")
+// Paper stays a (multi-version-via-CI-matrix) subproject; NeoForge + Forge are now Stonecutter
+// loader nodes built from the shared src/ tree (see below), not standalone subprojects.
+include("paper")
 
 // Stonecutter versions the Fabric build (root = controller, root src/ = shared source).
 stonecutter {

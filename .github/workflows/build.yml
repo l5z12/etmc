@@ -90,9 +90,9 @@ jobs:
           chmod +x ./gradlew
           # Hand Gradle's toolchain locator every JDK we set up (no GitHub auto-download).
           export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64,$JAVA_HOME_17_X64,$JAVA_HOME_21_X64"
-          # chiseledBuild = all Stonecutter Fabric nodes (1.17.1 … 1.21.10); plus the single-version
-          # NeoForge + Forge loaders. Paper is built across versions by the matrix job below.
-          ./gradlew chiseledBuild neoforge:build forge:build --no-daemon --stacktrace
+          # chiseledBuild = every Stonecutter node: Fabric 1.17.1…1.21.10 + NeoForge 1.20.6/1.21.10
+          # + Forge 1.21.10, all from the one shared src/ tree. Paper is built by the matrix job below.
+          ./gradlew chiseledBuild --no-daemon --stacktrace
 
       - name: Upload mod jars
         uses: actions/upload-artifact@v4
@@ -100,8 +100,6 @@ jobs:
           name: etmc-jars
           path: |
             versions/*/build/libs/*.jar
-            neoforge/build/libs/*.jar
-            forge/build/libs/*.jar
           if-no-files-found: error
 
   # Paper is server-side and uses only stable Bukkit API + version-independent common/, so one source
