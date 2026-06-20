@@ -20,11 +20,13 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 /*import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v1.FabricClientCommandSource;*/
 //?}
-//? if fabric {
+//? if yarn {
 import net.minecraft.client.MinecraftClient;
 //?} else {
-/*import net.minecraft.client.Minecraft;
-import net.minecraft.commands.CommandSourceStack;
+/*import net.minecraft.client.Minecraft;*/
+//?}
+//? if !fabric {
+/*import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;*/
 //?}
 
@@ -82,7 +84,7 @@ public final class EtmcCommands {
     /*private static int menu(CommandContext<CommandSourceStack> ctx)*/
     //?}
     {
-        //? if fabric {
+        //? if yarn {
         MinecraftClient.getInstance().execute(() -> MinecraftClient.getInstance().setScreen(new EtmcScreen(null)));
         //?} else {
         /*Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new EtmcScreen(null)));*/
@@ -211,7 +213,7 @@ public final class EtmcCommands {
         }
         JoinCode jc = m.session().currentCode();
         String link = jc.encodeLink();
-        //? if fabric {
+        //? if yarn {
         MinecraftClient.getInstance().keyboard.setClipboard(link);
         //?} else {
         /*Minecraft.getInstance().keyboardHandler.setClipboard(link);*/
@@ -342,7 +344,7 @@ public final class EtmcCommands {
 
     /** Posts a chat line from an async callback (back on the client thread). */
     private static void reply(String msg) {
-        //? if fabric {
+        //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
         client.execute(() -> {
             if (client.player != null) {

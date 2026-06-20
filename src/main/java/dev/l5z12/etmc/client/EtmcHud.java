@@ -2,7 +2,7 @@ package dev.l5z12.etmc.client;
 
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.NetworkStatus;
-//? if fabric {
+//? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 //?} else {
@@ -10,9 +10,9 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;*/
 //?}
-//? if fabric && >=1.20 {
+//? if yarn && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
-//?} else if fabric {
+//?} else if yarn {
 /*import net.minecraft.client.util.math.MatrixStack;*/
 //?}
 
@@ -34,9 +34,9 @@ public final class EtmcHud {
 
     private EtmcHud() {}
 
-    //? if fabric && >=1.20 {
+    //? if yarn && >=1.20 {
     public static void render(DrawContext ctx)
-    //?} else if fabric {
+    //?} else if yarn {
     /*public static void render(MatrixStack ctx)*/
     //?} else {
     /*public static void render(GuiGraphics ctx)*/
@@ -49,7 +49,7 @@ public final class EtmcHud {
         EtmcSession s = m.session();
         if (s == null || !s.isActive()) return;
 
-        //? if fabric {
+        //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options.hudHidden) return;
         TextRenderer tr = client.textRenderer;
@@ -91,14 +91,14 @@ public final class EtmcHud {
         }
 
         int pad = 3;
-        //? if fabric {
+        //? if yarn {
         int lineH = tr.fontHeight + 1;
         //?} else {
         /*int lineH = tr.lineHeight + 1;*/
         //?}
         int w = 0;
         for (Line l : lines) {
-            //? if fabric {
+            //? if yarn {
             w = Math.max(w, tr.getWidth(l.text));
             //?} else {
             /*w = Math.max(w, tr.width(l.text));*/

@@ -1,6 +1,6 @@
 package dev.l5z12.etmc.client;
 
-//? if fabric {
+//? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
@@ -21,9 +21,9 @@ import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.world.level.GameType;*/
 //?}
-//? if fabric && >=1.20.2 {
+//? if yarn && >=1.20.2 {
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
-//?} else if fabric {
+//?} else if yarn {
 /*import net.minecraft.client.gui.screen.ConnectScreen;*/
 //?} else {
 /*import net.minecraft.client.gui.screens.ConnectScreen;*/
@@ -47,7 +47,7 @@ public final class McNet {
      */
     public static CompletableFuture<Integer> ensureOpenToLan() {
         CompletableFuture<Integer> cf = new CompletableFuture<>();
-        //? if fabric {
+        //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
         client.execute(() -> {
             try {
@@ -112,7 +112,7 @@ public final class McNet {
      * world" hang); etmc joining behaves like "Multiplayer → Add Server" + "Direct connect". Client thread.
      */
     public static void presentJoin(String label, int port) {
-        //? if fabric {
+        //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
         //?} else {
         /*Minecraft client = Minecraft.getInstance();*/
@@ -121,35 +121,35 @@ public final class McNet {
         String name = "etmc: " + label;
 
         ServerList list = new ServerList(client);
-        //? if fabric {
+        //? if yarn {
         list.loadFile();
         //?} else {
         /*list.load();*/
         //?}
         for (int i = list.size() - 1; i >= 0; i--) {
-            //? if fabric {
+            //? if yarn {
             ServerInfo s = list.get(i);
             //?} else {
             /*ServerData s = list.get(i);*/
             //?}
             if (s != null && name.equals(s.name)) list.remove(s);
         }
-        //? if fabric && >=1.20.2 {
+        //? if yarn && >=1.20.2 {
         list.add(new ServerInfo(name, address, ServerInfo.ServerType.OTHER), true);
-        //?} else if fabric && >=1.19 {
+        //?} else if yarn && >=1.19 {
         /*list.add(new ServerInfo(name, address, false), true);*/
-        //?} else if fabric {
+        //?} else if yarn {
         /*list.add(new ServerInfo(name, address, false));*/
         //?} else {
         /*list.add(new ServerData(name, address, ServerData.Type.OTHER), true);*/
         //?}
-        //? if fabric {
+        //? if yarn {
         list.saveFile();
         //?} else {
         /*list.save();*/
         //?}
 
-        //? if fabric {
+        //? if yarn {
         if (client.world == null) {
             client.setScreen(new MultiplayerScreen(new TitleScreen()));
         } else {
@@ -180,28 +180,28 @@ public final class McNet {
      * nothing actually connects to this address. Client thread; instance must already be started.
      */
     public static void connectViaChannel(Screen parent, String label) {
-        //? if fabric {
+        //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
         //?} else {
         /*Minecraft client = Minecraft.getInstance();*/
         //?}
-        //? if fabric && >=1.20.2 {
+        //? if yarn && >=1.20.2 {
         ServerInfo info = new ServerInfo("etmc: " + label, "127.0.0.1:25565", ServerInfo.ServerType.OTHER);
-        //?} else if fabric {
+        //?} else if yarn {
         /*ServerInfo info = new ServerInfo("etmc: " + label, "127.0.0.1:25565", false);*/
         //?} else {
         /*ServerData info = new ServerData("etmc: " + label, "127.0.0.1:25565", ServerData.Type.OTHER);*/
         //?}
-        //? if fabric {
+        //? if yarn {
         ServerAddress addr = ServerAddress.parse("127.0.0.1:25565");
         //?} else {
         /*ServerAddress addr = ServerAddress.parseString("127.0.0.1:25565");*/
         //?}
-        //? if fabric && >=1.20.5 {
+        //? if yarn && >=1.20.5 {
         ConnectScreen.connect(parent, client, addr, info, false, null);
-        //?} else if fabric && >=1.20 {
+        //?} else if yarn && >=1.20 {
         /*ConnectScreen.connect(parent, client, addr, info, false);*/
-        //?} else if fabric {
+        //?} else if yarn {
         /*ConnectScreen.connect(parent, client, addr, info);*/
         //?} else {
         /*ConnectScreen.startConnecting(parent, client, addr, info, false, null);*/

@@ -1,6 +1,6 @@
 package dev.l5z12.etmc.client;
 
-//? if fabric {
+//? if yarn {
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
@@ -22,7 +22,7 @@ public final class Ui {
 
     private Ui() {}
 
-    //? if fabric {
+    //? if yarn {
     public static Builder button(Text message, ButtonWidget.PressAction onPress) {
         return new Builder(message, onPress);
     }
@@ -57,7 +57,7 @@ public final class Ui {
     *///?}
 
     public static final class Builder {
-        //? if fabric {
+        //? if yarn {
         private final Text message;
         private final ButtonWidget.PressAction onPress;
         //?} else {
@@ -69,7 +69,7 @@ public final class Ui {
         private int width = 150;
         private int height = 20;
 
-        //? if fabric {
+        //? if yarn {
         Builder(Text message, ButtonWidget.PressAction onPress) {
             this.message = message;
             this.onPress = onPress;
@@ -89,11 +89,11 @@ public final class Ui {
             return this;
         }
 
-        //? if fabric && >=1.19.4 {
+        //? if yarn && >=1.19.4 {
         public ButtonWidget build() {
             return ButtonWidget.builder(message, onPress).dimensions(x, y, width, height).build();
         }
-        //?} else if fabric {
+        //?} else if yarn {
         /*public ButtonWidget build() {
             return new ButtonWidget(x, y, width, height, message, onPress);
         }

@@ -1,8 +1,8 @@
 package dev.l5z12.etmc.mixin;
 
-//? if fabric && >=1.20.2 {
+//? if yarn && >=1.20.2 {
 import net.minecraft.client.gui.screen.multiplayer.AddServerScreen;
-//?} else if fabric {
+//?} else if yarn {
 /*import net.minecraft.client.gui.screen.AddServerScreen;*/
 //?} else if >=1.21 {
 /*import net.minecraft.client.gui.screens.ManageServerScreen;*/
@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
  * truncated when pasted into Add Server. yarn {@code AddServerScreen}; mojmap {@code ManageServerScreen}
  * (1.21+) / {@code EditServerScreen} (older); field is {@code TextFieldWidget} vs {@code EditBox}.
  */
-//? if fabric {
+//? if yarn {
 @Mixin(AddServerScreen.class)
 //?} else if >=1.21 {
 /*@Mixin(ManageServerScreen.class)*/
@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 //?}
 public class AddServerScreenMixin {
 
-    //? if fabric {
+    //? if yarn {
     @ModifyArg(method = "init",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/widget/TextFieldWidget;setMaxLength(I)V"),
             index = 0)

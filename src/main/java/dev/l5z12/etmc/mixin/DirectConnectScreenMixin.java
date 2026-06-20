@@ -1,8 +1,8 @@
 package dev.l5z12.etmc.mixin;
 
-//? if fabric && >=1.20.2 {
+//? if yarn && >=1.20.2 {
 import net.minecraft.client.gui.screen.multiplayer.DirectConnectScreen;
-//?} else if fabric {
+//?} else if yarn {
 /*import net.minecraft.client.gui.screen.DirectConnectScreen;*/
 //?} else {
 /*import net.minecraft.client.gui.screens.DirectJoinServerScreen;*/
@@ -16,14 +16,14 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
  * into Direct Connect. yarn {@code DirectConnectScreen}; mojmap {@code DirectJoinServerScreen}; field
  * is {@code TextFieldWidget} vs {@code EditBox}.
  */
-//? if fabric {
+//? if yarn {
 @Mixin(DirectConnectScreen.class)
 //?} else {
 /*@Mixin(DirectJoinServerScreen.class)*/
 //?}
 public class DirectConnectScreenMixin {
 
-    //? if fabric {
+    //? if yarn {
     @ModifyArg(method = "init",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/widget/TextFieldWidget;setMaxLength(I)V"),
             index = 0)

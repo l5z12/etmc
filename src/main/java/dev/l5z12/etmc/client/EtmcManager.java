@@ -13,6 +13,8 @@ import dev.l5z12.etmc.ffi.NativeLoader;
 import dev.l5z12.etmc.ffi.Panama;
 //? if fabric {
 import net.fabricmc.loader.api.FabricLoader;
+//?}
+//? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 //?} else {
@@ -44,7 +46,7 @@ public final class EtmcManager {
         return INSTANCE;
     }
 
-    //? if fabric {
+    //? if yarn {
     private static MinecraftClient mc() {
         return MinecraftClient.getInstance();
     }
@@ -81,7 +83,7 @@ public final class EtmcManager {
     private void syncPlayerName() {
         if (session == null) return;
         try {
-            //? if fabric {
+            //? if yarn {
             var s = mc().getSession();
             if (s != null) session.setPlayerName(s.getUsername());
             //?} else {

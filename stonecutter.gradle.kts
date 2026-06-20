@@ -11,9 +11,14 @@ stonecutter active "1.21.10-fabric" /* [SC] DO NOT EDIT */
 // mojmap (NeoForge/Forge). Fabric nodes get fabric=true and are unaffected until guards are added.
 stonecutter.parameters {
     val loader = current.project.substringAfterLast('-')
+    val mcMajor = current.version.substringBefore('.').toInt()
     constants.put("fabric", loader == "fabric")
     constants.put("neoforge", loader == "neoforge")
     constants.put("forge", loader == "forge")
+    // `yarn` = uses yarn mappings (Fabric on obfuscated 1.x). 26.x is unobfuscated -> official names
+    // (= the mojmap branch), even on Fabric. So MAPPING-name guards key off `yarn`, not `fabric`;
+    // loader-API guards (FabricLoader, Fabric command API) stay keyed off `fabric`.
+    constants.put("yarn", loader == "fabric" && mcMajor < 26)
 }
 
 // Aggregate task that builds every Fabric version node (used by CI to "build all"):

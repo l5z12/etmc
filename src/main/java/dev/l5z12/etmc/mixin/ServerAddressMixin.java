@@ -1,7 +1,7 @@
 package dev.l5z12.etmc.mixin;
 
 import dev.l5z12.etmc.core.JoinCode;
-//? if fabric {
+//? if yarn {
 import net.minecraft.client.network.ServerAddress;
 //?} else {
 /*import net.minecraft.client.multiplayer.resolver.ServerAddress;*/
@@ -21,7 +21,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(ServerAddress.class)
 public class ServerAddressMixin {
 
-    //? if fabric {
+    //? if yarn {
     @Inject(method = "isValid(Ljava/lang/String;)Z", at = @At("HEAD"), cancellable = true)
     //?} else {
     /*@Inject(method = "isValidAddress(Ljava/lang/String;)Z", at = @At("HEAD"), cancellable = true)*/
@@ -32,7 +32,7 @@ public class ServerAddressMixin {
         }
     }
 
-    //? if fabric {
+    //? if yarn {
     @Inject(method = "parse(Ljava/lang/String;)Lnet/minecraft/client/network/ServerAddress;",
             at = @At("HEAD"), cancellable = true)
     //?} else {
@@ -41,7 +41,7 @@ public class ServerAddressMixin {
     //?}
     private static void etmc$parseLink(String address, CallbackInfoReturnable<ServerAddress> cir) {
         if (JoinCode.isLink(address)) {
-            //? if fabric {
+            //? if yarn {
             cir.setReturnValue(ServerAddress.parse("127.0.0.1:25565"));
             //?} else {
             /*cir.setReturnValue(ServerAddress.parseString("127.0.0.1:25565"));*/

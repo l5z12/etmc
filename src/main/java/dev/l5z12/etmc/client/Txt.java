@@ -1,12 +1,12 @@
 package dev.l5z12.etmc.client;
 
-//? if fabric {
+//? if yarn {
 import net.minecraft.text.MutableText;
 //?} else {
 /*import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;*/
 //?}
-//? if fabric && <1.19 {
+//? if yarn && <1.19 {
 /*import net.minecraft.text.LiteralText;
 import net.minecraft.text.TranslatableText;*/
 //?}
@@ -21,7 +21,7 @@ public final class Txt {
 
     private Txt() {}
 
-    //? if fabric && >=1.19 {
+    //? if yarn && >=1.19 {
     public static MutableText literal(String s) {
         return net.minecraft.text.Text.literal(s);
     }
@@ -29,7 +29,7 @@ public final class Txt {
     public static MutableText translatable(String key, Object... args) {
         return net.minecraft.text.Text.translatable(key, args);
     }
-    //?} else if fabric {
+    //?} else if yarn {
     /*public static MutableText literal(String s) {
         return new LiteralText(s);
     }

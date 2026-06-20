@@ -2,7 +2,7 @@ package dev.l5z12.etmc.mixin;
 
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.core.JoinCode;
-//? if fabric {
+//? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.network.ServerAddress;
@@ -13,9 +13,9 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;*/
 //?}
-//? if fabric && >=1.20.2 {
+//? if yarn && >=1.20.2 {
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
-//?} else if fabric {
+//?} else if yarn {
 /*import net.minecraft.client.gui.screen.ConnectScreen;*/
 //?} else {
 /*import net.minecraft.client.gui.screens.ConnectScreen;*/
@@ -35,27 +35,27 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ConnectScreen.class)
 public class ConnectScreenMixin {
 
-    //? if fabric && >=1.20.5 {
+    //? if yarn && >=1.20.5 {
     @Inject(method = "connect(Lnet/minecraft/client/gui/screen/Screen;Lnet/minecraft/client/MinecraftClient;Lnet/minecraft/client/network/ServerAddress;Lnet/minecraft/client/network/ServerInfo;ZLnet/minecraft/client/network/CookieStorage;)V",
             at = @At("HEAD"), cancellable = true)
-    //?} else if fabric && >=1.20 {
+    //?} else if yarn && >=1.20 {
     /*@Inject(method = "connect(Lnet/minecraft/client/gui/screen/Screen;Lnet/minecraft/client/MinecraftClient;Lnet/minecraft/client/network/ServerAddress;Lnet/minecraft/client/network/ServerInfo;Z)V",
             at = @At("HEAD"), cancellable = true)*/
-    //?} else if fabric {
+    //?} else if yarn {
     /*@Inject(method = "connect(Lnet/minecraft/client/gui/screen/Screen;Lnet/minecraft/client/MinecraftClient;Lnet/minecraft/client/network/ServerAddress;Lnet/minecraft/client/network/ServerInfo;)V",
             at = @At("HEAD"), cancellable = true)*/
     //?} else {
     /*@Inject(method = "startConnecting(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/Minecraft;Lnet/minecraft/client/multiplayer/resolver/ServerAddress;Lnet/minecraft/client/multiplayer/ServerData;ZLnet/minecraft/client/multiplayer/TransferState;)V",
             at = @At("HEAD"), cancellable = true)*/
     //?}
-    //? if fabric {
+    //? if yarn {
     private static void etmc$interceptLink(Screen screen, MinecraftClient client, ServerAddress address,
                                            ServerInfo info, CallbackInfo ci) {
     //?} else {
     /*private static void etmc$interceptLink(Screen screen, Minecraft client, ServerAddress address,
                                            ServerData info, CallbackInfo ci) {*/
     //?}
-        //? if fabric {
+        //? if yarn {
         String serverAddr = info == null ? null : info.address;
         //?} else {
         /*String serverAddr = info == null ? null : info.ip;*/

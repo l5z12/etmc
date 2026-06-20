@@ -6,7 +6,7 @@ import io.netty.bootstrap.AbstractBootstrap;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFactory;
-//? if fabric {
+//? if yarn {
 import net.minecraft.network.ClientConnection;
 //?} else {
 /*import net.minecraft.network.Connection;*/
@@ -21,18 +21,18 @@ import org.spongepowered.asm.mixin.injection.Redirect;
  * socket channel — no loopback socket, no port. For all other connections this is a no-op.
  * Targets yarn {@code ClientConnection} on Fabric, mojmap {@code Connection} on NeoForge/Forge.
  */
-//? if fabric {
+//? if yarn {
 @Mixin(ClientConnection.class)
 //?} else {
 /*@Mixin(Connection.class)*/
 //?}
 public class ClientConnectionMixin {
 
-    //? if fabric && >=1.20 {
+    //? if yarn && >=1.20 {
     @Redirect(method = "connect(Ljava/net/InetSocketAddress;ZLnet/minecraft/network/ClientConnection;)Lio/netty/channel/ChannelFuture;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))
-    //?} else if fabric {
+    //?} else if yarn {
     /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;Z)Lnet/minecraft/network/ClientConnection;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/

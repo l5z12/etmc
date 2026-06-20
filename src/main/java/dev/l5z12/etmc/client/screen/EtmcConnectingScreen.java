@@ -3,14 +3,14 @@ package dev.l5z12.etmc.client.screen;
 import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
-//? if fabric {
+//? if yarn {
 import net.minecraft.client.gui.screen.Screen;
 //?} else {
 /*import net.minecraft.client.gui.screens.Screen;*/
 //?}
-//? if fabric && >=1.20 {
+//? if yarn && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
-//?} else if fabric {
+//?} else if yarn {
 /*import net.minecraft.client.util.math.MatrixStack;*/
 //?} else {
 /*import net.minecraft.client.gui.GuiGraphics;*/
@@ -54,9 +54,9 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
     }
 
     @Override
-    //? if fabric && >=1.20 {
+    //? if yarn && >=1.20 {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
-    //?} else if fabric {
+    //?} else if yarn {
     /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
     //?} else {
     /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
@@ -72,7 +72,7 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
                 this.width / 2, this.height / 2 - 14, 0xFF777777);
     }
 
-    //? if fabric && >=1.18 {
+    //? if yarn && >=1.18 {
     @Override
     //?}
     public void close() {
@@ -80,7 +80,7 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
         mc().setScreen(parent);
     }
 
-    //? if !fabric || <1.18 {
+    //? if !yarn || <1.18 {
     /*@Override
     public void onClose() {
         this.close();

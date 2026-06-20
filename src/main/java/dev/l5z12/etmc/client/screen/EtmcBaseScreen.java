@@ -1,6 +1,6 @@
 package dev.l5z12.etmc.client.screen;
 
-//? if fabric {
+//? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.screen.Screen;
@@ -20,7 +20,7 @@ import net.minecraft.network.chat.Component;*/
  * Subclasses then read almost identically across loaders; only their {@code render} signature, the
  * {@code Screen} parent type and the close hook stay per-screen.
  */
-//? if fabric {
+//? if yarn {
 abstract class EtmcBaseScreen extends Screen {
 
     protected EtmcBaseScreen(Text title) {

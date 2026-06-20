@@ -5,7 +5,7 @@ import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.JoinCode;
-//? if fabric {
+//? if yarn {
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
@@ -14,9 +14,9 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;*/
 //?}
-//? if fabric && >=1.20 {
+//? if yarn && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
-//?} else if fabric {
+//?} else if yarn {
 /*import net.minecraft.client.util.math.MatrixStack;*/
 //?} else {
 /*import net.minecraft.client.gui.GuiGraphics;*/
@@ -26,7 +26,7 @@ import net.minecraft.client.gui.DrawContext;
 public final class JoinScreen extends EtmcBaseScreen {
 
     private final Screen parent;
-    //? if fabric {
+    //? if yarn {
     private TextFieldWidget codeField;
     private ButtonWidget joinButton;
     //?} else {
@@ -54,7 +54,7 @@ public final class JoinScreen extends EtmcBaseScreen {
         y += 28;
 
         add(Ui.button(Txt.literal("Paste from clipboard"), b -> {
-            //? if fabric {
+            //? if yarn {
             Ui.setText(codeField, mc().keyboard.getClipboard().trim());
             //?} else {
             /*Ui.setText(codeField, mc().keyboardHandler.getClipboard().trim());*/
@@ -94,9 +94,9 @@ public final class JoinScreen extends EtmcBaseScreen {
     }
 
     @Override
-    //? if fabric && >=1.20 {
+    //? if yarn && >=1.20 {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
-    //?} else if fabric {
+    //?} else if yarn {
     /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
     //?} else {
     /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
@@ -116,14 +116,14 @@ public final class JoinScreen extends EtmcBaseScreen {
         this.messageColor = color;
     }
 
-    //? if fabric && >=1.18 {
+    //? if yarn && >=1.18 {
     @Override
     //?}
     public void close() {
         mc().setScreen(parent);
     }
 
-    //? if !fabric || <1.18 {
+    //? if !yarn || <1.18 {
     /*@Override
     public void onClose() {
         this.close();
