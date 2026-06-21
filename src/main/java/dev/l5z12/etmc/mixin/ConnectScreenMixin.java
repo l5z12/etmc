@@ -28,9 +28,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Detects {@code etmc://} addresses typed into Add Server / Direct Connect (or stored in the server
  * list) and reroutes them through etmc instead of letting vanilla try to resolve the bogus host.
- * The handler captures only the leading params (Mixin allows omitting trailing ones), so it works
- * across versions whose {@code connect}/{@code startConnecting} adds a {@code CookieStorage}/{@code
- * TransferState}. Fabric {@code connect} (yarn) vs NeoForge/Forge {@code startConnecting} (mojmap).
+ * Fabric {@code connect} (yarn) vs NeoForge/Forge {@code startConnecting} (mojmap). The mojmap/26.x
+ * handler declares the full param list ({@code boolean} + {@code TransferState}) because the Mixin
+ * shipped with 26.x rejects partial trailing-arg capture; older yarn Mixin still tolerates it.
  */
 @Mixin(ConnectScreen.class)
 public class ConnectScreenMixin {
@@ -53,7 +53,9 @@ public class ConnectScreenMixin {
                                            ServerInfo info, CallbackInfo ci) {
     //?} else {
     /*private static void etmc$interceptLink(Screen screen, Minecraft client, ServerAddress address,
-                                           ServerData info, CallbackInfo ci) {*/
+                                           ServerData info, boolean hidden,
+                                           net.minecraft.client.multiplayer.TransferState transferState,
+                                           CallbackInfo ci) {*/
     //?}
         //? if yarn {
         String serverAddr = info == null ? null : info.address;
