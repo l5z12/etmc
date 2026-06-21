@@ -15,14 +15,15 @@ import net.minecraft.network.chat.Component;*/
 //?}
 
 /**
- * Shared base for the etmc screens that absorbs the recurring yarn-vs-mojmap mapping differences:
- * the client handle ({@code mc()}), the font ({@code font()}) and adding widgets ({@code add()}).
- * Subclasses then read almost identically across loaders; only their {@code render} signature, the
- * {@code Screen} parent type and the close hook stay per-screen.
+ * Shared base for the etmc screens that absorbs the recurring mapping differences: the client handle
+ * ({@code mc()}), the font ({@code font()}), adding widgets ({@code add()}) and navigation
+ * ({@code goTo()}). yarn vs mojmap names, plus 26.x's {@code setScreenAndShow} rename. Subclasses then
+ * read almost identically; only their {@code render} hook, the {@code Screen} parent type and the
+ * close hook stay per-screen.
  */
-//? if yarn {
 abstract class EtmcBaseScreen extends Screen {
 
+    //? if yarn {
     protected EtmcBaseScreen(Text title) {
         super(title);
     }
@@ -38,11 +39,8 @@ abstract class EtmcBaseScreen extends Screen {
     protected <T extends ClickableWidget> T add(T widget) {
         return addDrawableChild(widget);
     }
-}
-//?} else {
-/*abstract class EtmcBaseScreen extends Screen {
-
-    protected EtmcBaseScreen(Component title) {
+    //?} else {
+    /*protected EtmcBaseScreen(Component title) {
         super(title);
     }
 
@@ -57,5 +55,14 @@ abstract class EtmcBaseScreen extends Screen {
     protected <T extends AbstractWidget> T add(T widget) {
         return addRenderableWidget(widget);
     }
-}*/
-//?}
+    *///?}
+
+    /** Navigate to another screen. 26.x renamed {@code setScreen} -> {@code setScreenAndShow}. */
+    protected void goTo(Screen screen) {
+        //? if >=26 {
+        /*mc().setScreenAndShow(screen);*/
+        //?} else {
+        mc().setScreen(screen);
+        //?}
+    }
+}

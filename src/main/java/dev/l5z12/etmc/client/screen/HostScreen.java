@@ -17,8 +17,10 @@ import net.minecraft.client.gui.screens.Screen;*/
 import net.minecraft.client.gui.DrawContext;
 //?} else if yarn {
 /*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else {
+//?} else if <26 {
 /*import net.minecraft.client.gui.GuiGraphics;*/
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 //?}
 
 /** Host the current singleplayer world: pick a network name + optional secret, then start. */
@@ -95,7 +97,7 @@ public final class HostScreen extends EtmcBaseScreen {
                         setMessage("Failed: " + rootMessage(err), 0xFFFF5555);
                         hostButton.active = true;
                     } else {
-                        mc().setScreen(new StatusScreen(parent));
+                        goTo(new StatusScreen(parent));
                     }
                 }));
     }
@@ -105,11 +107,17 @@ public final class HostScreen extends EtmcBaseScreen {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
     //?} else if yarn {
     /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else {
+    //?} else if <26 {
     /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
+    //?} else {
+    /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
     //?}
     {
+        //? if >=26 {
+        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
+        //?} else {
         super.render(ctx, mouseX, mouseY, delta);
+        //?}
         Gfx.centered(ctx, font(), this.title, this.width / 2, 24, 0xFFFFFF);
         int cx = this.width / 2;
         int w = 220;
@@ -130,7 +138,7 @@ public final class HostScreen extends EtmcBaseScreen {
     @Override
     //?}
     public void close() {
-        mc().setScreen(parent);
+        goTo(parent);
     }
 
     //? if !yarn || <1.18 {

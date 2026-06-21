@@ -7,8 +7,12 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 //?} else {
 /*import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;*/
+import net.minecraft.client.gui.Font;*/
+//?}
+//? if !yarn && <26 {
+/*import net.minecraft.client.gui.GuiGraphics;*/
+//?} else if !yarn {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 //?}
 //? if yarn && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
@@ -38,8 +42,10 @@ public final class EtmcHud {
     public static void render(DrawContext ctx)
     //?} else if yarn {
     /*public static void render(MatrixStack ctx)*/
-    //?} else {
+    //?} else if <26 {
     /*public static void render(GuiGraphics ctx)*/
+    //?} else {
+    /*public static void render(GuiGraphicsExtractor ctx)*/
     //?}
     {
         EtmcManager m = EtmcManager.get();
@@ -49,13 +55,17 @@ public final class EtmcHud {
         EtmcSession s = m.session();
         if (s == null || !s.isActive()) return;
 
+        // 26.x dropped Options.hideGui; there the etmc HUD just always renders while a session is active.
         //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options.hudHidden) return;
         TextRenderer tr = client.textRenderer;
-        //?} else {
+        //?} else if <26 {
         /*Minecraft client = Minecraft.getInstance();
         if (client.options.hideGui) return;
+        Font tr = client.font;*/
+        //?} else {
+        /*Minecraft client = Minecraft.getInstance();
         Font tr = client.font;*/
         //?}
         NetworkStatus st = m.cachedStatus();

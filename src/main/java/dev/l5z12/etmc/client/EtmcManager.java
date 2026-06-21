@@ -56,6 +56,15 @@ public final class EtmcManager {
     }*/
     //?}
 
+    /** Navigate, honoring 26.x's {@code setScreen} -> {@code setScreenAndShow} rename. */
+    private static void goTo(Screen screen) {
+        //? if >=26 {
+        /*mc().setScreenAndShow(screen);*/
+        //?} else {
+        mc().setScreen(screen);
+        //?}
+    }
+
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "etmc-worker");
         t.setDaemon(true);
@@ -227,7 +236,7 @@ public final class EtmcManager {
         this.linkAttempt = a;
         LOGGER.info("[etmc] etmc:// join: starting link instance for host {}:{} (network '{}')",
                 code.hostIp, code.hostPort, code.networkName);
-        mc().setScreen(new EtmcConnectingScreen(parent, label,
+        goTo(new EtmcConnectingScreen(parent, label,
                 () -> linkProceed(a), () -> linkCancel(a)));
         CompletableFuture.supplyAsync(() -> session.startLinkInstance(code), worker)
                 .whenComplete((inst, err) -> mc().execute(() -> {
@@ -323,7 +332,7 @@ public final class EtmcManager {
     }
 
     private static void showError(Screen parent, String title, String message) {
-        mc().setScreen(new EtmcNoticeScreen(parent, title, message));
+        goTo(new EtmcNoticeScreen(parent, title, message));
     }
 
     /** State for one in-progress {@code etmc://} link join (mutated only on the client thread). */

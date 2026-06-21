@@ -16,8 +16,10 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.DrawContext;
 //?} else if yarn {
 /*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else {
+//?} else if <26 {
 /*import net.minecraft.client.gui.GuiGraphics;*/
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 //?}
 
 /** Live session status: virtual IP, peers/latency, the shareable code, and a Leave button. */
@@ -69,7 +71,7 @@ public final class StatusScreen extends EtmcBaseScreen {
 
     private void leave() {
         EtmcManager.get().leaveAsync().whenComplete((v, err) ->
-                mc().execute(() -> mc().setScreen(parent)));
+                mc().execute(() -> goTo(parent)));
     }
 
     @Override
@@ -77,11 +79,17 @@ public final class StatusScreen extends EtmcBaseScreen {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
     //?} else if yarn {
     /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else {
+    //?} else if <26 {
     /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
+    //?} else {
+    /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
     //?}
     {
+        //? if >=26 {
+        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
+        //?} else {
         super.render(ctx, mouseX, mouseY, delta);
+        //?}
         EtmcManager m = EtmcManager.get();
         Gfx.centered(ctx, font(), this.title, this.width / 2, 18, 0xFFFFFF);
 
@@ -125,7 +133,7 @@ public final class StatusScreen extends EtmcBaseScreen {
     @Override
     //?}
     public void close() {
-        mc().setScreen(parent);
+        goTo(parent);
     }
 
     //? if !yarn || <1.18 {

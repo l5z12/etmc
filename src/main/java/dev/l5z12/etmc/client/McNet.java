@@ -74,7 +74,7 @@ public final class McNet {
                 cf.completeExceptionally(t);
             }
         });
-        //?} else {
+        //?} else if <26 {
         /*Minecraft client = Minecraft.getInstance();
         client.execute(() -> {
             try {
@@ -91,6 +91,33 @@ public final class McNet {
                 int chosen = freePort();
                 GameType mode = client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
                 boolean ok = server.publishServer(mode, false, chosen);
+                if (!ok) {
+                    cf.completeExceptionally(new IllegalStateException("Failed to open the world to LAN."));
+                    return;
+                }
+                cf.complete(server.getPort());
+            } catch (Throwable t) {
+                cf.completeExceptionally(t);
+            }
+        });*/
+        //?} else {
+        /*Minecraft client = Minecraft.getInstance();
+        client.execute(() -> {
+            try {
+                IntegratedServer server = client.getSingleplayerServer();
+                if (server == null) {
+                    cf.completeExceptionally(new IllegalStateException("Open a singleplayer world first."));
+                    return;
+                }
+                int port = server.getPort();
+                if (port > 0) {
+                    cf.complete(port);
+                    return;
+                }
+                int chosen = freePort();
+                GameType mode = client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
+                boolean ok = server.publishServer(
+                        net.minecraft.server.MinecraftServer.MultiplayerScope.LAN, mode, false, chosen);
                 if (!ok) {
                     cf.completeExceptionally(new IllegalStateException("Failed to open the world to LAN."));
                     return;
@@ -160,7 +187,7 @@ public final class McNet {
                         + address + ")."), false);
             }
         }
-        //?} else {
+        //?} else if <26 {
         /*if (client.level == null) {
             client.setScreen(new JoinMultiplayerScreen(new TitleScreen()));
         } else {
@@ -169,6 +196,17 @@ public final class McNet {
                 client.player.displayClientMessage(Txt.literal("[etmc] Added '" + name
                         + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
                         + address + ")."), false);
+            }
+        }*/
+        //?} else {
+        /*if (client.level == null) {
+            client.setScreenAndShow(new JoinMultiplayerScreen(new TitleScreen()));
+        } else {
+            client.setScreenAndShow(null);
+            if (client.player != null) {
+                client.player.sendSystemMessage(Txt.literal("[etmc] Added '" + name
+                        + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
+                        + address + ")."));
             }
         }*/
         //?}

@@ -14,8 +14,10 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.DrawContext;
 //?} else if yarn {
 /*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else {
+//?} else if <26 {
 /*import net.minecraft.client.gui.GuiGraphics;*/
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 //?}
 
 /** Main etmc menu: host, join, status/leave, settings. */
@@ -39,21 +41,21 @@ public final class EtmcScreen extends EtmcBaseScreen {
         int w = 200;
 
         var host = Ui.button(Txt.literal("Host this world"),
-                b -> mc().setScreen(new HostScreen(this)))
+                b -> goTo(new HostScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         host.active = ready && !active;
         add(host);
         y += 24;
 
         var join = Ui.button(Txt.literal("Join with a code"),
-                b -> mc().setScreen(new JoinScreen(this)))
+                b -> goTo(new JoinScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         join.active = ready && !active;
         add(join);
         y += 24;
 
         var connectUrl = Ui.button(Txt.literal("Connect via config URL"),
-                b -> mc().setScreen(new ConnectUrlScreen(this)))
+                b -> goTo(new ConnectUrlScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         connectUrl.active = ready && !active;
         add(connectUrl);
@@ -61,13 +63,13 @@ public final class EtmcScreen extends EtmcBaseScreen {
 
         if (active) {
             add(Ui.button(Txt.literal("Session status"),
-                            b -> mc().setScreen(new StatusScreen(this)))
+                            b -> goTo(new StatusScreen(this)))
                     .dimensions(cx - w / 2, y, w, 20).build());
             y += 24;
         }
 
         add(Ui.button(Txt.literal("Settings & relays"),
-                        b -> mc().setScreen(new SettingsScreen(this)))
+                        b -> goTo(new SettingsScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build());
         y += 24;
 
@@ -80,11 +82,17 @@ public final class EtmcScreen extends EtmcBaseScreen {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
     //?} else if yarn {
     /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else {
+    //?} else if <26 {
     /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
+    //?} else {
+    /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
     //?}
     {
+        //? if >=26 {
+        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
+        //?} else {
         super.render(ctx, mouseX, mouseY, delta);
+        //?}
         Gfx.centered(ctx, font(), this.title, this.width / 2, 28, 0xFFFFFF);
 
         EtmcManager m = EtmcManager.get();
@@ -109,7 +117,7 @@ public final class EtmcScreen extends EtmcBaseScreen {
     @Override
     //?}
     public void close() {
-        mc().setScreen(parent);
+        goTo(parent);
     }
 
     //? if !yarn || <1.18 {

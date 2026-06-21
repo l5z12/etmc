@@ -13,7 +13,10 @@ import dev.l5z12.etmc.client.screen.EtmcScreen;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
-//? if fabric && >=1.19 {
+//? if fabric && >=26 {
+/*import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;*/
+//?} else if fabric && >=1.19 {
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 //?} else if fabric {
@@ -86,8 +89,10 @@ public final class EtmcCommands {
     {
         //? if yarn {
         MinecraftClient.getInstance().execute(() -> MinecraftClient.getInstance().setScreen(new EtmcScreen(null)));
-        //?} else {
+        //?} else if <26 {
         /*Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new EtmcScreen(null)));*/
+        //?} else {
+        /*Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreenAndShow(new EtmcScreen(null)));*/
         //?}
         return 1;
     }
@@ -281,7 +286,25 @@ public final class EtmcCommands {
 
     // ------------------------------------------------------------------ helpers
 
-    //? if fabric {
+    //? if fabric && >=26 {
+    /*private static LiteralArgumentBuilder<FabricClientCommandSource> lit(String name) {
+        return ClientCommands.literal(name);
+    }
+
+    private static <T> RequiredArgumentBuilder<FabricClientCommandSource, T> arg(String name, ArgumentType<T> type) {
+        return ClientCommands.argument(name, type);
+    }
+
+    private static void feedback(FabricClientCommandSource src, String msg) {
+        src.sendFeedback(Txt.literal(msg));
+    }
+
+    private static void error(FabricClientCommandSource src, String msg) {
+        src.sendError(Txt.literal(msg));
+    }
+
+    private static boolean checkReady(FabricClientCommandSource src) {*/
+    //?} else if fabric {
     private static LiteralArgumentBuilder<FabricClientCommandSource> lit(String name) {
         return ClientCommandManager.literal(name);
     }
@@ -351,11 +374,18 @@ public final class EtmcCommands {
                 client.player.sendMessage(Txt.literal("[etmc] " + msg), false);
             }
         });
-        //?} else {
+        //?} else if <26 {
         /*Minecraft client = Minecraft.getInstance();
         client.execute(() -> {
             if (client.player != null) {
                 client.player.displayClientMessage(Txt.literal("[etmc] " + msg), false);
+            }
+        });*/
+        //?} else {
+        /*Minecraft client = Minecraft.getInstance();
+        client.execute(() -> {
+            if (client.player != null) {
+                client.player.sendSystemMessage(Txt.literal("[etmc] " + msg));
             }
         });*/
         //?}

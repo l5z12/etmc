@@ -26,10 +26,8 @@ include("paper")
 // Stonecutter versions the Fabric build (root = controller, root src/ = shared source).
 stonecutter {
     create(rootProject) {
-        // 26.2-fabric: toolchain proven (snapshot Loom), source refactor underway — held out of
-        // chiseledBuild until the 26.x render-API port (extractRenderState/GuiGraphicsExtractor,
-        // setScreenAndShow) lands. Re-enable by uncommenting:
-        // version("26.2-fabric", "26.2").buildscript("build.fabric26.gradle")
+        // 26.2-fabric: unobfuscated, official names, own snapshot-Loom node script.
+        version("26.2-fabric", "26.2").buildscript("build.fabric26.gradle")
         version("1.21.10-fabric", "1.21.10")
         version("1.20.6-fabric", "1.20.6")
         version("1.20.1-fabric", "1.20.1")

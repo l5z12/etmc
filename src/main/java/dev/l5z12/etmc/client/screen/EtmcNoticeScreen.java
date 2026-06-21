@@ -12,8 +12,10 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.DrawContext;
 //?} else if yarn {
 /*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else {
+//?} else if <26 {
 /*import net.minecraft.client.gui.GuiGraphics;*/
+//?} else {
+/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
 //?}
 
 /** Simple error/notice screen shown when an etmc join can't proceed (bad link, start failure, …). */
@@ -39,11 +41,17 @@ public final class EtmcNoticeScreen extends EtmcBaseScreen {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
     //?} else if yarn {
     /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else {
+    //?} else if <26 {
     /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
+    //?} else {
+    /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
     //?}
     {
+        //? if >=26 {
+        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
+        //?} else {
         super.render(ctx, mouseX, mouseY, delta);
+        //?}
         Gfx.centered(ctx, font(), this.title, this.width / 2, this.height / 2 - 34, 0xFFFF5555);
         Gfx.centered(ctx, font(), Txt.literal(message), this.width / 2, this.height / 2 - 12, 0xFFFFFFFF);
     }
@@ -52,7 +60,7 @@ public final class EtmcNoticeScreen extends EtmcBaseScreen {
     @Override
     //?}
     public void close() {
-        mc().setScreen(parent);
+        goTo(parent);
     }
 
     //? if !yarn || <1.18 {
