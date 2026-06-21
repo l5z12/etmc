@@ -43,8 +43,11 @@ java {
 }
 
 processResources {
+    // Per-node MC range: each version node declares its own ~<mc> so the jar only loads where it fits.
+    def minecraftDependency = "~${project.property('deps.minecraft')}"
     inputs.property 'version', project.version
+    inputs.property 'minecraft_dependency', minecraftDependency
     filesMatching('fabric.mod.json') {
-        expand 'version': project.version
+        expand 'version': project.version, 'minecraft_dependency': minecraftDependency
     }
 }

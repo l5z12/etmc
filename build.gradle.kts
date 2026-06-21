@@ -50,9 +50,12 @@ dependencies {
 }
 
 tasks.processResources {
+    // Per-node MC range: each version node declares its own ~<mc> so the jar only loads where it fits.
+    val minecraftDependency = "~${project.property("deps.minecraft")}"
     inputs.property("version", project.version)
+    inputs.property("minecraft_dependency", minecraftDependency)
     filesMatching("fabric.mod.json") {
-        expand("version" to project.version)
+        expand("version" to project.version, "minecraft_dependency" to minecraftDependency)
     }
 }
 
