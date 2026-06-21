@@ -1,6 +1,6 @@
 package dev.l5z12.etmc.mixin;
 
-//? if yarn && >=1.20.2 {
+//? if yarn && >=1.20.3 {
 import net.minecraft.client.gui.screen.multiplayer.DirectConnectScreen;
 //?} else if yarn {
 /*import net.minecraft.client.gui.screen.DirectConnectScreen;*/

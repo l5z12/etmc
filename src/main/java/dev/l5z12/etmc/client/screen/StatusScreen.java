@@ -129,14 +129,14 @@ public final class StatusScreen extends EtmcBaseScreen {
         }
     }
 
-    //? if yarn && >=1.18 {
+    //? if yarn && >=1.18.2 {
     @Override
     //?}
     public void close() {
         goTo(parent);
     }
 
-    //? if !yarn || <1.18 {
+    //? if !yarn || <1.18.2 {
     /*@Override
     public void onClose() {
         this.close();

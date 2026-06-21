@@ -14,7 +14,7 @@ import net.minecraft.network.chat.Component;*/
 
 /**
  * Version- AND loader-agnostic widget builder. Fabric (yarn): {@code ButtonWidget.builder(...)
- * .dimensions(...)} (1.19.4+) or the {@code new ButtonWidget(...)} ctor (1.16–1.19.3). NeoForge/Forge
+ * .dimensions(...)} (1.19.3+) or the {@code new ButtonWidget(...)} ctor (1.16–1.19.2). NeoForge/Forge
  * (mojmap): {@code Button.builder(...).bounds(...)}. {@code Ui.button(...).dimensions(...).build()}
  * reads the same everywhere; only this file carries the split.
  */
@@ -89,7 +89,7 @@ public final class Ui {
             return this;
         }
 
-        //? if yarn && >=1.19.4 {
+        //? if yarn && >=1.19.3 {
         public ButtonWidget build() {
             return ButtonWidget.builder(message, onPress).dimensions(x, y, width, height).build();
         }

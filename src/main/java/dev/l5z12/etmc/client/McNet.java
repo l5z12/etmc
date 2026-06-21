@@ -21,7 +21,7 @@ import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.world.level.GameType;*/
 //?}
-//? if yarn && >=1.20.2 {
+//? if yarn && >=1.20.3 {
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 //?} else if yarn {
 /*import net.minecraft.client.gui.screen.ConnectScreen;*/

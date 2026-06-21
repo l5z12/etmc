@@ -80,7 +80,7 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
                 this.width / 2, this.height / 2 - 14, 0xFF777777);
     }
 
-    //? if yarn && >=1.18 {
+    //? if yarn && >=1.18.2 {
     @Override
     //?}
     public void close() {
@@ -88,7 +88,7 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
         goTo(parent);
     }
 
-    //? if !yarn || <1.18 {
+    //? if !yarn || <1.18.2 {
     /*@Override
     public void onClose() {
         this.close();

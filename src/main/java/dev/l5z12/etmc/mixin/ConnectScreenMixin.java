@@ -13,7 +13,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;*/
 //?}
-//? if yarn && >=1.20.2 {
+//? if yarn && >=1.20.3 {
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 //?} else if yarn {
 /*import net.minecraft.client.gui.screen.ConnectScreen;*/

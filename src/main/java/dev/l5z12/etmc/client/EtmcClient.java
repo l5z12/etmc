@@ -12,7 +12,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 //?} else {
 /*import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;*/
 //?}
-//? if >=1.21 {
+//? if >=1.21.6 {
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 //?} else {
 /*import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;*/
@@ -56,7 +56,7 @@ public final class EtmcClient implements ClientModInitializer {
             LOGGER.warn("[etmc] EasyTier native library NOT loaded: {}", EtmcManager.get().nativeError());
         }
 
-        //? if yarn && >=1.21 {
+        //? if yarn && >=1.21.9 {
         openMenuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
                 "key.etmc.open_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, KeyBinding.Category.MISC));
         //?} else if yarn {
@@ -86,13 +86,13 @@ public final class EtmcClient implements ClientModInitializer {
             }
         });
 
-        // 1.21+: HudRenderCallback is deprecated/no-op, use the HUD element API. Older: HudRenderCallback.
-        //? if yarn && >=1.21 {
+        // HUD element API (fabric-api hud package) lands at 1.21.6; before that, HudRenderCallback.
+        //? if yarn && >=1.21.6 {
         HudElementRegistry.addLast(Identifier.of("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));
-        //?} else if >=1.21 {
-        /*HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));*/
-        //?} else {
+        //?} else if yarn {
         /*HudRenderCallback.EVENT.register((ctx, tickDelta) -> EtmcHud.render(ctx));*/
+        //?} else {
+        /*HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));*/
         //?}
 
         // 1.19+: register via the command-registration event (v2 API). 1.16-1.18: the v1 client

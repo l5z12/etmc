@@ -124,14 +124,14 @@ public final class JoinScreen extends EtmcBaseScreen {
         this.messageColor = color;
     }
 
-    //? if yarn && >=1.18 {
+    //? if yarn && >=1.18.2 {
     @Override
     //?}
     public void close() {
         goTo(parent);
     }
 
-    //? if !yarn || <1.18 {
+    //? if !yarn || <1.18.2 {
     /*@Override
     public void onClose() {
         this.close();

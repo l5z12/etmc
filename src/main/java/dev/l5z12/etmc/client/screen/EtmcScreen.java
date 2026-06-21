@@ -113,14 +113,14 @@ public final class EtmcScreen extends EtmcBaseScreen {
         Gfx.centered(ctx, font(), Txt.literal(sub), this.width / 2, 44, color);
     }
 
-    //? if yarn && >=1.18 {
+    //? if yarn && >=1.18.2 {
     @Override
     //?}
     public void close() {
         goTo(parent);
     }
 
-    //? if !yarn || <1.18 {
+    //? if !yarn || <1.18.2 {
     /*@Override
     public void onClose() {
         this.close();

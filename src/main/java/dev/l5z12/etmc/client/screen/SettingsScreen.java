@@ -143,14 +143,14 @@ public final class SettingsScreen extends EtmcBaseScreen {
         return Txt.literal("Auto-reconnect: " + (cfg.autoReconnect ? "ON" : "OFF"));
     }
 
-    //? if yarn && >=1.18 {
+    //? if yarn && >=1.18.2 {
     @Override
     //?}
     public void close() {
         goTo(parent);
     }
 
-    //? if !yarn || <1.18 {
+    //? if !yarn || <1.18.2 {
     /*@Override
     public void onClose() {
         this.close();
