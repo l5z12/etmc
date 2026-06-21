@@ -44,12 +44,19 @@ stonecutter {
         version("1.21.1-neoforge", "1.21.1").buildscript("build.neoforge.gradle.kts")
         version("1.21-neoforge", "1.21").buildscript("build.neoforge.gradle.kts")
         version("1.20.6-neoforge", "1.20.6").buildscript("build.neoforge.gradle.kts")
-        // Forge nodes use EtmcForge's EventBus-7 (BusGroup) + AddGuiOverlayLayersEvent (HUD) APIs,
-        // both present from 1.21.8. Older 1.21.x (EventBus 6 / older HUD) are a separate era, not added.
+        // Forge nodes span both eras: EtmcForge guards EventBus 7 (>=1.21.6) vs EventBus 6 (<1.21.6),
+        // and the HUD-layer event across 1.21–1.21.5 / 1.21.6-1.21.7 (no API → no overlay) / 1.21.8+.
         version("1.21.11-forge", "1.21.11").buildscript("build.forge.gradle")
         version("1.21.10-forge", "1.21.10").buildscript("build.forge.gradle")
         version("1.21.9-forge", "1.21.9").buildscript("build.forge.gradle")
         version("1.21.8-forge", "1.21.8").buildscript("build.forge.gradle")
+        version("1.21.7-forge", "1.21.7").buildscript("build.forge.gradle")
+        version("1.21.6-forge", "1.21.6").buildscript("build.forge.gradle")
+        version("1.21.5-forge", "1.21.5").buildscript("build.forge.gradle")
+        version("1.21.4-forge", "1.21.4").buildscript("build.forge.gradle")
+        version("1.21.3-forge", "1.21.3").buildscript("build.forge.gradle")
+        version("1.21.1-forge", "1.21.1").buildscript("build.forge.gradle")
+        version("1.21-forge", "1.21").buildscript("build.forge.gradle")
         vcsVersion = "1.21.10-fabric"
     }
 }
