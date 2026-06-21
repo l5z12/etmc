@@ -17,7 +17,7 @@ public final class EtmcKey {
             "key.etmc.open_menu",
             InputConstants.Type.KEYSYM,
             GLFW.GLFW_KEY_G,
-            //? if >=1.21 {
+            //? if >=1.21.9 {
             KeyMapping.Category.MISC);
             //?} else {
             /*"key.categories.misc");*/

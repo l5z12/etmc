@@ -4,7 +4,11 @@ import dev.l5z12.etmc.client.EtmcHud;
 import dev.l5z12.etmc.client.EtmcKey;
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.command.EtmcCommands;
+//? if >=1.21.11 {
+/*import net.minecraft.resources.Identifier;*/
+//?} else {
 import net.minecraft.resources.ResourceLocation;
+//?}
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
@@ -26,7 +30,11 @@ public final class EtmcNeoForge {
     public EtmcNeoForge(IEventBus modBus) {
         // Mod bus: registration events.
         modBus.addListener((RegisterKeyMappingsEvent e) -> e.register(EtmcKey.OPEN_MENU));
-        //? if >=1.21 {
+        //? if >=1.21.11 {
+        /*modBus.addListener((RegisterGuiLayersEvent e) ->
+                e.registerAboveAll(Identifier.fromNamespaceAndPath("etmc", "status"),
+                        (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));*/
+        //?} else if >=1.21 {
         modBus.addListener((RegisterGuiLayersEvent e) ->
                 e.registerAboveAll(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));

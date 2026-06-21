@@ -4,7 +4,7 @@ package dev.l5z12.etmc.mixin;
 import net.minecraft.client.gui.screen.multiplayer.AddServerScreen;
 //?} else if yarn {
 /*import net.minecraft.client.gui.screen.AddServerScreen;*/
-//?} else if >=1.21 {
+//?} else if >=1.21.9 {
 /*import net.minecraft.client.gui.screens.ManageServerScreen;*/
 //?} else {
 /*import net.minecraft.client.gui.screens.EditServerScreen;*/
@@ -16,11 +16,11 @@ import org.spongepowered.asm.mixin.injection.ModifyArg;
 /**
  * Widens the address field's max length so a full {@code etmc://} link (which is long) isn't
  * truncated when pasted into Add Server. yarn {@code AddServerScreen}; mojmap {@code ManageServerScreen}
- * (1.21+) / {@code EditServerScreen} (older); field is {@code TextFieldWidget} vs {@code EditBox}.
+ * (1.21.9+) / {@code EditServerScreen} (older); field is {@code TextFieldWidget} vs {@code EditBox}.
  */
 //? if yarn {
 @Mixin(AddServerScreen.class)
-//?} else if >=1.21 {
+//?} else if >=1.21.9 {
 /*@Mixin(ManageServerScreen.class)*/
 //?} else {
 /*@Mixin(EditServerScreen.class)*/

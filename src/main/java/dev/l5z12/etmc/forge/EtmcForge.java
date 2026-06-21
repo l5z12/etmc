@@ -4,7 +4,11 @@ import dev.l5z12.etmc.client.EtmcHud;
 import dev.l5z12.etmc.client.EtmcKey;
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.command.EtmcCommands;
+//? if >=1.21.11 {
+/*import net.minecraft.resources.Identifier;*/
+//?} else {
 import net.minecraft.resources.ResourceLocation;
+//?}
 import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -29,7 +33,11 @@ public final class EtmcForge {
         // Mod bus: registration events.
         RegisterKeyMappingsEvent.getBus(modBus).addListener(e -> e.register(EtmcKey.OPEN_MENU));
         AddGuiOverlayLayersEvent.getBus(modBus).addListener(e ->
+                //? if >=1.21.11 {
+                /*e.getLayeredDraw().add(Identifier.fromNamespaceAndPath("etmc", "status"),*/
+                //?} else {
                 e.getLayeredDraw().add(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
+                //?}
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));
 
         // Game bus: client commands + ticking.

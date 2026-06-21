@@ -36,7 +36,7 @@ public class ClientConnectionMixin {
     /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;Z)Lnet/minecraft/network/ClientConnection;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/
-    //?} else if <26 {
+    //?} else if <1.21.11 {
     /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;ZLnet/minecraft/network/Connection;)Lio/netty/channel/ChannelFuture;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/

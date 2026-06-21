@@ -35,9 +35,21 @@ stonecutter {
         version("1.18.2-fabric", "1.18.2")
         version("1.17.1-fabric", "1.17.1")
         // Mojmap loader nodes (own buildscript): the shared root src/ is processed with fabric=false.
+        version("1.21.11-neoforge", "1.21.11").buildscript("build.neoforge.gradle.kts")
         version("1.21.10-neoforge", "1.21.10").buildscript("build.neoforge.gradle.kts")
+        version("1.21.8-neoforge", "1.21.8").buildscript("build.neoforge.gradle.kts")
+        version("1.21.5-neoforge", "1.21.5").buildscript("build.neoforge.gradle.kts")
+        version("1.21.4-neoforge", "1.21.4").buildscript("build.neoforge.gradle.kts")
+        version("1.21.3-neoforge", "1.21.3").buildscript("build.neoforge.gradle.kts")
+        version("1.21.1-neoforge", "1.21.1").buildscript("build.neoforge.gradle.kts")
+        version("1.21-neoforge", "1.21").buildscript("build.neoforge.gradle.kts")
         version("1.20.6-neoforge", "1.20.6").buildscript("build.neoforge.gradle.kts")
+        // Forge nodes use EtmcForge's EventBus-7 (BusGroup) + AddGuiOverlayLayersEvent (HUD) APIs,
+        // both present from 1.21.8. Older 1.21.x (EventBus 6 / older HUD) are a separate era, not added.
+        version("1.21.11-forge", "1.21.11").buildscript("build.forge.gradle")
         version("1.21.10-forge", "1.21.10").buildscript("build.forge.gradle")
+        version("1.21.9-forge", "1.21.9").buildscript("build.forge.gradle")
+        version("1.21.8-forge", "1.21.8").buildscript("build.forge.gradle")
         vcsVersion = "1.21.10-fabric"
     }
 }
