@@ -215,9 +215,12 @@ public final class McNet {
     /**
      * Kicks off a vanilla connect for the {@code etmc://} link flow. The address is a placeholder —
      * {@code EtmcConnect} has a pending target and the Connection mixin swaps in an EtmcChannel, so
-     * nothing actually connects to this address. Client thread; instance must already be started.
+     * nothing actually connects to this address. When {@code protocolVersion > 0} (detected over the
+     * mesh because ViaFabricPlus can't probe the placeholder address itself), it is pinned onto the
+     * server entry via {@link ViaHook} so VFP translates without auto-detecting. Client thread;
+     * instance must already be started.
      */
-    public static void connectViaChannel(Screen parent, String label) {
+    public static void connectViaChannel(Screen parent, String label, int protocolVersion) {
         //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
         //?} else {
@@ -230,6 +233,8 @@ public final class McNet {
         //?} else {
         /*ServerData info = new ServerData("etmc: " + label, "127.0.0.1:25565", ServerData.Type.OTHER);*/
         //?}
+        // Pin the host's protocol so ViaFabricPlus skips its own (unreachable) auto-detect probe.
+        ViaHook.forceVersion(info, protocolVersion);
         //? if yarn {
         ServerAddress addr = ServerAddress.parse("127.0.0.1:25565");
         //?} else {

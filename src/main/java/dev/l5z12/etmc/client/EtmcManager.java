@@ -8,6 +8,7 @@ import dev.l5z12.etmc.core.ImportedConfig;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.core.RemoteConfig;
+import dev.l5z12.etmc.core.StatusPing;
 import dev.l5z12.etmc.ffi.EasyTier;
 import dev.l5z12.etmc.ffi.NativeLoader;
 import dev.l5z12.etmc.ffi.Panama;
@@ -322,7 +323,23 @@ public final class EtmcManager {
         a.proceeded = true;
         linkAttempt = null;
         EtmcConnect.setPending(new EtmcConnect.Target(session.easyTier(), a.instName, a.code.hostIp, a.code.hostPort));
-        McNet.connectViaChannel(a.parent, a.label);
+        if (!ViaHook.isPresent()) {
+            McNet.connectViaChannel(a.parent, a.label, -1);
+            return;
+        }
+        // ViaFabricPlus is installed but can't auto-detect across an etmc:// join (it raw-sockets the
+        // placeholder address). Detect the host's protocol ourselves over the mesh, then connect with it
+        // pinned so VFP translates without probing. A failed probe (-1) just lets VFP fall back as before.
+        EtmcSession s = session;
+        Screen parent = a.parent;
+        String label = a.label;
+        String inst = a.instName;
+        String hostIp = a.code.hostIp;
+        int hostPort = a.code.hostPort;
+        CompletableFuture
+                .supplyAsync(() -> StatusPing.protocolVersion(s.easyTier(), inst, hostIp, hostPort), worker)
+                .whenComplete((proto, err) -> mc().execute(() ->
+                        McNet.connectViaChannel(parent, label, (err == null && proto != null) ? proto : -1)));
     }
 
     private void linkCancel(LinkAttempt a) {
