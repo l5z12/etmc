@@ -246,6 +246,8 @@ public final class McNet {
         /*ConnectScreen.connect(parent, client, addr, info, false);*/
         //?} else if yarn {
         /*ConnectScreen.connect(parent, client, addr, info);*/
+        //?} else if <1.20.5 {
+        /*ConnectScreen.startConnecting(parent, client, addr, info, false);*/
         //?} else {
         /*ConnectScreen.startConnecting(parent, client, addr, info, false, null);*/
         //?}
