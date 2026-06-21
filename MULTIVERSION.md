@@ -130,23 +130,30 @@ gets commented when `fabric=false` must not contain `/* */`.
 - 3b: ✅ Fabric **1.20.6, 1.20.1, 1.19.4, 1.18.2, 1.17.1** all build green (compile + remapJar, no remap
   warnings) — `Gfx`/`Txt`/`Ui` facades + command-v1/v2, `onClose`, `ServerList`, Gson, connect-mixin
   guards. JNA bundled on the Java-17 rows (1.17.1–1.20.1). **Runtime not yet verified** (compile-only).
-- 3c: ⏳ Fabric **26.x — attempted 2026-06-21, blocked at the Loom mappings layer.** What's confirmed
-  available now: the **26.2 game jar** (Mojang manifest), **fabric-api 0.152.2+26.2**, **loader 0.19.3**,
-  **intermediary 26.2** (302). **No yarn for 26.x** (404 — unobfuscated). The blocker: `loom
-  .officialMojangMappings()` fails with `Failed to find official mojang mappings for 26.2` on **both
-  Loom 1.17.11 and 1.17.12** (latest) — because an *unobfuscated* MC has **no Mojang Proguard mappings
-  file** to fetch. The correct unobf-26.x Loom mappings incantation (intermediary-as-named? a newer/
-  special Loom? a layered setup?) is the open question — postdates the Jan 2026 cutoff and isn't
-  derivable from maven metadata. **Build-side change that IS ready** (in case the mappings approach is
-  found): `build.gradle.kts` can select `officialMojangMappings()` for `mc≥26` vs yarn otherwise.
-  - **Code-side refactor is also fully scoped** (not yet applied): 26.x-fabric uses **official names**
-    (= the mojmap branch), so `fabric` no longer implies yarn. Add a `yarn` constant
-    (`loader==fabric && mcMajor<26`) in the controller and reclassify the ~126 `//? if fabric` guards:
-    the **name** guards (Txt/Ui/Gfx/EtmcHud/McNet/screens/EtmcBaseScreen/mixins — pure yarn-vs-official)
-    become `//? if yarn`; the **loader-API** guards stay `//? if fabric` (FabricLoader config dir in
-    EtmcManager/ModConfig; the FabricClientCommandSource/ClientCommandManager command API in
-    EtmcCommands). Once a working unobf-26.x Loom setup exists, that refactor + a `26.2-fabric` node
-    should compile.
+- 3c: 🟡 Fabric **26.x — toolchain SOLVED + foundation done; render-API port remaining** (2026-06-21).
+  - **Toolchain (was the blocker, now solved).** 26.x is unobfuscated → **no yarn, no Mojang Proguard
+    maps**, so `officialMojangMappings()` fails. The canonical setup (from cloning
+    `FabricMC/fabric-example-mod`, which targets 26.1.2 and builds green here) is: **Loom `1.17-SNAPSHOT`**
+    (full plugin id `net.fabricmc.fabric-loom`, from `maven.fabricmc.net`), **NO `mappings` dependency**
+    (Loom uses the jar's official names), plain `implementation` (not `modImplementation`), **Java 25**.
+    That snapshot Loom is a different API from the 1.x release Loom (no `mappings`/`modImplementation`
+    configs) — but the two **coexist in one Gradle build** via a separate Groovy node script
+    `build.fabric26.gradle` (proven: `:26.2-fabric:compileJava` runs the snapshot Loom + resolves MC
+    26.2 while 1.x stays on 1.17.11; no plugin conflict). `versions/26.2-fabric/gradle.properties`:
+    minecraft 26.2, fabric_api 0.152.2+26.2, loader 0.19.3, java 25.
+  - **Guard refactor DONE** (committed-pending-GPG): added `yarn` constant (`fabric && mcMajor<26`);
+    name guards → `//? if yarn`, loader-API guards stay `//? if fabric`. **Regression-free** —
+    `chiseledBuild` (all 9 existing nodes) still green.
+  - ⏳ **Remaining: 26.x render-API port** (26.x rewrote rendering). Concretely: (1) screens' render
+    hook `render(GuiGraphics, …)` → **`extractRenderState(GuiGraphicsExtractor, …)`** (+ `super.render`
+    → `super.extractRenderState`) — add a 4th `//? else` (≥26) branch to each screen's render signature
+    + the render import; `Gfx` already has it (`GuiGraphicsExtractor.centeredText/text/fill`). (2)
+    `Minecraft.setScreen` → **`setScreenAndShow`** for ≥26 (a `goTo()` helper in EtmcBaseScreen + the
+    non-screen call sites in McNet/EtmcManager/EtmcCommands/EtmcKey). (3) `EtmcClient` (Fabric entry,
+    no name guards yet) needs yarn→official guards for ≥26 (~30 errors: KeyBinding/Identifier/Screen/
+    MinecraftClient names). Then re-enable the `26.2-fabric` node in settings + iterate to green.
+    All of this is **runtime-unverifiable here** (26.x postdates the cutoff) — best finished where it
+    can be run.
 - **1.21.11 deferred**: it's the newest *buildable* version, but it refactored
   `ClientConnection.connect` arg2 `boolean`→`NetworkingBackend`; the channel-swap `@Redirect` descriptor
   won't tiny-remap against the very fresh yarn `1.21.11+build.6` mappings (the new class's intermediary
