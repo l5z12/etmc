@@ -9,7 +9,9 @@ import net.minecraft.client.font.TextRenderer;
 /*import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;*/
 //?}
-//? if !yarn && <26 {
+//? if !yarn && <1.20 {
+/*import com.mojang.blaze3d.vertex.PoseStack;*/
+//?} else if !yarn && <26 {
 /*import net.minecraft.client.gui.GuiGraphics;*/
 //?} else if !yarn {
 /*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
@@ -42,6 +44,8 @@ public final class EtmcHud {
     public static void render(DrawContext ctx)
     //?} else if yarn {
     /*public static void render(MatrixStack ctx)*/
+    //?} else if <1.20 {
+    /*public static void render(PoseStack ctx)*/
     //?} else if <26 {
     /*public static void render(GuiGraphics ctx)*/
     //?} else {

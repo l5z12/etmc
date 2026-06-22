@@ -322,6 +322,24 @@ public final class EtmcCommands {
     }
 
     private static boolean checkReady(FabricClientCommandSource src) {
+    //?} else if <1.20 {
+    /*private static LiteralArgumentBuilder<CommandSourceStack> lit(String name) {
+        return Commands.literal(name);
+    }
+
+    private static <T> RequiredArgumentBuilder<CommandSourceStack, T> arg(String name, ArgumentType<T> type) {
+        return Commands.argument(name, type);
+    }
+
+    private static void feedback(CommandSourceStack src, String msg) {
+        src.sendSuccess(Txt.literal(msg), false);
+    }
+
+    private static void error(CommandSourceStack src, String msg) {
+        src.sendFailure(Txt.literal(msg));
+    }
+
+    private static boolean checkReady(CommandSourceStack src) {*/
     //?} else {
     /*private static LiteralArgumentBuilder<CommandSourceStack> lit(String name) {
         return Commands.literal(name);

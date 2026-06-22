@@ -92,6 +92,7 @@ stonecutter {
         version("1.20.2-forge", "1.20.2").buildscript("build.forge.gradle")
         version("1.20.1-forge", "1.20.1").buildscript("build.forge.gradle")
         version("1.20-forge", "1.20").buildscript("build.forge.gradle")
+        version("1.19.4-forge", "1.19.4").buildscript("build.forge.gradle")
         vcsVersion = "1.21.10-fabric"
     }
 }

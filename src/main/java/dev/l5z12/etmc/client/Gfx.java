@@ -12,6 +12,9 @@ import net.minecraft.client.gui.DrawContext;
 //?} else if yarn {
 /*import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.util.math.MatrixStack;*/
+//?} else if <1.20 {
+/*import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.gui.GuiComponent;*/
 //?} else if <26 {
 /*import net.minecraft.client.gui.GuiGraphics;*/
 //?} else {
@@ -53,6 +56,18 @@ public final class Gfx {
 
     public static void fill(MatrixStack g, int x1, int y1, int x2, int y2, int color) {
         DrawableHelper.fill(g, x1, y1, x2, y2, color);
+    }
+    *///?} else if <1.20 {
+    /*public static void centered(PoseStack g, Font font, Component t, int x, int y, int color) {
+        GuiComponent.drawCenteredString(g, font, t, x, y, color);
+    }
+
+    public static void text(PoseStack g, Font font, Component t, int x, int y, int color) {
+        GuiComponent.drawString(g, font, t, x, y, color);
+    }
+
+    public static void fill(PoseStack g, int x1, int y1, int x2, int y2, int color) {
+        GuiComponent.fill(g, x1, y1, x2, y2, color);
     }
     *///?} else if <26 {
     /*public static void centered(GuiGraphics g, Font font, Component t, int x, int y, int color) {
