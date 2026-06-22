@@ -55,6 +55,7 @@ stonecutter {
         version("1.18-fabric", "1.18")
         version("1.17.1-fabric", "1.17.1")
         // Mojmap loader nodes (own buildscript): the shared root src/ is processed with fabric=false.
+        version("26.2-neoforge", "26.2").buildscript("build.neoforge.gradle.kts")
         version("1.21.11-neoforge", "1.21.11").buildscript("build.neoforge.gradle.kts")
         version("1.21.10-neoforge", "1.21.10").buildscript("build.neoforge.gradle.kts")
         version("1.21.9-neoforge", "1.21.9").buildscript("build.neoforge.gradle.kts")

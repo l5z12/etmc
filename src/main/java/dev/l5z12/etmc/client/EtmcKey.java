@@ -28,9 +28,15 @@ public final class EtmcKey {
     public static void handleTick() {
         Minecraft mc = Minecraft.getInstance();
         while (OPEN_MENU.consumeClick()) {
+            //? if >=26 {
+            /*if (mc.gui.screen() == null) {
+                mc.setScreenAndShow(new EtmcScreen(null));
+            }*/
+            //?} else {
             if (mc.screen == null) {
                 mc.setScreen(new EtmcScreen(null));
             }
+            //?}
         }
     }
 }
