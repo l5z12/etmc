@@ -56,11 +56,17 @@ tasks.processResources {
     // java_version, and MC's Java tracks it): JAVA_21 here would make Mixin reject the config on the
     // java-17 (MC <=1.20.4) runtimes. Match it to the toolchain instead.
     val mixinCompat = if (javaVersion <= 17) "JAVA_17" else "JAVA_21"
+    // The Fabric API umbrella mod's id is "fabric" pre-rename and "fabric-api" after; the renamed jars
+    // still `provides` "fabric", EXCEPT 26.x which dropped that alias. Every node on this buildscript is
+    // <26, so depending on "fabric" covers them all (26.2 uses build.fabric26.gradle → "fabric-api").
+    val fabricApiId = "fabric"
     inputs.property("version", project.version)
     inputs.property("minecraft_dependency", minecraftDependency)
     inputs.property("compatibility_level", mixinCompat)
+    inputs.property("fabric_api_id", fabricApiId)
     filesMatching("fabric.mod.json") {
-        expand("version" to project.version, "minecraft_dependency" to minecraftDependency)
+        expand("version" to project.version, "minecraft_dependency" to minecraftDependency,
+                "fabric_api_id" to fabricApiId)
     }
     filesMatching("etmc.mixins.json") {
         expand("compatibility_level" to mixinCompat)

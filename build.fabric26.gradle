@@ -47,11 +47,14 @@ processResources {
     def minecraftDependency = "~${project.property('deps.minecraft')}"
     // 26.x runs Java 25; JAVA_21 is <= that, and was runtime-verified to load on 26.2, so keep it.
     def mixinCompat = javaVersion <= 17 ? 'JAVA_17' : 'JAVA_21'
+    // 26.x's fabric-api dropped the legacy "fabric" provides alias, so depend on the canonical id here.
+    def fabricApiId = 'fabric-api'
     inputs.property 'version', project.version
     inputs.property 'minecraft_dependency', minecraftDependency
     inputs.property 'compatibility_level', mixinCompat
+    inputs.property 'fabric_api_id', fabricApiId
     filesMatching('fabric.mod.json') {
-        expand 'version': project.version, 'minecraft_dependency': minecraftDependency
+        expand 'version': project.version, 'minecraft_dependency': minecraftDependency, 'fabric_api_id': fabricApiId
     }
     filesMatching('etmc.mixins.json') {
         expand 'compatibility_level': mixinCompat
