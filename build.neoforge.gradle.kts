@@ -52,8 +52,14 @@ java {
 }
 
 tasks.processResources {
+    // Mixin compatibilityLevel must not exceed the runtime Java (see fabric build); match the toolchain.
+    val mixinCompat = if (javaVersion <= 17) "JAVA_17" else "JAVA_21"
     inputs.property("version", project.version)
+    inputs.property("compatibility_level", mixinCompat)
     filesMatching("META-INF/neoforge.mods.toml") {
         expand("version" to project.version)
+    }
+    filesMatching("etmc.mixins.json") {
+        expand("compatibility_level" to mixinCompat)
     }
 }

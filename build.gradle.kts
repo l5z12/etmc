@@ -52,10 +52,18 @@ dependencies {
 tasks.processResources {
     // Per-node MC range: each version node declares its own ~<mc> so the jar only loads where it fits.
     val minecraftDependency = "~${project.property("deps.minecraft")}"
+    // Mixin compatibilityLevel must not exceed the runtime Java (mixins compile to options.release =
+    // java_version, and MC's Java tracks it): JAVA_21 here would make Mixin reject the config on the
+    // java-17 (MC <=1.20.4) runtimes. Match it to the toolchain instead.
+    val mixinCompat = if (javaVersion <= 17) "JAVA_17" else "JAVA_21"
     inputs.property("version", project.version)
     inputs.property("minecraft_dependency", minecraftDependency)
+    inputs.property("compatibility_level", mixinCompat)
     filesMatching("fabric.mod.json") {
         expand("version" to project.version, "minecraft_dependency" to minecraftDependency)
+    }
+    filesMatching("etmc.mixins.json") {
+        expand("compatibility_level" to mixinCompat)
     }
 }
 

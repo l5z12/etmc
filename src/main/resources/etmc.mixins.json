@@ -2,7 +2,7 @@
   "required": true,
   "minVersion": "0.8",
   "package": "dev.l5z12.etmc.mixin",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "${compatibility_level}",
   "client": [
     "AddServerScreenMixin",
     "ClientConnectionMixin",

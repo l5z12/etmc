@@ -28,7 +28,14 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 //?}
 public class ClientConnectionMixin {
 
-    //? if yarn && >=1.20 {
+    // The netty Bootstrap.channel call moved from the 2-arg factory (connect/connectToServer, returns the
+    // connection) into a split-out 3-arg low-level connect(...)ChannelFuture at 1.20.1; arg2 went boolean →
+    // EventLoopGroupHolder (mojmap) / NetworkingBackend (yarn) at 1.21.11.
+    //? if yarn && >=1.21.11 {
+    /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;Lnet/minecraft/network/NetworkingBackend;Lnet/minecraft/network/ClientConnection;)Lio/netty/channel/ChannelFuture;",
+            at = @At(value = "INVOKE",
+                    target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/
+    //?} else if yarn && >=1.20.1 {
     @Redirect(method = "connect(Ljava/net/InetSocketAddress;ZLnet/minecraft/network/ClientConnection;)Lio/netty/channel/ChannelFuture;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))
@@ -36,12 +43,16 @@ public class ClientConnectionMixin {
     /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;Z)Lnet/minecraft/network/ClientConnection;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/
-    //?} else if <1.21.11 {
+    //?} else if >=1.21.11 {
+    /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;Lnet/minecraft/server/network/EventLoopGroupHolder;Lnet/minecraft/network/Connection;)Lio/netty/channel/ChannelFuture;",
+            at = @At(value = "INVOKE",
+                    target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/
+    //?} else if >=1.20.1 {
     /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;ZLnet/minecraft/network/Connection;)Lio/netty/channel/ChannelFuture;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/
     //?} else {
-    /*@Redirect(method = "connect(Ljava/net/InetSocketAddress;Lnet/minecraft/server/network/EventLoopGroupHolder;Lnet/minecraft/network/Connection;)Lio/netty/channel/ChannelFuture;",
+    /*@Redirect(method = "connectToServer(Ljava/net/InetSocketAddress;Z)Lnet/minecraft/network/Connection;",
             at = @At(value = "INVOKE",
                     target = "Lio/netty/bootstrap/Bootstrap;channel(Ljava/lang/Class;)Lio/netty/bootstrap/AbstractBootstrap;"))*/
     //?}

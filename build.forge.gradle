@@ -48,9 +48,15 @@ java {
 }
 
 processResources {
+    // Mixin compatibilityLevel must not exceed the runtime Java (see fabric build); match the toolchain.
+    def mixinCompat = javaVersion <= 17 ? 'JAVA_17' : 'JAVA_21'
     inputs.property 'version', project.version
+    inputs.property 'compatibility_level', mixinCompat
     filesMatching('META-INF/mods.toml') {
         expand 'version': project.version
+    }
+    filesMatching('etmc.mixins.json') {
+        expand 'compatibility_level': mixinCompat
     }
 }
 

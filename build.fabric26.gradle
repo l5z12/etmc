@@ -45,9 +45,15 @@ java {
 processResources {
     // Per-node MC range: each version node declares its own ~<mc> so the jar only loads where it fits.
     def minecraftDependency = "~${project.property('deps.minecraft')}"
+    // 26.x runs Java 25; JAVA_21 is <= that, and was runtime-verified to load on 26.2, so keep it.
+    def mixinCompat = javaVersion <= 17 ? 'JAVA_17' : 'JAVA_21'
     inputs.property 'version', project.version
     inputs.property 'minecraft_dependency', minecraftDependency
+    inputs.property 'compatibility_level', mixinCompat
     filesMatching('fabric.mod.json') {
         expand 'version': project.version, 'minecraft_dependency': minecraftDependency
+    }
+    filesMatching('etmc.mixins.json') {
+        expand 'compatibility_level': mixinCompat
     }
 }
