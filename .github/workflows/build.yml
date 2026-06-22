@@ -94,15 +94,54 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           # WRITE the cache on PR branches too — the action is read-only off the default branch by
-          # default, so PR reruns would otherwise start cold every time.
+          # default, so PR reruns would otherwise start cold. This caches deps/build-cache (~2GB, well
+          # under GitHub's 10GB/repo cap). The loader DECOMPILES (fabric-loom + neoformruntime +
+          # minecraftforge ≈ 22GB; minecraftforge alone is >10GB) are EXCLUDED — they can't fit the
+          # GitHub cache, so they're cached to Cloudflare R2 in the steps below. Excluding them also
+          # guarantees THIS cache stays small enough that the save actually succeeds.
           cache-read-only: false
-          # Cache the WHOLE ~/.gradle/caches, not just the default dep subset: the Loom remapped-jar
-          # caches and the NeoForm/ForgeGradle decompiles live in custom subdirs (fabric-loom,
-          # neoformruntime, minecraftforge) that the action does NOT include by default — and they're
-          # by far the slowest part of chiseledBuild to regenerate from cold.
-          gradle-home-cache-includes: |
-            caches
-            notifications
+          gradle-home-cache-excludes: |
+            caches/fabric-loom
+            caches/neoformruntime
+            caches/minecraftforge
+
+      # Loader decompiles live in R2 (no 10GB cap). Skips cleanly if the R2 secrets aren't set (forks).
+      # Required repo secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+      # NB: secrets can't be read in a step `if:`, so the run-script guards on the (secret-derived) env
+      # itself — no creds → it no-ops and the build proceeds cold (e.g. on fork PRs).
+      - name: Restore loader decompiles from R2
+        id: r2_restore
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # aws-cli v2.23+ adds CRC32 checksums that R2 can reject — only send them when required.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ secrets.R2_BUCKET }}
+          # Decompiles are a pure function of the loader/MC versions + buildscripts — rekey only when
+          # one of those changes, so ordinary src/ edits still hit the cache.
+          CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
+        run: |
+          set +e   # a cache problem must never fail the build — fall back to a cold decompile instead
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "R2 secrets not set — skipping decompile restore."
+            echo "hit=skip" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          obj="s3://$BUCKET/decompiles/${CACHE_KEY}.tar.zst"
+          echo "Looking for $obj"
+          if aws s3 cp "$obj" /tmp/decompiles.tar.zst --endpoint-url "$ENDPOINT" --only-show-errors \
+             && mkdir -p ~/.gradle/caches \
+             && tar -C ~/.gradle/caches -I 'zstd -d' -xf /tmp/decompiles.tar.zst; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+            echo "Restored Loom/NeoForm/ForgeGradle decompiles from R2."
+          else
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+            echo "Decompile cache miss — building cold, will upload after the build."
+          fi
+          rm -f /tmp/decompiles.tar.zst
+          exit 0
 
       - name: Build every Fabric version node + all loader jars
         run: |
@@ -112,6 +151,36 @@ jobs:
           # chiseledBuild = every Stonecutter node: Fabric 1.17.1…1.21.10 + 26.2 + NeoForge
           # 1.20.6/1.21.10 + Forge 1.21.10, all from the one shared src/ tree. Paper: matrix job below.
           ./gradlew chiseledBuild --no-daemon --stacktrace
+
+      # Runs only on a successful build (a step's implicit condition). Inside, it no-ops unless R2 is
+      # configured AND the restore was a cold miss — so we never re-push what we just restored, nor
+      # cache a half-finished decompile from a failed build.
+      - name: Save loader decompiles to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ secrets.R2_BUCKET }}
+          CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
+          HIT: ${{ steps.r2_restore.outputs.hit }}
+        run: |
+          set +e   # uploading the cache is best-effort — never fail the build over it
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then echo "R2 secrets not set — skipping save."; exit 0; fi
+          if [ "$HIT" = "true" ]; then echo "Restored from R2 — nothing to upload."; exit 0; fi
+          dirs=""
+          for d in fabric-loom neoformruntime minecraftforge; do
+            [ -d "$HOME/.gradle/caches/$d" ] && dirs="$dirs $d"
+          done
+          if [ -z "$dirs" ]; then echo "No decompile dirs present — nothing to cache."; exit 0; fi
+          echo "Packing decompiles:$dirs"
+          tar -C ~/.gradle/caches -I 'zstd -3 -T0' -cf /tmp/decompiles.tar.zst $dirs \
+            && ls -lh /tmp/decompiles.tar.zst \
+            && aws s3 cp /tmp/decompiles.tar.zst "s3://$BUCKET/decompiles/${CACHE_KEY}.tar.zst" --endpoint-url "$ENDPOINT" --only-show-errors \
+            && echo "Uploaded decompiles to R2 (key ${CACHE_KEY})." || echo "Decompile upload failed (non-fatal)."
+          exit 0
 
       - name: Upload mod jars
         uses: actions/upload-artifact@v4
