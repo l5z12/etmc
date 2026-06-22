@@ -4,7 +4,9 @@ import com.mojang.blaze3d.platform.InputConstants;
 import dev.l5z12.etmc.client.screen.EtmcScreen;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+//? if >=1.19 {
 import org.lwjgl.glfw.GLFW;
+//?}
 
 /**
  * Shared open-menu keybind for the Mojmap loaders (NeoForge/Forge). Excluded from the Fabric build
@@ -16,7 +18,11 @@ public final class EtmcKey {
     public static final KeyMapping OPEN_MENU = new KeyMapping(
             "key.etmc.open_menu",
             InputConstants.Type.KEYSYM,
+            //? if >=1.19 {
             GLFW.GLFW_KEY_G,
+            //?} else {
+            /*InputConstants.getKey("key.keyboard.g").getValue(),*/
+            //?}
             //? if >=1.21.9 {
             KeyMapping.Category.MISC);
             //?} else {

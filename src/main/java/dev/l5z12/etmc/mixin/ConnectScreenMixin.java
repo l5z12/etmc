@@ -44,6 +44,9 @@ public class ConnectScreenMixin {
     //?} else if yarn {
     /*@Inject(method = "connect(Lnet/minecraft/client/gui/screen/Screen;Lnet/minecraft/client/MinecraftClient;Lnet/minecraft/client/network/ServerAddress;Lnet/minecraft/client/network/ServerInfo;)V",
             at = @At("HEAD"), cancellable = true)*/
+    //?} else if <1.20 {
+    /*@Inject(method = "startConnecting(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/Minecraft;Lnet/minecraft/client/multiplayer/resolver/ServerAddress;Lnet/minecraft/client/multiplayer/ServerData;)V",
+            at = @At("HEAD"), cancellable = true)*/
     //?} else if <1.20.5 {
     /*@Inject(method = "startConnecting(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/Minecraft;Lnet/minecraft/client/multiplayer/resolver/ServerAddress;Lnet/minecraft/client/multiplayer/ServerData;Z)V",
             at = @At("HEAD"), cancellable = true)*/
@@ -54,6 +57,9 @@ public class ConnectScreenMixin {
     //? if yarn {
     private static void etmc$interceptLink(Screen screen, MinecraftClient client, ServerAddress address,
                                            ServerInfo info, CallbackInfo ci) {
+    //?} else if <1.20 {
+    /*private static void etmc$interceptLink(Screen screen, Minecraft client, ServerAddress address,
+                                           ServerData info, CallbackInfo ci) {*/
     //?} else if <1.20.5 {
     /*private static void etmc$interceptLink(Screen screen, Minecraft client, ServerAddress address,
                                            ServerData info, boolean hidden, CallbackInfo ci) {*/

@@ -9,6 +9,9 @@ import net.minecraft.network.chat.MutableComponent;*/
 //? if yarn && <1.19 {
 /*import net.minecraft.text.LiteralText;
 import net.minecraft.text.TranslatableText;*/
+//?} else if <1.19 {
+/*import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;*/
 //?}
 
 /**
@@ -37,13 +40,21 @@ public final class Txt {
     public static MutableText translatable(String key, Object... args) {
         return new TranslatableText(key, args);
     }
-    *///?} else {
+    *///?} else if >=1.19 {
     /*public static MutableComponent literal(String s) {
         return Component.literal(s);
     }
 
     public static MutableComponent translatable(String key, Object... args) {
         return Component.translatable(key, args);
+    }
+    *///?} else {
+    /*public static MutableComponent literal(String s) {
+        return new TextComponent(s);
+    }
+
+    public static MutableComponent translatable(String key, Object... args) {
+        return new TranslatableComponent(key, args);
     }
     *///?}
 }

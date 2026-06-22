@@ -167,8 +167,10 @@ public final class McNet {
         /*list.add(new ServerInfo(name, address, false), true);*/
         //?} else if yarn {
         /*list.add(new ServerInfo(name, address, false));*/
-        //?} else if <1.20.2 {
+        //?} else if >=1.19 && <1.20.2 {
         /*list.add(new ServerData(name, address, false), true);*/
+        //?} else if <1.19 {
+        /*list.add(new ServerData(name, address, false));*/
         //?} else {
         /*list.add(new ServerData(name, address, ServerData.Type.OTHER), true);*/
         //?}

@@ -17,11 +17,23 @@ import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
 //?} else if >=1.21 {
 //?} else if >=1.20.5 {
 /*import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;*/
-//?} else {
+//?} else if >=1.19 {
 /*import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;*/
+//?} else if >=1.18 {
+/*import net.minecraftforge.client.ClientRegistry;
+import net.minecraftforge.client.gui.OverlayRegistry;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;*/
+//?} else {
+/*import net.minecraftforge.fmlclient.registry.ClientRegistry;
+import net.minecraftforge.client.gui.OverlayRegistry;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;*/
 //?}
+//? if >=1.18.2 {
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
+//?}
+//? if >=1.19 {
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+//?}
 import net.minecraftforge.event.TickEvent;
 //? if >=1.21.6 {
 import net.minecraftforge.eventbus.api.bus.BusGroup;
@@ -54,9 +66,12 @@ public final class EtmcForge {
         //? if >=1.21.6 {
         BusGroup modBus = FMLJavaModLoadingContext.get().getModBusGroup();
         RegisterKeyMappingsEvent.getBus(modBus).addListener(e -> e.register(EtmcKey.OPEN_MENU));
-        //?} else {
+        //?} else if >=1.19 {
         /*IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
         modBus.addListener((RegisterKeyMappingsEvent e) -> e.register(EtmcKey.OPEN_MENU));*/
+        //?} else {
+        /*IEventBus modBus = FMLJavaModLoadingContext.get().getModEventBus();
+        modBus.addListener((FMLClientSetupEvent e) -> e.enqueueWork(() -> ClientRegistry.registerKeyBinding(EtmcKey.OPEN_MENU)));*/
         //?}
 
         // HUD overlay: AddGuiOverlayLayersEvent (1.21.1+), the classic RegisterGuiOverlaysEvent (1.20.x).
@@ -79,19 +94,27 @@ public final class EtmcForge {
         /*modBus.addListener((AddGuiOverlayLayersEvent e) ->
                 e.getLayeredDraw().add(new ResourceLocation("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));*/
-        //?} else {
+        //?} else if >=1.19 {
         /*modBus.addListener((RegisterGuiOverlaysEvent e) ->
                 e.registerAboveAll("etmc_status",
                         (gui, guiGraphics, partialTick, width, height) -> EtmcHud.render(guiGraphics)));*/
+        //?} else {
+        /*modBus.addListener((FMLClientSetupEvent e) -> e.enqueueWork(() ->
+                OverlayRegistry.registerOverlayTop("etmc_status",
+                        (gui, poseStack, partialTick, width, height) -> EtmcHud.render(poseStack))));*/
         //?}
 
         // Game bus: client commands + ticking.
         //? if >=1.21.6 {
         RegisterClientCommandsEvent.BUS.addListener(e -> EtmcCommands.register(e.getDispatcher()));
         TickEvent.ClientTickEvent.Post.BUS.addListener(e -> onClientTick());
-        //?} else {
+        //?} else if >=1.18.2 {
         /*MinecraftForge.EVENT_BUS.addListener((RegisterClientCommandsEvent e) -> EtmcCommands.register(e.getDispatcher()));
         MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent e) -> {
+            if (e.phase == TickEvent.Phase.END) onClientTick();
+        });*/
+        //?} else {
+        /*MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent e) -> {
             if (e.phase == TickEvent.Phase.END) onClientTick();
         });*/
         //?}

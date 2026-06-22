@@ -93,6 +93,14 @@ stonecutter {
         version("1.20.1-forge", "1.20.1").buildscript("build.forge.gradle")
         version("1.20-forge", "1.20").buildscript("build.forge.gradle")
         version("1.19.4-forge", "1.19.4").buildscript("build.forge.gradle")
+        version("1.19.3-forge", "1.19.3").buildscript("build.forge.gradle")
+        version("1.19.2-forge", "1.19.2").buildscript("build.forge.gradle")
+        version("1.19.1-forge", "1.19.1").buildscript("build.forge.gradle")
+        version("1.19-forge", "1.19").buildscript("build.forge.gradle")
+        version("1.18.2-forge", "1.18.2").buildscript("build.forge.gradle")
+        version("1.18.1-forge", "1.18.1").buildscript("build.forge.gradle")
+        version("1.18-forge", "1.18").buildscript("build.forge.gradle")
+        version("1.17.1-forge", "1.17.1").buildscript("build.forge.gradle")
         vcsVersion = "1.21.10-fabric"
     }
 }

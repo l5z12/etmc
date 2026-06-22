@@ -97,9 +97,13 @@ public final class Ui {
         /*public ButtonWidget build() {
             return new ButtonWidget(x, y, width, height, message, onPress);
         }
-        *///?} else {
+        *///?} else if >=1.19.3 {
         /*public Button build() {
             return Button.builder(message, onPress).bounds(x, y, width, height).build();
+        }
+        *///?} else {
+        /*public Button build() {
+            return new Button(x, y, width, height, message, onPress);
         }
         *///?}
     }
