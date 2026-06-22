@@ -15,7 +15,7 @@ All targeting **Minecraft 1.21.10** (Java 21):
 |---|---|---|---|
 | `fabric/` | Fabric | client (host/join/connect, GUI, HUD, `/etmc`) | Fabric Loom (yarn) |
 | `neoforge/` | NeoForge | client (same features) | ModDevGradle (mojmap) |
-| `forge/` | MinecraftForge | client (same features) | ModDevGradle legacyforge (mojmap) |
+| `forge/` | MinecraftForge | client (same features) | ForgeGradle 7 (mojmap) |
 | `paper/` | Paper/Bukkit | **server** — exposes a dedicated server over the mesh | paper-api |
 
 The platform-independent FFI + networking lives in `common/` (shared by all four); the Mojmap client
@@ -27,26 +27,36 @@ a running relay and a second machine, which isn't part of the automated checks.
 ## How it works
 
 ```
- Host                                             Joiner
- ─────                                            ──────
- Minecraft "Open to LAN"  127.0.0.1:LAN           Minecraft client
-        ▲                                                │ connects to
-        │ loopback socket                                ▼ 127.0.0.1:PROXY
-   HostShare  ──── data-plane TCP ───┐        ┌─── JoinProxy
-        │                            │        │
-   EasyTier (no_tun, ipv4=10.126.126.1)   EasyTier (no_tun, dhcp)
-        └──────────── EasyTier mesh via your relay ──────────┘
+ Host                                          Joiner
+ ────                                          ──────
+ Minecraft "Open to LAN" (127.0.0.1:LAN)       Minecraft client
+        ▲                                             │  vanilla netty pipeline
+        │ loopback socket                             ▼
+   HostShare ── forwards each stream            EtmcChannel  (no socket, no port)
+        │                                             │  reads/writes the
+        ▼                                             ▼  EasyTier data plane
+   EasyTier (no_tun, 10.126.126.1) ──── mesh ──── EasyTier (no_tun, dhcp)
+                        via your relay
 ```
 
-- **Host**: starts an EasyTier instance with a fixed virtual IP (`10.126.126.1`), publishes the world
-  to LAN, and forwards each accepted mesh stream to the local LAN port.
-- **Join**: starts an EasyTier instance (DHCP), opens a loopback listener, and tunnels each local
-  connection to the host's virtual IP over the mesh. Minecraft connects to `127.0.0.1:<port>`.
-- A **join code** (`ETMC1:…`) carries the network name, secret, relay(s) and the host address — copy
-  it to a friend or import/export it like "a Minecraft server driven by EasyTier".
+Both peers run an EasyTier instance in no-TUN mode and meet on the mesh through your relay — no TUN
+device, no forwarded port. The host takes a fixed virtual IP (`10.126.126.1`) so joiners always know
+where to reach it; joiners use DHCP.
+
+- **Host**: `HostShare` accepts each peer stream off the mesh and forwards it to the local "Open to
+  LAN" server on `127.0.0.1:<lanPort>`.
+- **Join via `etmc://` link** (the link/Direct-Connect flow): the connection rides an **`EtmcChannel`**
+  — a netty transport whose bytes go straight through the EasyTier data plane (`data_plane_tcp_*`), so
+  vanilla networking (and mods like ViaFabricPlus, on top of it) run over the mesh with **no loopback
+  socket and no port**.
+- **Join via code / config URL**: `JoinProxy` opens a loopback listener and points Minecraft at
+  `127.0.0.1:<port>` as if it were a LAN server, bridging each local connection to the host's virtual
+  IP over the mesh.
+- A **join code** (`ETMC1:…`) carries the network name, secret, relay(s) and host address — share it
+  with a friend, or publish an `etmc://` link / config URL.
 
 The Foreign Function & Memory API (`java.lang.foreign`) is reached through a small **reflection
-facade** (`ffi/Panama.java`) so the jar stays plain Java 21 bytecode and runs on Java 21–26 without
+facade** (`ffi/Panama.java`) so the jar stays plain Java 21 bytecode and runs on Java 21+ without
 `--enable-preview`.
 
 ## Using it (in game)
@@ -91,11 +101,14 @@ network — it does **not** need to run etmc.
 
 etmc is built to coexist with other mods, including protocol-translation mods like **ViaFabricPlus**:
 
-- **No mixins.** etmc touches no Minecraft internals; it uses only public APIs.
-- **Transparent TCP relay.** Connections are bridged at the raw byte level on a loopback socket,
+- **Surgical mixins.** etmc adds only a few small client mixins, all confined to the multiplayer
+  connect path: they let Minecraft accept an `etmc://` address (instead of rejecting it as an
+  unparseable host) and route it onto the mesh, and widen the Add Server / Direct Connect field so a
+  long link isn't truncated. Ordinary connections are left untouched.
+- **Transparent TCP relay.** Code-based joins are bridged at the raw byte level on a loopback socket,
   *below* the Minecraft protocol. ViaFabricPlus translates in the client's netty pipeline and etmc
-  forwards the already-translated bytes verbatim, so the two compose — VFP even auto-detects the real
-  server version by pinging through the proxy.
+  forwards the already-translated bytes verbatim, so the two compose — VFP auto-detects the real
+  server version by pinging through the loopback proxy.
 - **Stable loopback port.** Set `joinLocalPort` in `config/etmc.json` to a fixed port so VFP's
   per-server (per-address) version setting persists across sessions (default `0` = ephemeral).
 
@@ -178,13 +191,6 @@ Three workflows:
   GitHub Release. `workflow_dispatch` runs the same build without publishing (dry run).
 
 Gradle deps are cached via `gradle/actions/setup-gradle`.
-
-### CI
-
-`.github/workflows/build.yml` builds the FFI native for all five targets (Windows x86-64, Linux
-x86-64/aarch64, macOS x86-64/aarch64) on their respective runners, then assembles a jar bundling all
-of them. Trigger it manually (workflow_dispatch) to pin a specific EasyTier ref via the
-`easytier_ref` input. This is how macOS natives are produced (they can't be cross-built off a Mac).
 
 ## License
 

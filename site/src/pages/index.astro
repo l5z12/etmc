@@ -2,7 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 
 const features = [
-  { ico: '🧩', title: 'No port-forwarding', body: 'EasyTier coordinates a P2P mesh through your relay and punches through NAT. Friends just need the code.' },
+  { ico: '🧩', title: 'No port-forwarding', body: 'EasyTier coordinates a P2P mesh through your relay and punches through NAT. Friends just need the link or code.' },
   { ico: '🚫', title: 'No TUN, no admin', body: 'Runs fully in userspace via the EasyTier data plane — no virtual adapter, no driver, no elevation.' },
   { ico: '🧱', title: 'Multi-platform', body: 'Native libraries for Windows and Linux (x64 + arm64) bundled; macOS produced in CI.' },
   { ico: '🔌', title: 'Mod-compatible', body: 'A transparent transport below the protocol — composes with mods like ViaFabricPlus.' },
@@ -22,7 +22,7 @@ const diagram = `Host                                          Joiner
 <BaseLayout title="etmc">
   <section class="hero">
     <div class="container">
-      <span class="tag">FABRIC · NEOFORGE · FORGE · MC 1.17 – 26</span>
+      <span class="tag">FABRIC · NEOFORGE · FORGE · PAPER · MC 1.17 – 26</span>
       <h1>etmc</h1>
       <p class="lead">
         EasyTier P2P multiplayer, in-game. Host your world or join a friend over a
@@ -53,8 +53,9 @@ const diagram = `Host                                          Joiner
     <div class="panel slot">
       <pre><code>{diagram}</code></pre>
       <p class="muted">
-        Minecraft only ever talks to <code>127.0.0.1</code>. etmc bridges that loopback
-        socket to the mesh in userspace, so the vanilla networking — and other mods — work unchanged.
+        With a join code or config URL, etmc bridges a loopback socket to the mesh in userspace (above).
+        An <code>etmc://</code> link skips even that — the connection rides the data plane directly, with
+        <strong>no local port</strong>. Either way the vanilla networking — and other mods — work unchanged.
       </p>
     </div>
 
@@ -64,7 +65,7 @@ const diagram = `Host                                          Joiner
         <li>Install the Fabric mod (needs Fabric API).</li>
         <li>Open the menu with <span class="kbd">G</span> or <code>/etmc menu</code>.</li>
         <li>In <strong>Settings</strong>, add your EasyTier relay, e.g. <code>tcp://my.relay:11010</code>.</li>
-        <li><strong>Host this world</strong> → share the join code. Friends pick <strong>Join with a code</strong>.</li>
+        <li><strong>Host this world</strong> → share the <code>etmc://</code> link or join code. Friends paste the link into <strong>Add Server</strong>, or pick <strong>Join with a code</strong>.</li>
       </ol>
       <div class="btn-row">
         <a class="btn" href="/docs">Read the docs</a>

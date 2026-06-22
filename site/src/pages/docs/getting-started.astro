@@ -6,11 +6,15 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   <h2>Install</h2>
   <ol>
     <li>Install <a href="https://fabricmc.net/" target="_blank" rel="noopener">Fabric Loader</a> (or NeoForge / Forge)
-      for your Minecraft version — Fabric covers 1.17.1 through 26.x, NeoForge 1.20.6 and 1.21.10, Forge 1.21.10.</li>
+      for your Minecraft version — Fabric covers 1.17.1 through 26.x, NeoForge 1.20.4 through 1.21.11 (and 26.2),
+      Forge 1.17.1 through 1.21.11.</li>
     <li>Drop the etmc jar into your <code>mods/</code> folder; on Fabric also add
       <a href="https://modrinth.com/mod/fabric-api" target="_blank" rel="noopener">Fabric API</a>.</li>
-    <li>Launch the game — Java 17 for 1.17.1 – 1.20.1, Java 21 for 1.20.6 – 1.21.10, Java 25 for 26.x.</li>
+    <li>Launch the game — Java 17 for 1.17.1 – 1.20.4, Java 21 for 1.20.5 – 1.21.11, Java 25 for 26.x.</li>
   </ol>
+  <p class="muted">etmc also ships for <strong>NeoForge</strong> and <strong>Forge</strong> clients, and a
+    <strong>Paper</strong> plugin for dedicated servers — grab the matching jar from
+    <a href="https://github.com/L5Z12/etmc/releases" target="_blank" rel="noopener">Releases</a>.</p>
 
   <h2>Open the menu</h2>
   <p>Press <span class="kbd">G</span> (rebindable under <em>Controls → Misc</em>) or run <code>/etmc menu</code>.</p>
@@ -25,8 +29,8 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
   <h2>Play</h2>
   <ul>
-    <li><strong>Host this world</strong> → pick a network name (+ optional secret) → share the join code.</li>
-    <li>Friends pick <strong>Join with a code</strong> and paste it.</li>
+    <li><strong>Host this world</strong> → pick a network name (+ optional secret) → share the <code>etmc://</code> link or join code.</li>
+    <li>Friends paste the <code>etmc://</code> link into <strong>Multiplayer → Add Server</strong>, or use <strong>Join with a code</strong>.</li>
   </ul>
   <p>See <a href="/docs/hosting">Hosting</a> and <a href="/docs/joining">Joining</a> for details.</p>
 </DocsLayout>

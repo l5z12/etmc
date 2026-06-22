@@ -20,8 +20,11 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
   <h2>Invite</h2>
   <p>
-    A <strong>join code</strong> (<code>ETMC1:…</code>) is generated containing the network name, secret, relays and
-    host address. Share it in chat. <code>/etmc invite</code> copies it to your clipboard at any time.
+    etmc generates a <strong>join code</strong> (<code>ETMC1:…</code>) and an <strong><code>etmc://</code> link</strong>,
+    both carrying the network name, secret, relays and host address. Share either: the link pastes straight into a
+    friend's <strong>Add Server</strong> / <strong>Direct Connect</strong> (no menu needed); the code goes in
+    <strong>Join with a code</strong>. <code>/etmc invite</code> copies the link to your clipboard, and
+    <strong>Session status</strong> has copy buttons for both.
   </p>
 
   <div class="note">Keep the world open while friends are connected — leaving stops the mesh instance.</div>
