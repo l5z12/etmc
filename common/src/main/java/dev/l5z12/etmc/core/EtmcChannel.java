@@ -14,6 +14,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 
 /**
  * A netty {@link io.netty.channel.Channel} whose transport is an EasyTier data-plane TCP stream.
@@ -44,6 +45,14 @@ public final class EtmcChannel extends AbstractChannel {
     private volatile Thread writer;
     /** Outbound payloads handed off from the event loop to {@link #writer} so writes never block it. */
     private final BlockingQueue<byte[]> writeQueue = new LinkedBlockingQueue<>();
+    /**
+     * Read-demand gate. netty releases a permit (via {@link #doBeginRead()}) for each read cycle it
+     * wants; the reader parks until then, so the mesh is never drained faster than the pipeline
+     * consumes it. This is the channel's read backpressure: when a handler sets {@code autoRead=false}
+     * (ViaFabricPlus does while translating), no permit is granted and inbound data stops — without it
+     * the reader floods VFP mid-translation and the connection desyncs.
+     */
+    private final Semaphore readGate = new Semaphore(0);
 
     public EtmcChannel(EtmcConnect.Target target) {
         super(null);
@@ -117,7 +126,11 @@ public final class EtmcChannel extends AbstractChannel {
 
     @Override
     protected void doBeginRead() {
-        // The reader thread runs continuously once connected; nothing to schedule here.
+        // netty wants (more) data — release one read cycle to the reader thread. Honoring this is what
+        // gives the pipeline real backpressure: with autoRead on, each fireChannelReadComplete drives the
+        // next read; with autoRead off (e.g. ViaFabricPlus while translating), no permit is granted and
+        // the reader parks instead of flooding the pipeline.
+        readGate.release();
     }
 
     @Override
@@ -165,6 +178,8 @@ public final class EtmcChannel extends AbstractChannel {
             byte[] tmp = new byte[BUF];
             try {
                 while (open) {
+                    readGate.acquire();           // wait until netty requests a read (backpressure)
+                    if (!open) break;
                     int n = target.et().tcpRead(stream, tmp, BUF, READ_TIMEOUT_MS);
                     if (n <= 0) break;
                     ByteBuf out = config.getAllocator().buffer(n);
@@ -177,7 +192,7 @@ public final class EtmcChannel extends AbstractChannel {
             } catch (Throwable ignored) {
                 // fall through to close
             } finally {
-                eventLoop().execute(() -> close(voidPromise()));
+                eventLoop().execute(() -> close());
             }
         }, "etmc-channel-rx");
         t.setDaemon(true);
@@ -200,7 +215,7 @@ public final class EtmcChannel extends AbstractChannel {
             } catch (InterruptedException ignored) {
                 // channel closing
             } catch (Throwable ex) {
-                eventLoop().execute(() -> close(voidPromise()));
+                eventLoop().execute(() -> close());
             }
         }, "etmc-channel-tx");
         t.setDaemon(true);
@@ -229,7 +244,7 @@ public final class EtmcChannel extends AbstractChannel {
                 } catch (Throwable ex) {
                     eventLoop().execute(() -> {
                         promise.tryFailure(ex);
-                        close(voidPromise());
+                        EtmcChannel.this.close();
                     });
                 }
             }, "etmc-channel-connect");
