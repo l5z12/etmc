@@ -14,7 +14,11 @@ import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
 //?} else if >=1.21.6 {
 //?} else if >=1.21.1 {
 /*import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;*/
+//?} else if >=1.21 {
+//?} else if >=1.20.5 {
+/*import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;*/
 //?} else {
+/*import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;*/
 //?}
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
@@ -55,7 +59,8 @@ public final class EtmcForge {
         modBus.addListener((RegisterKeyMappingsEvent e) -> e.register(EtmcKey.OPEN_MENU));*/
         //?}
 
-        // HUD overlay. Skipped on 1.21 and 1.21.6/1.21.7 (no HUD-layer registration API in those windows).
+        // HUD overlay: AddGuiOverlayLayersEvent (1.21.1+), the classic RegisterGuiOverlaysEvent (1.20.x).
+        // Skipped on 1.21 and 1.21.6/1.21.7 (no HUD-layer registration API in those transitional windows).
         //? if >=1.21.11 {
         /*AddGuiOverlayLayersEvent.getBus(modBus).addListener(e ->
                 e.getLayeredDraw().add(Identifier.fromNamespaceAndPath("etmc", "status"),
@@ -69,7 +74,15 @@ public final class EtmcForge {
         /*modBus.addListener((AddGuiOverlayLayersEvent e) ->
                 e.getLayeredDraw().add(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));*/
+        //?} else if >=1.21 {
+        //?} else if >=1.20.5 {
+        /*modBus.addListener((AddGuiOverlayLayersEvent e) ->
+                e.getLayeredDraw().add(new ResourceLocation("etmc", "status"),
+                        (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));*/
         //?} else {
+        /*modBus.addListener((RegisterGuiOverlaysEvent e) ->
+                e.registerAboveAll("etmc_status",
+                        (gui, guiGraphics, partialTick, width, height) -> EtmcHud.render(guiGraphics)));*/
         //?}
 
         // Game bus: client commands + ticking.

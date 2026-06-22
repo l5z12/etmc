@@ -167,6 +167,8 @@ public final class McNet {
         /*list.add(new ServerInfo(name, address, false), true);*/
         //?} else if yarn {
         /*list.add(new ServerInfo(name, address, false));*/
+        //?} else if <1.20.2 {
+        /*list.add(new ServerData(name, address, false), true);*/
         //?} else {
         /*list.add(new ServerData(name, address, ServerData.Type.OTHER), true);*/
         //?}
@@ -230,6 +232,8 @@ public final class McNet {
         ServerInfo info = new ServerInfo("etmc: " + label, "127.0.0.1:25565", ServerInfo.ServerType.OTHER);
         //?} else if yarn {
         /*ServerInfo info = new ServerInfo("etmc: " + label, "127.0.0.1:25565", false);*/
+        //?} else if <1.20.2 {
+        /*ServerData info = new ServerData("etmc: " + label, "127.0.0.1:25565", false);*/
         //?} else {
         /*ServerData info = new ServerData("etmc: " + label, "127.0.0.1:25565", ServerData.Type.OTHER);*/
         //?}
