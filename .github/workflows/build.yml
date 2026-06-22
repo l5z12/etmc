@@ -110,43 +110,14 @@ jobs:
             versions/*/build/libs/*.jar
           if-no-files-found: error
 
-  # Paper is server-side and uses only stable Bukkit API + version-independent common/, so one source
-  # compiles across the whole range — only the paper-api version and the Java target change. Build each.
+  # Paper jars are platform-independent — only the paper-api version + Java target change across the
+  # range — so all of them build on ONE worker (loop, no matrix). The only genuine per-platform fan-out
+  # is the native matrix in natives.yml. Paper is a standalone build (paper/settings.gradle), so `-p
+  # paper` never pulls in (or configures) the Stonecutter loader nodes; the Gradle daemon is reused
+  # across the loop. JDK 17 + 21 are both installed (the per-era compile target); 21 runs Gradle.
   paper:
-    name: paper ${{ matrix.mc }}
+    name: paper (all versions)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { mc: '1.17',    java: '17' }
-          - { mc: '1.17.1',  java: '17' }
-          - { mc: '1.18',    java: '17' }
-          - { mc: '1.18.1',  java: '17' }
-          - { mc: '1.18.2',  java: '17' }
-          - { mc: '1.19',    java: '17' }
-          - { mc: '1.19.1',  java: '17' }
-          - { mc: '1.19.2',  java: '17' }
-          - { mc: '1.19.3',  java: '17' }
-          - { mc: '1.19.4',  java: '17' }
-          - { mc: '1.20',    java: '17' }
-          - { mc: '1.20.1',  java: '17' }
-          - { mc: '1.20.2',  java: '17' }
-          - { mc: '1.20.3',  java: '17' }
-          - { mc: '1.20.4',  java: '17' }
-          - { mc: '1.20.5',  java: '21' }
-          - { mc: '1.20.6',  java: '21' }
-          - { mc: '1.21',    java: '21' }
-          - { mc: '1.21.1',  java: '21' }
-          - { mc: '1.21.3',  java: '21' }
-          - { mc: '1.21.4',  java: '21' }
-          - { mc: '1.21.5',  java: '21' }
-          - { mc: '1.21.6',  java: '21' }
-          - { mc: '1.21.7',  java: '21' }
-          - { mc: '1.21.8',  java: '21' }
-          - { mc: '1.21.9',  java: '21' }
-          - { mc: '1.21.10', java: '21' }
-          - { mc: '1.21.11', java: '21' }
     steps:
       - name: Checkout etmc
         uses: actions/checkout@v4
@@ -168,28 +139,33 @@ jobs:
             done
           fi
 
-      - name: Set up JDK ${{ matrix.java }}
+      - name: Set up JDK 17 + 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ matrix.java }}
+          java-version: |
+            17
+            21
 
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Paper jar (${{ matrix.mc }})
-        # Paper is a standalone Gradle build (paper/settings.gradle) — `-p paper` keeps it off the
-        # Stonecutter root, so it builds on the matrix Java directly and never configures the loader nodes.
+      - name: Build every Paper jar
         run: |
           chmod +x ./gradlew
-          ./gradlew -p paper build \
-            -Ppaper_version=${{ matrix.mc }}-R0.1-SNAPSHOT \
-            -Ppaper_java=${{ matrix.java }} \
-            --no-daemon --stacktrace
+          installs="-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64"
+          # Java 17 era (MC 1.17 – 1.20.4)
+          for v in 1.17 1.17.1 1.18 1.18.1 1.18.2 1.19 1.19.1 1.19.2 1.19.3 1.19.4 1.20 1.20.1 1.20.2 1.20.3 1.20.4; do
+            ./gradlew $installs -p paper build -Ppaper_version=$v-R0.1-SNAPSHOT -Ppaper_java=17 --stacktrace
+          done
+          # Java 21 era (MC 1.20.5 – 1.21.11)
+          for v in 1.20.5 1.20.6 1.21 1.21.1 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11; do
+            ./gradlew $installs -p paper build -Ppaper_version=$v-R0.1-SNAPSHOT -Ppaper_java=21 --stacktrace
+          done
 
-      - name: Upload Paper jar
+      - name: Upload Paper jars
         uses: actions/upload-artifact@v4
         with:
-          name: etmc-paper-${{ matrix.mc }}
+          name: etmc-paper-jars
           path: paper/build/libs/*.jar
           if-no-files-found: error
