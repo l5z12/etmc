@@ -92,6 +92,17 @@ jobs:
 
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # WRITE the cache on PR branches too — the action is read-only off the default branch by
+          # default, so PR reruns would otherwise start cold every time.
+          cache-read-only: false
+          # Cache the WHOLE ~/.gradle/caches, not just the default dep subset: the Loom remapped-jar
+          # caches and the NeoForm/ForgeGradle decompiles live in custom subdirs (fabric-loom,
+          # neoformruntime, minecraftforge) that the action does NOT include by default — and they're
+          # by far the slowest part of chiseledBuild to regenerate from cold.
+          gradle-home-cache-includes: |
+            caches
+            notifications
 
       - name: Build every Fabric version node + all loader jars
         run: |
@@ -149,6 +160,11 @@ jobs:
 
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # Persist the Gradle home (~/.gradle: downloaded deps + the expensive Loom/NeoForm/
+          # ForgeGradle decompiles) AND write it on PR branches too — the action is read-only off the
+          # default branch by default, so PR reruns would otherwise start cold every time.
+          cache-read-only: false
 
       - name: Build every Paper jar
         run: |
@@ -158,8 +174,10 @@ jobs:
           for v in 1.17 1.17.1 1.18 1.18.1 1.18.2 1.19 1.19.1 1.19.2 1.19.3 1.19.4 1.20 1.20.1 1.20.2 1.20.3 1.20.4; do
             ./gradlew $installs -p paper build -Ppaper_version=$v-R0.1-SNAPSHOT -Ppaper_java=17 --stacktrace
           done
-          # Java 21 era (MC 1.20.5 – 1.21.11)
-          for v in 1.20.5 1.20.6 1.21 1.21.1 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11; do
+          # Java 21 era (MC 1.20.6 – 1.21.11). 1.20.5 is omitted: its only paper-api build pins a kyori
+          # adventure SNAPSHOT (4.17.0-SNAPSHOT) that has since been pruned from every repo, so it can no
+          # longer resolve. 1.20.5 was a ~1-week release superseded by 1.20.6 (Forge skips it too).
+          for v in 1.20.6 1.21 1.21.1 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11; do
             ./gradlew $installs -p paper build -Ppaper_version=$v-R0.1-SNAPSHOT -Ppaper_java=21 --stacktrace
           done
 
