@@ -178,9 +178,11 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build Paper jar (${{ matrix.mc }})
+        # Paper is a standalone Gradle build (paper/settings.gradle) — `-p paper` keeps it off the
+        # Stonecutter root, so it builds on the matrix Java directly and never configures the loader nodes.
         run: |
           chmod +x ./gradlew
-          ./gradlew :paper:build \
+          ./gradlew -p paper build \
             -Ppaper_version=${{ matrix.mc }}-R0.1-SNAPSHOT \
             -Ppaper_java=${{ matrix.java }} \
             --no-daemon --stacktrace

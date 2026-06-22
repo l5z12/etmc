@@ -19,9 +19,9 @@ plugins {
 
 rootProject.name = "etmc"
 
-// Paper stays a (multi-version-via-CI-matrix) subproject; NeoForge + Forge are now Stonecutter
-// loader nodes built from the shared src/ tree (see below), not standalone subprojects.
-include("paper")
+// Paper is its own standalone build (paper/settings.gradle) so a server-only build never pulls in the
+// Stonecutter version tree — build it with `gradle -p paper`. NeoForge + Forge are Stonecutter loader
+// nodes built from the shared src/ tree (below), not standalone subprojects.
 
 // Stonecutter versions the Fabric build (root = controller, root src/ = shared source).
 stonecutter {
