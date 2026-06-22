@@ -70,6 +70,10 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
     /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
     //?}
     {
+        // Pre-1.20.2 the base Screen.render() doesn't draw the menu background; draw it ourselves.
+        //? if <1.20.2 {
+        /*this.renderBackground(ctx);*/
+        //?}
         //? if >=26 {
         /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
         //?} else {
