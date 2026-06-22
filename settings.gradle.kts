@@ -57,15 +57,20 @@ stonecutter {
         // Mojmap loader nodes (own buildscript): the shared root src/ is processed with fabric=false.
         version("1.21.11-neoforge", "1.21.11").buildscript("build.neoforge.gradle.kts")
         version("1.21.10-neoforge", "1.21.10").buildscript("build.neoforge.gradle.kts")
+        version("1.21.9-neoforge", "1.21.9").buildscript("build.neoforge.gradle.kts")
         version("1.21.8-neoforge", "1.21.8").buildscript("build.neoforge.gradle.kts")
+        version("1.21.7-neoforge", "1.21.7").buildscript("build.neoforge.gradle.kts")
+        version("1.21.6-neoforge", "1.21.6").buildscript("build.neoforge.gradle.kts")
         version("1.21.5-neoforge", "1.21.5").buildscript("build.neoforge.gradle.kts")
         version("1.21.4-neoforge", "1.21.4").buildscript("build.neoforge.gradle.kts")
         version("1.21.3-neoforge", "1.21.3").buildscript("build.neoforge.gradle.kts")
+        version("1.21.2-neoforge", "1.21.2").buildscript("build.neoforge.gradle.kts")
         version("1.21.1-neoforge", "1.21.1").buildscript("build.neoforge.gradle.kts")
         version("1.21-neoforge", "1.21").buildscript("build.neoforge.gradle.kts")
         version("1.20.6-neoforge", "1.20.6").buildscript("build.neoforge.gradle.kts")
-        // 1.20.4 is the oldest buildable NeoForge: ModDevGradle 2.x needs the `neoforge-moddev-bundle`
-        // capability variant, which the first release (20.2 / MC 1.20.2) doesn't publish — so 1.20.2 is out.
+        // 1.20.4 is the oldest buildable NeoForge: 1.20.2/1.20.3/1.20.5 only got beta NeoForge builds,
+        // which don't publish the `neoforge-moddev-bundle` capability variant ModDevGradle 2.x requires.
+        // The 1.21.2/1.21.6/1.21.7/1.21.9 nodes DO use beta builds (those carry the variant).
         version("1.20.4-neoforge", "1.20.4").buildscript("build.neoforge.gradle.kts")
         // Forge nodes span both eras: EtmcForge guards EventBus 7 (>=1.21.6) vs EventBus 6 (<1.21.6),
         // and the HUD-layer event across 1.21–1.21.5 / 1.21.6-1.21.7 (no API → no overlay) / 1.21.8+.
