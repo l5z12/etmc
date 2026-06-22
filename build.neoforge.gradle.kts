@@ -54,10 +54,18 @@ java {
 tasks.processResources {
     // Mixin compatibilityLevel must not exceed the runtime Java (see fabric build); match the toolchain.
     val mixinCompat = if (javaVersion <= 17) "JAVA_17" else "JAVA_21"
+    // mods.toml version ranges are per node: pin Minecraft to this node's exact version, and floor the
+    // NeoForge dependency at the version this node builds against (a single hardcoded range only fit the
+    // original 1.21.10 target and rejected every other node — incl. 26.2 — at load).
+    val minecraftRange = "[${project.property("deps.minecraft")}]"
+    val neoforgeRange = "[${project.property("deps.neoforge")},)"
     inputs.property("version", project.version)
     inputs.property("compatibility_level", mixinCompat)
+    inputs.property("minecraft_range", minecraftRange)
+    inputs.property("neoforge_range", neoforgeRange)
     filesMatching("META-INF/neoforge.mods.toml") {
-        expand("version" to project.version)
+        expand("version" to project.version, "minecraft_range" to minecraftRange,
+                "neoforge_range" to neoforgeRange)
     }
     filesMatching("etmc.mixins.json") {
         expand("compatibility_level" to mixinCompat)

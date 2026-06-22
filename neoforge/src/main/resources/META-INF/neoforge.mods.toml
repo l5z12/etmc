@@ -16,13 +16,13 @@ config = "etmc.mixins.json"
 [[dependencies.etmc]]
 modId = "neoforge"
 type = "required"
-versionRange = "[21.10,)"
+versionRange = "${neoforge_range}"
 ordering = "NONE"
 side = "CLIENT"
 
 [[dependencies.etmc]]
 modId = "minecraft"
 type = "required"
-versionRange = "[1.21.10,1.22)"
+versionRange = "${minecraft_range}"
 ordering = "NONE"
 side = "CLIENT"

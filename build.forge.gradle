@@ -50,10 +50,18 @@ java {
 processResources {
     // Mixin compatibilityLevel must not exceed the runtime Java (see fabric build); match the toolchain.
     def mixinCompat = javaVersion <= 17 ? 'JAVA_17' : 'JAVA_21'
+    // mods.toml ranges are per node: pin Minecraft to this node's exact version, and floor the FML/forge
+    // loader at this node's Forge major (deps.forge is "<mc>-<forgever>", e.g. 1.21.10-60.1.9 -> 60). A
+    // single hardcoded range only fit the original 1.21.10 target and rejected every other node at load.
+    def minecraftRange = "[${project.property('deps.minecraft')}]"
+    def forgeMajor = project.property('deps.forge').toString().split('-')[1].split('\\.')[0]
+    def loaderRange = "[${forgeMajor},)"
     inputs.property 'version', project.version
     inputs.property 'compatibility_level', mixinCompat
+    inputs.property 'minecraft_range', minecraftRange
+    inputs.property 'loader_range', loaderRange
     filesMatching('META-INF/mods.toml') {
-        expand 'version': project.version
+        expand 'version': project.version, 'minecraft_range': minecraftRange, 'loader_range': loaderRange
     }
     filesMatching('etmc.mixins.json') {
         expand 'compatibility_level': mixinCompat
