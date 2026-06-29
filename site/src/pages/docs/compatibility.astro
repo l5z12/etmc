@@ -10,18 +10,31 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   <ul>
     <li><strong>Thin, transport-level mixins.</strong> etmc only swaps the connection's transport and tweaks
       the multiplayer screens — it never touches packet handling.</li>
-    <li><strong>Below the protocol.</strong> Connections are carried at the raw byte level (a custom netty
-      channel on the mesh, or a loopback relay for the config-URL path), <em>below</em> the Minecraft protocol.
-      ViaFabricPlus translates in the client's netty pipeline and etmc carries the already-translated bytes
-      verbatim, so the two stack cleanly.</li>
-    <li><strong>Auto version detection.</strong> ViaFabricPlus pings <em>through</em> the proxy, so it sees the
-      real server version.</li>
+    <li><strong>Below the protocol.</strong> Connections are carried at the raw byte level — a custom netty
+      channel on the mesh for <code>etmc://</code> links, or a loopback relay for the code and config-URL
+      paths — <em>below</em> the Minecraft protocol. ViaFabricPlus translates in the client's netty pipeline
+      and etmc carries the already-translated bytes verbatim, so the two stack cleanly.</li>
+  </ul>
+
+  <h2>Auto version detection</h2>
+  <p>
+    ViaFabricPlus figures out a server's version by opening its own probe to the server address. Whether that
+    works depends on the join path:
+  </p>
+  <ul>
+    <li><strong>Join with a code / config URL.</strong> These ride a loopback relay, so ViaFabricPlus's probe
+      passes straight through to the host and auto-detect just works — nothing special needed.</li>
+    <li><strong><code>etmc://</code> links.</strong> These use the mesh netty channel directly, so there is no
+      socket for ViaFabricPlus to probe and its auto-detect can't reach the host on its own. etmc detects the
+      host's protocol itself — a status ping over the mesh — and pins it onto the server entry through
+      ViaFabricPlus's forced-version API, so VFP translates without probing. No dependency on ViaFabricPlus:
+      if it isn't installed, etmc simply skips this.</li>
   </ul>
 
   <h2>Stable loopback port</h2>
   <p>
-    ViaFabricPlus stores per-server settings by address. Set <code>joinLocalPort</code> in
-    <code>config/etmc.json</code> to a fixed port so a forced version persists across sessions
-    (default <code>0</code> = ephemeral; etmc falls back to ephemeral if the port is taken).
+    On the code / config-URL paths, ViaFabricPlus stores per-server settings by address. Set
+    <code>joinLocalPort</code> in <code>config/etmc.json</code> to a fixed port so a forced version persists
+    across sessions (default <code>0</code> = ephemeral; etmc falls back to ephemeral if the port is taken).
   </p>
 </DocsLayout>

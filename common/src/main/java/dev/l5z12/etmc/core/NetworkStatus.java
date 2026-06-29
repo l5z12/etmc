@@ -41,7 +41,9 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
     public static NetworkStatus parse(String json) {
         if (json == null || json.isBlank()) return empty();
         try {
-            JsonObject root = JsonParser.parseString(json).getAsJsonObject();
+            // Instance parse() (not the static parseString, added in Gson 2.8.6) so this shared code
+            // works against the older Gson bundled by 1.17/1.18 too.
+            JsonObject root = new JsonParser().parse(json).getAsJsonObject();
 
             boolean running = optBool(root, "running", true);
             String errorMsg = optString(root, "error_msg");

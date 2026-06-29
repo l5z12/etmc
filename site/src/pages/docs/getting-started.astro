@@ -5,10 +5,12 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 <DocsLayout title="Getting started" description="Install etmc, add a relay, and play.">
   <h2>Install</h2>
   <ol>
-    <li>Install <a href="https://fabricmc.net/" target="_blank" rel="noopener">Fabric Loader</a> for Minecraft 1.21.x.</li>
-    <li>Drop <a href="https://modrinth.com/mod/fabric-api" target="_blank" rel="noopener">Fabric API</a> and the
-      <a href="https://github.com/L5Z12/etmc/releases" target="_blank" rel="noopener">etmc jar</a> into your <code>mods/</code> folder.</li>
-    <li>Launch the game (Java 21+).</li>
+    <li>Install <a href="https://fabricmc.net/" target="_blank" rel="noopener">Fabric Loader</a> (or NeoForge / Forge)
+      for your Minecraft version — Fabric covers 1.17.1 through 26.x, NeoForge 1.20.4 through 1.21.11 (and 26.2),
+      Forge 1.17.1 through 1.21.11.</li>
+    <li>Drop the etmc jar into your <code>mods/</code> folder; on Fabric also add
+      <a href="https://modrinth.com/mod/fabric-api" target="_blank" rel="noopener">Fabric API</a>.</li>
+    <li>Launch the game — Java 17 for 1.17.1 – 1.20.4, Java 21 for 1.20.5 – 1.21.11, Java 25 for 26.x.</li>
   </ol>
   <p class="muted">etmc also ships for <strong>NeoForge</strong> and <strong>Forge</strong> clients, and a
     <strong>Paper</strong> plugin for dedicated servers — grab the matching jar from

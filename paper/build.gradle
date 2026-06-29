@@ -2,8 +2,11 @@ plugins {
     id 'java'
 }
 
+// Include the MC version in the jar name so the multi-version matrix yields distinct jars.
+def paperMc = (project.findProperty('paper_version') ?: '1.21.10-R0.1-SNAPSHOT').toString().replace('-R0.1-SNAPSHOT', '')
+
 base {
-    archivesName = "${project.archives_base_name}-paper"
+    archivesName = "${project.archives_base_name}-paper-${paperMc}"
 }
 
 repositories {
@@ -16,8 +19,8 @@ repositories {
 
 // Shared platform-independent sources (FFI + networking) + bundled natives compile straight into
 // the plugin jar — no shading needed.
-sourceSets.main.java.srcDir("$rootDir/common/src/main/java")
-sourceSets.main.resources.srcDir("$rootDir/common/src/main/resources")
+sourceSets.main.java.srcDir("$rootDir/../common/src/main/java")
+sourceSets.main.resources.srcDir("$rootDir/../common/src/main/resources")
 
 dependencies {
     // Provided by the server at runtime (Bukkit/Paper API + its bundled gson).
@@ -26,16 +29,23 @@ dependencies {
     // classpath. It's unused on the server (no client connection), but must still compile. netty is
     // present at runtime (the server bundles it), so compileOnly is correct.
     compileOnly "io.netty:netty-transport:4.1.118.Final"
+    // JNA backend (Java 17 fallback); compileOnly on 1.21.x where FFM is used.
+    compileOnly "net.java.dev.jna:jna:${project.jna_version}"
 }
 
+// Java release per MC era (CI matrix overrides via -Ppaper_java): 17 for ≤1.20.4, 21 for ≥1.20.6.
+// Paper's code only uses stable Bukkit API + version-independent common/, so one source compiles
+// across the whole range — only the target level and paper_version change.
+def paperJava = (project.findProperty('paper_java') ?: '21') as Integer
+
 tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
+    it.options.release = paperJava
     it.options.encoding = 'UTF-8'
 }
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(paperJava)
     }
 }
 
@@ -47,7 +57,7 @@ processResources {
 }
 
 jar {
-    from("$rootDir/LICENSE") {
+    from("$rootDir/../LICENSE") {
         rename { "${it}_${project.base.archivesName.get()}" }
     }
 }

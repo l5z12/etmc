@@ -1,0 +1,62 @@
+// Fabric node buildscript for unobfuscated MC 26.x. 26.x ships with official names (no yarn / no
+// mappings dependency) and needs the newer Loom snapshot, whose API differs from the 1.x release Loom
+// (plain `implementation`, no `mappings`/`modImplementation`). Groovy avoids the Kotlin-DSL accessor
+// friction. The shared client source comes from the Stonecutter-processed root src/ + common/.
+plugins {
+    id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
+}
+
+base {
+    archivesName = "etmc-fabric-${stonecutter.current.version}"
+}
+
+int javaVersion = (project.property('java_version') as String).toInteger()
+
+repositories {
+    mavenCentral()
+}
+
+sourceSets.main.java.srcDir("$rootDir/common/src/main/java")
+sourceSets.main.resources.srcDir("$rootDir/common/src/main/resources")
+// Loader entry points compile only on their own loader; EtmcKey is mojmap-only.
+sourceSets.main.java.exclude('**/EtmcKey.java', '**/neoforge/**', '**/forge/**')
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.property('deps.minecraft')}"
+    // Unobfuscated 26.x: no mappings dependency (Loom uses the jar's official names), plain
+    // implementation (deps need no remapping).
+    implementation "net.fabricmc:fabric-loader:${project.property('deps.fabric_loader')}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.property('deps.fabric_api')}"
+    // Java 25 -> FFM is used, so JNA is compile-only (not bundled).
+    compileOnly "net.java.dev.jna:jna:${project.property('jna_version')}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = javaVersion
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(javaVersion)
+    }
+}
+
+processResources {
+    // Per-node MC range: each version node declares its own ~<mc> so the jar only loads where it fits.
+    def minecraftDependency = "~${project.property('deps.minecraft')}"
+    // 26.x runs Java 25; JAVA_21 is <= that, and was runtime-verified to load on 26.2, so keep it.
+    def mixinCompat = javaVersion <= 17 ? 'JAVA_17' : 'JAVA_21'
+    // 26.x's fabric-api dropped the legacy "fabric" provides alias, so depend on the canonical id here.
+    def fabricApiId = 'fabric-api'
+    inputs.property 'version', project.version
+    inputs.property 'minecraft_dependency', minecraftDependency
+    inputs.property 'compatibility_level', mixinCompat
+    inputs.property 'fabric_api_id', fabricApiId
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version, 'minecraft_dependency': minecraftDependency, 'fabric_api_id': fabricApiId
+    }
+    filesMatching('etmc.mixins.json') {
+        expand 'compatibility_level': mixinCompat
+    }
+}

@@ -1,5 +1,5 @@
 modLoader = "javafml"
-loaderVersion = "[60,)"
+loaderVersion = "${loader_range}"
 license = "GPL-3.0-or-later"
 issueTrackerURL = "https://github.com/L5Z12/etmc/issues"
 
@@ -16,13 +16,13 @@ config = "etmc.mixins.json"
 [[dependencies.etmc]]
 modId = "forge"
 mandatory = true
-versionRange = "[60,)"
+versionRange = "${loader_range}"
 ordering = "NONE"
 side = "CLIENT"
 
 [[dependencies.etmc]]
 modId = "minecraft"
 mandatory = true
-versionRange = "[1.21.10,1.22)"
+versionRange = "${minecraft_range}"
 ordering = "NONE"
 side = "CLIENT"

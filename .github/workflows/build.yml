@@ -61,13 +61,29 @@ jobs:
           echo "Bundled natives:"
           find common/src/main/resources/natives -type f -printf '  %p (%s bytes)\n'
 
-      # ForgeGradle's mavenizer needs a JDK 8; the build itself runs on 21.
+      # Fabric nodes need JDK 17 (1.17.1–1.20.1), 21 (1.20.6–1.21.10 + loaders) and 25 (26.2, the
+      # snapshot-Loom node); ForgeGradle's mavenizer needs JDK 8. setup-java exports JAVA_HOME_<ver>_X64
+      # for each; we hand them all to Gradle's toolchain locator so no JDK is auto-downloaded.
       - name: Set up JDK 8 (Forge mavenizer)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '8'
 
+      - name: Set up JDK 17 (Fabric 1.17.1–1.20.1)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up JDK 25 (Fabric 26.2)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      # JDK 21 is set up LAST on purpose: it stays JAVA_HOME, so the Gradle 9.5 daemon runs on 21 (the
+      # proven runtime for every other node). The 17/25 toolchains are picked up from the paths below.
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -76,21 +92,167 @@ jobs:
 
       - name: Set up Gradle (with caching)
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # WRITE the cache on PR branches too — the action is read-only off the default branch by
+          # default, so PR reruns would otherwise start cold. This caches deps/build-cache (~2GB, well
+          # under GitHub's 10GB/repo cap). The loader DECOMPILES (fabric-loom + neoformruntime +
+          # minecraftforge ≈ 22GB; minecraftforge alone is >10GB) are EXCLUDED — they can't fit the
+          # GitHub cache, so they're cached to Cloudflare R2 in the steps below. Excluding them also
+          # guarantees THIS cache stays small enough that the save actually succeeds.
+          cache-read-only: false
+          gradle-home-cache-excludes: |
+            caches/fabric-loom
+            caches/neoformruntime
+            caches/minecraftforge
 
-      - name: Build all platform jars
+      # Loader decompiles live in R2 (no 10GB cap). Skips cleanly if the R2 secrets aren't set (forks).
+      # Required repo secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+      # NB: secrets can't be read in a step `if:`, so the run-script guards on the (secret-derived) env
+      # itself — no creds → it no-ops and the build proceeds cold (e.g. on fork PRs).
+      - name: Restore loader decompiles from R2
+        id: r2_restore
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # aws-cli v2.23+ adds CRC32 checksums that R2 can reject — only send them when required.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ secrets.R2_BUCKET }}
+          # Decompiles are a pure function of the loader/MC versions + buildscripts — rekey only when
+          # one of those changes, so ordinary src/ edits still hit the cache.
+          CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
+        run: |
+          set +e   # a cache problem must never fail the build — fall back to a cold decompile instead
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then
+            echo "R2 secrets not set — skipping decompile restore."
+            echo "hit=skip" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          obj="s3://$BUCKET/decompiles/${CACHE_KEY}.tar.zst"
+          echo "Looking for $obj"
+          if aws s3 cp "$obj" /tmp/decompiles.tar.zst --endpoint-url "$ENDPOINT" --only-show-errors \
+             && mkdir -p ~/.gradle/caches \
+             && tar -C ~/.gradle/caches -I 'zstd -d' -xf /tmp/decompiles.tar.zst; then
+            echo "hit=true" >> "$GITHUB_OUTPUT"
+            echo "Restored Loom/NeoForm/ForgeGradle decompiles from R2."
+          else
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+            echo "Decompile cache miss — building cold, will upload after the build."
+          fi
+          rm -f /tmp/decompiles.tar.zst
+          exit 0
+
+      - name: Build every Fabric version node + all loader jars
         run: |
           chmod +x ./gradlew
-          # Point ForgeGradle's toolchain locator at the JDK 8 set up above (no GitHub auto-download).
-          export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64"
-          ./gradlew build --no-daemon --stacktrace
+          # Hand Gradle's toolchain locator every JDK we set up (no GitHub auto-download).
+          export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64,$JAVA_HOME_17_X64,$JAVA_HOME_21_X64,$JAVA_HOME_25_X64"
+          # chiseledBuild = every Stonecutter node: Fabric 1.17.1…1.21.10 + 26.2 + NeoForge
+          # 1.20.6/1.21.10 + Forge 1.21.10, all from the one shared src/ tree. Paper: matrix job below.
+          ./gradlew chiseledBuild --no-daemon --stacktrace
+
+      # Runs only on a successful build (a step's implicit condition). Inside, it no-ops unless R2 is
+      # configured AND the restore was a cold miss — so we never re-push what we just restored, nor
+      # cache a half-finished decompile from a failed build.
+      - name: Save loader decompiles to R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          BUCKET: ${{ secrets.R2_BUCKET }}
+          CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
+          HIT: ${{ steps.r2_restore.outputs.hit }}
+        run: |
+          set +e   # uploading the cache is best-effort — never fail the build over it
+          if [ -z "$AWS_ACCESS_KEY_ID" ]; then echo "R2 secrets not set — skipping save."; exit 0; fi
+          if [ "$HIT" = "true" ]; then echo "Restored from R2 — nothing to upload."; exit 0; fi
+          dirs=""
+          for d in fabric-loom neoformruntime minecraftforge; do
+            [ -d "$HOME/.gradle/caches/$d" ] && dirs="$dirs $d"
+          done
+          if [ -z "$dirs" ]; then echo "No decompile dirs present — nothing to cache."; exit 0; fi
+          echo "Packing decompiles:$dirs"
+          tar -C ~/.gradle/caches -I 'zstd -3 -T0' -cf /tmp/decompiles.tar.zst $dirs \
+            && ls -lh /tmp/decompiles.tar.zst \
+            && aws s3 cp /tmp/decompiles.tar.zst "s3://$BUCKET/decompiles/${CACHE_KEY}.tar.zst" --endpoint-url "$ENDPOINT" --only-show-errors \
+            && echo "Uploaded decompiles to R2 (key ${CACHE_KEY})." || echo "Decompile upload failed (non-fatal)."
+          exit 0
 
       - name: Upload mod jars
         uses: actions/upload-artifact@v4
         with:
           name: etmc-jars
           path: |
-            fabric/build/libs/*.jar
-            paper/build/libs/*.jar
-            neoforge/build/libs/*.jar
-            forge/build/libs/*.jar
+            versions/*/build/libs/*.jar
+          if-no-files-found: error
+
+  # Paper jars are platform-independent — only the paper-api version + Java target change across the
+  # range — so all of them build on ONE worker (loop, no matrix). The only genuine per-platform fan-out
+  # is the native matrix in natives.yml. Paper is a standalone build (paper/settings.gradle), so `-p
+  # paper` never pulls in (or configures) the Stonecutter loader nodes; the Gradle daemon is reused
+  # across the loop. JDK 17 + 21 are both installed (the per-era compile target); 21 runs Gradle.
+  paper:
+    name: paper (all versions)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v4
+
+      - name: Download freshly-built natives (if any)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: staging
+
+      - name: Place natives
+        run: |
+          if [ -d staging ]; then
+            for d in staging/native-*; do
+              [ -e "$d" ] || continue
+              tag="$(basename "$d" | sed 's/^native-//')"
+              mkdir -p "common/src/main/resources/natives/$tag"
+              cp "$d"/* "common/src/main/resources/natives/$tag/"
+            done
+          fi
+
+      - name: Set up JDK 17 + 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            21
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          # Persist the Gradle home (~/.gradle: downloaded deps + the expensive Loom/NeoForm/
+          # ForgeGradle decompiles) AND write it on PR branches too — the action is read-only off the
+          # default branch by default, so PR reruns would otherwise start cold every time.
+          cache-read-only: false
+
+      - name: Build every Paper jar
+        run: |
+          chmod +x ./gradlew
+          installs="-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64"
+          # Java 17 era (MC 1.17 – 1.20.4)
+          for v in 1.17 1.17.1 1.18 1.18.1 1.18.2 1.19 1.19.1 1.19.2 1.19.3 1.19.4 1.20 1.20.1 1.20.2 1.20.3 1.20.4; do
+            ./gradlew $installs -p paper build -Ppaper_version=$v-R0.1-SNAPSHOT -Ppaper_java=17 --stacktrace
+          done
+          # Java 21 era (MC 1.20.6 – 1.21.11). 1.20.5 is omitted: its only paper-api build pins a kyori
+          # adventure SNAPSHOT (4.17.0-SNAPSHOT) that has since been pruned from every repo, so it can no
+          # longer resolve. 1.20.5 was a ~1-week release superseded by 1.20.6 (Forge skips it too).
+          for v in 1.20.6 1.21 1.21.1 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11; do
+            ./gradlew $installs -p paper build -Ppaper_version=$v-R0.1-SNAPSHOT -Ppaper_java=21 --stacktrace
+          done
+
+      - name: Upload Paper jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: etmc-paper-jars
+          path: paper/build/libs/*.jar
           if-no-files-found: error

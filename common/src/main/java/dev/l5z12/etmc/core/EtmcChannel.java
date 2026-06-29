@@ -1,6 +1,5 @@
 package dev.l5z12.etmc.core;
 
-import dev.l5z12.etmc.ffi.Panama;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.AbstractChannel;
 import io.netty.channel.ChannelConfig;
@@ -15,6 +14,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 
 /**
  * A netty {@link io.netty.channel.Channel} whose transport is an EasyTier data-plane TCP stream.
@@ -45,6 +45,14 @@ public final class EtmcChannel extends AbstractChannel {
     private volatile Thread writer;
     /** Outbound payloads handed off from the event loop to {@link #writer} so writes never block it. */
     private final BlockingQueue<byte[]> writeQueue = new LinkedBlockingQueue<>();
+    /**
+     * Read-demand gate. netty releases a permit (via {@link #doBeginRead()}) for each read cycle it
+     * wants; the reader parks until then, so the mesh is never drained faster than the pipeline
+     * consumes it. This is the channel's read backpressure: when a handler sets {@code autoRead=false}
+     * (ViaFabricPlus does while translating), no permit is granted and inbound data stops — without it
+     * the reader floods VFP mid-translation and the connection desyncs.
+     */
+    private final Semaphore readGate = new Semaphore(0);
 
     public EtmcChannel(EtmcConnect.Target target) {
         super(null);
@@ -118,7 +126,11 @@ public final class EtmcChannel extends AbstractChannel {
 
     @Override
     protected void doBeginRead() {
-        // The reader thread runs continuously once connected; nothing to schedule here.
+        // netty wants (more) data — release one read cycle to the reader thread. Honoring this is what
+        // gives the pipeline real backpressure: with autoRead on, each fireChannelReadComplete drives the
+        // next read; with autoRead off (e.g. ViaFabricPlus while translating), no permit is granted and
+        // the reader parks instead of flooding the pipeline.
+        readGate.release();
     }
 
     @Override
@@ -163,14 +175,13 @@ public final class EtmcChannel extends AbstractChannel {
 
     private void startReader() {
         Thread t = new Thread(() -> {
-            Object arena = Panama.newArena();
+            byte[] tmp = new byte[BUF];
             try {
-                Object nbuf = Panama.alloc(arena, BUF);
-                byte[] tmp = new byte[BUF];
                 while (open) {
-                    int n = target.et().tcpRead(stream, nbuf, BUF, READ_TIMEOUT_MS);
+                    readGate.acquire();           // wait until netty requests a read (backpressure)
+                    if (!open) break;
+                    int n = target.et().tcpRead(stream, tmp, BUF, READ_TIMEOUT_MS);
                     if (n <= 0) break;
-                    Panama.buffer(nbuf).get(0, tmp, 0, n);
                     ByteBuf out = config.getAllocator().buffer(n);
                     out.writeBytes(tmp, 0, n);
                     eventLoop().execute(() -> {
@@ -181,8 +192,7 @@ public final class EtmcChannel extends AbstractChannel {
             } catch (Throwable ignored) {
                 // fall through to close
             } finally {
-                Panama.closeArena(arena);
-                eventLoop().execute(() -> close(voidPromise()));
+                eventLoop().execute(() -> close());
             }
         }, "etmc-channel-rx");
         t.setDaemon(true);
@@ -197,22 +207,15 @@ public final class EtmcChannel extends AbstractChannel {
                 while (open) {
                     byte[] data = writeQueue.take(); // blocks until there's something to send
                     if (data.length == 0) continue;
-                    Object arena = Panama.newArena();
-                    try {
-                        Object nbuf = Panama.alloc(arena, data.length);
-                        Panama.buffer(nbuf).put(0, data, 0, data.length);
-                        int w = target.et().tcpWrite(stream, nbuf, data.length, WRITE_TIMEOUT_MS);
-                        if (w < 0) {
-                            throw new java.io.IOException("etmc data-plane write failed");
-                        }
-                    } finally {
-                        Panama.closeArena(arena);
+                    int w = target.et().tcpWrite(stream, data, data.length, WRITE_TIMEOUT_MS);
+                    if (w < 0) {
+                        throw new java.io.IOException("etmc data-plane write failed");
                     }
                 }
             } catch (InterruptedException ignored) {
                 // channel closing
             } catch (Throwable ex) {
-                eventLoop().execute(() -> close(voidPromise()));
+                eventLoop().execute(() -> close());
             }
         }, "etmc-channel-tx");
         t.setDaemon(true);
@@ -241,7 +244,7 @@ public final class EtmcChannel extends AbstractChannel {
                 } catch (Throwable ex) {
                     eventLoop().execute(() -> {
                         promise.tryFailure(ex);
-                        close(voidPromise());
+                        EtmcChannel.this.close();
                     });
                 }
             }, "etmc-channel-connect");

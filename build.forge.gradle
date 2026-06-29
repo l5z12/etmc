@@ -1,0 +1,76 @@
+// Forge node buildscript (mojmap, ForgeGradle 7 / 1.21.x). Groovy because ForgeGradle's DSL
+// (fg.forgeMaven, minecraft.mavenizer/dependency) is Groovy-friendly. Shared client source comes
+// from the root src/ (Stonecutter-processed with fabric=false) + common/; other loaders excluded.
+plugins {
+    id 'net.minecraftforge.gradle' version '7.0.28'
+}
+
+base {
+    archivesName = "etmc-forge-${stonecutter.current.version}"
+}
+
+int javaVersion = (project.property('java_version') as String).toInteger()
+
+sourceSets.main.java.srcDir("$rootDir/common/src/main/java")
+sourceSets.main.resources.srcDir("$rootDir/common/src/main/resources")
+sourceSets.main.resources.srcDir("$rootDir/forge/src/main/resources")
+// This is the Forge node: drop the Fabric (EtmcClient) + NeoForge entry points.
+sourceSets.main.java.exclude('**/EtmcClient.java', '**/neoforge/**')
+
+minecraft {
+    mappings channel: 'official', version: project.property('deps.minecraft')
+    runs {
+        register('client')
+    }
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven fg.forgeMaven
+    maven fg.minecraftLibsMaven
+    mavenCentral()
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${project.property('deps.forge')}")
+    compileOnly "net.java.dev.jna:jna:${project.property('jna_version')}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = javaVersion
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(javaVersion)
+    }
+}
+
+processResources {
+    // Mixin compatibilityLevel must not exceed the runtime Java (see fabric build); match the toolchain.
+    def mixinCompat = javaVersion <= 17 ? 'JAVA_17' : 'JAVA_21'
+    // mods.toml ranges are per node: pin Minecraft to this node's exact version, and floor the FML/forge
+    // loader at this node's Forge major (deps.forge is "<mc>-<forgever>", e.g. 1.21.10-60.1.9 -> 60). A
+    // single hardcoded range only fit the original 1.21.10 target and rejected every other node at load.
+    def minecraftRange = "[${project.property('deps.minecraft')}]"
+    def forgeMajor = project.property('deps.forge').toString().split('-')[1].split('\\.')[0]
+    def loaderRange = "[${forgeMajor},)"
+    inputs.property 'version', project.version
+    inputs.property 'compatibility_level', mixinCompat
+    inputs.property 'minecraft_range', minecraftRange
+    inputs.property 'loader_range', loaderRange
+    filesMatching('META-INF/mods.toml') {
+        expand 'version': project.version, 'minecraft_range': minecraftRange, 'loader_range': loaderRange
+    }
+    filesMatching('etmc.mixins.json') {
+        expand 'compatibility_level': mixinCompat
+    }
+}
+
+// MinecraftForge reads mixin configs from the MixinConfigs manifest attribute, not mods.toml.
+jar {
+    manifest {
+        attributes(['MixinConfigs': 'etmc.mixins.json'])
+    }
+}
