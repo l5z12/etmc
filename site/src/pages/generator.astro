@@ -2,13 +2,14 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 
-<BaseLayout title="Config generator" description="Generate the Paper server config.yml or a shareable player config — everything runs in your browser.">
+<BaseLayout title="Config generator" description="Generate a Paper server config.yml, a shareable player config, or an etmc:// join link — everything runs in your browser.">
   <div class="container" style="padding-top:24px">
     <h1>Config generator</h1>
 
     <div class="btn-row seg" style="margin:6px 0 8px">
       <button id="mode-paper" class="btn btn-primary" type="button">Paper server (config.yml)</button>
       <button id="mode-player" class="btn" type="button">Player config (URL)</button>
+      <button id="mode-link" class="btn" type="button">Join link (etmc://)</button>
     </div>
 
     <p class="lead paper-only" style="max-width:760px">
@@ -20,6 +21,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       Build the config file players join with. Host the result at any HTTP(S) URL, then players use
       <strong>Connect via config URL</strong> (or <code>/etmc connect &lt;url&gt;</code>) — no join code needed.
       Everything below runs in your browser.
+    </p>
+    <p class="lead link-only" style="max-width:760px">
+      Build a shareable <code>etmc://</code> link and <code>ETMC1:</code> join code from the network
+      details. Players paste the link straight into <strong>Add Server</strong> /
+      <strong>Direct Connect</strong>, or import the code — no hosted file needed. Everything below
+      runs in your browser.
     </p>
 
     <div class="gen" id="gen" data-mode="paper">
@@ -45,7 +52,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           </div>
 
           <div class="row2">
-            <div class="client-only">
+            <div class="mesh-only">
               <label class="field" for="f-serverip">Server mesh IP</label>
               <input id="f-serverip" class="mc-input" type="text" value="10.126.126.1" autocomplete="off" spellcheck="false" />
             </div>
@@ -55,7 +62,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
             </div>
           </div>
 
-          <div class="client-only">
+          <div class="mesh-only">
             <label class="field" for="f-label">Label <span class="muted">(shown in the client)</span></label>
             <input id="f-label" class="mc-input" type="text" value="My Server" autocomplete="off" spellcheck="false" />
           </div>
@@ -63,10 +70,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
         <div class="panel slot">
           <label class="field" id="lbl-out">Generated config.yml</label>
-          <pre class="out-toml"><code id="out">…</code></pre>
-          <div class="btn-row" style="margin-top:8px">
+          <pre class="out-toml" id="out-pre"><code id="out">…</code></pre>
+          <div class="btn-row" id="acts-file" style="margin-top:8px">
             <button id="copy" class="btn btn-primary" type="button">Copy</button>
             <button id="download" class="btn" type="button">Download</button>
+          </div>
+          <div class="btn-row link-only" id="acts-link" style="margin-top:8px">
+            <button id="copy-link" class="btn btn-primary" type="button">Copy etmc:// link</button>
+            <button id="copy-code" class="btn" type="button">Copy ETMC1 code</button>
           </div>
           <p id="toast" class="toast">&nbsp;</p>
           <p id="errs" class="err"></p>
@@ -94,23 +105,51 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </ol>
         <p class="muted">The target server does not need to run etmc — only to be on the same EasyTier network.</p>
       </div>
+
+      <div class="panel link-only">
+        <h3>Then what?</h3>
+        <ol>
+          <li>Make sure the host is reachable on the mesh at the <em>Server mesh IP</em> and port (the etmc
+            host, or any EasyTier peer serving Minecraft there).</li>
+          <li>Send players the <code>etmc://</code> link, or the <code>ETMC1:</code> code.</li>
+          <li>They paste the link into <strong>Add Server</strong> / <strong>Direct Connect</strong>, or
+            import the code from the <strong>Join</strong> screen.</li>
+        </ol>
+        <p class="muted">The link carries the network name, secret, relays, and host address — anyone with
+          it can join, so share it like a password.</p>
+      </div>
     </div>
   </div>
 
   <style>
-    .gen[data-mode="paper"] .client-only { display: none; }
-    .gen[data-mode="player"] .paper-only { display: none; }
+    /* paper-only: only in Paper mode */
+    .gen[data-mode="player"] .paper-only,
+    .gen[data-mode="link"]   .paper-only { display: none; }
+    /* client-only: only in Player mode */
+    .gen[data-mode="paper"] .client-only,
+    .gen[data-mode="link"]  .client-only { display: none; }
+    /* mesh-only: Player + Link (i.e. not Paper) */
+    .gen[data-mode="paper"] .mesh-only { display: none; }
+    /* link-only: only in Link mode */
+    .gen[data-mode="paper"]  .link-only,
+    .gen[data-mode="player"] .link-only { display: none; }
+    /* Link mode swaps the Copy/Download row for the two copy buttons. */
+    .gen[data-mode="link"] #acts-file { display: none; }
+    /* The base64 link/code is one long token — let it wrap in Link mode. */
+    .gen[data-mode="link"] #out-pre { white-space: pre-wrap; word-break: break-all; }
     .seg .btn { flex: 0 0 auto; }
   </style>
 
   <script>
-    import { buildToml, buildPaperYaml, validate, validatePaper, splitList, type GenInput } from '../lib/genConfig';
+    import { buildToml, buildPaperYaml, validate, validatePaper, splitList,
+             buildJoinLink, buildJoinCode, validateJoinLink, type GenInput } from '../lib/genConfig';
 
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
     const gen = $<HTMLDivElement>('gen');
     const modePaper = $<HTMLButtonElement>('mode-paper');
     const modePlayer = $<HTMLButtonElement>('mode-player');
+    const modeLink = $<HTMLButtonElement>('mode-link');
 
     const network = $<HTMLInputElement>('f-network');
     const secret = $<HTMLInputElement>('f-secret');
@@ -128,8 +167,10 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const toast = $<HTMLElement>('toast');
     const copyBtn = $<HTMLButtonElement>('copy');
     const dlBtn = $<HTMLButtonElement>('download');
+    const copyLinkBtn = $<HTMLButtonElement>('copy-link');
+    const copyCodeBtn = $<HTMLButtonElement>('copy-code');
 
-    type Mode = 'paper' | 'player';
+    type Mode = 'paper' | 'player' | 'link';
     let mode: Mode = 'paper';
 
     function read(): GenInput {
@@ -147,10 +188,27 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       };
     }
 
-    let current = '';
+    let current = '';       // paper/player output (Copy + Download)
+    let currentLink = '';   // link mode: the etmc:// link
+    let currentCode = '';   // link mode: the ETMC1 code
     function render() {
       ipv4.disabled = dhcp.checked;
       const input = read();
+
+      if (mode === 'link') {
+        const problems = validateJoinLink(input);
+        currentLink = buildJoinLink(input);
+        currentCode = buildJoinCode(input);
+        out.textContent = currentLink + '\n\n' + currentCode;
+        errs.textContent = problems.length ? '⚠ ' + problems.join('  ') : '';
+        const ok = problems.length === 0;
+        copyLinkBtn.disabled = !ok;
+        copyCodeBtn.disabled = !ok;
+        lblPort.textContent = 'Host port';
+        lblOut.textContent = 'Join link + ETMC1 code';
+        return;
+      }
+
       const paper = mode === 'paper';
       const problems = paper ? validatePaper(input) : validate(input);
       current = paper ? buildPaperYaml(input) : buildToml(input);
@@ -169,6 +227,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       gen.dataset.mode = m;
       modePaper.classList.toggle('btn-primary', m === 'paper');
       modePlayer.classList.toggle('btn-primary', m === 'player');
+      modeLink.classList.toggle('btn-primary', m === 'link');
       render();
     }
 
@@ -177,20 +236,25 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       window.setTimeout(() => { toast.innerHTML = '&nbsp;'; }, 2200);
     }
 
+    async function copyText(text: string, ok: string) {
+      try {
+        await navigator.clipboard.writeText(text);
+        flash(ok);
+      } catch {
+        flash('Copy failed — select and copy manually');
+      }
+    }
+
     [network, secret, relays, ipv4, serverip, serverport, label].forEach((el) =>
       el.addEventListener('input', render));
     dhcp.addEventListener('change', render);
     modePaper.addEventListener('click', () => setMode('paper'));
     modePlayer.addEventListener('click', () => setMode('player'));
+    modeLink.addEventListener('click', () => setMode('link'));
 
-    copyBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(current);
-        flash('Copied to clipboard ✓');
-      } catch {
-        flash('Copy failed — select and copy manually');
-      }
-    });
+    copyBtn.addEventListener('click', () => copyText(current, 'Copied to clipboard ✓'));
+    copyLinkBtn.addEventListener('click', () => copyText(currentLink, 'Copied etmc:// link ✓'));
+    copyCodeBtn.addEventListener('click', () => copyText(currentCode, 'Copied ETMC1 code ✓'));
 
     dlBtn.addEventListener('click', () => {
       const paper = mode === 'paper';
