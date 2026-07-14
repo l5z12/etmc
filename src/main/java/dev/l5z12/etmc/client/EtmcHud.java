@@ -18,7 +18,7 @@ import net.minecraft.client.gui.Font;*/
 //?}
 //? if yarn && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
-//?} else if yarn {
+//?} else if yarn && >=1.16 {
 /*import net.minecraft.client.util.math.MatrixStack;*/
 //?}
 
@@ -42,8 +42,10 @@ public final class EtmcHud {
 
     //? if yarn && >=1.20 {
     public static void render(DrawContext ctx)
-    //?} else if yarn {
+    //?} else if yarn && >=1.16 {
     /*public static void render(MatrixStack ctx)*/
+    //?} else if yarn {
+    /*public static void render(int ctx)*/
     //?} else if <1.20 {
     /*public static void render(PoseStack ctx)*/
     //?} else if <26 {
@@ -112,8 +114,10 @@ public final class EtmcHud {
         //?}
         int w = 0;
         for (Line l : lines) {
-            //? if yarn {
+            //? if yarn && >=1.16 {
             w = Math.max(w, tr.getWidth(l.text));
+            //?} else if yarn {
+            /*w = Math.max(w, tr.getStringWidth(l.text));*/
             //?} else {
             /*w = Math.max(w, tr.width(l.text));*/
             //?}

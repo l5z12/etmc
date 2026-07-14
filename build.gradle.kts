@@ -9,6 +9,18 @@ base { archivesName = "etmc-fabric-${stonecutter.current.version}" }
 // Java per MC version: 17 for 1.17.1-1.20.4, 21 for 1.20.5+/1.21.x, 25 for 26.x.
 val javaVersion = (property("java_version") as String).toInt()
 
+// Dotted-numeric MC-version compare, for gating source that needs an API absent on older versions.
+val mcVersion = stonecutter.current.version
+fun mcAtLeast(target: String): Boolean {
+    fun parts(v: String) = v.split(".", "-").mapNotNull { it.toIntOrNull() }
+    val a = parts(mcVersion); val b = parts(target)
+    for (i in 0 until maxOf(a.size, b.size)) {
+        val x = a.getOrElse(i) { 0 }; val y = b.getOrElse(i) { 0 }
+        if (x != y) return x > y
+    }
+    return true
+}
+
 repositories {
     mavenCentral()
 }
@@ -21,6 +33,9 @@ sourceSets {
         // Loader entry points (EtmcKey/EtmcNeoForge/EtmcForge) live in the shared tree but use mojmap
         // / loader APIs — they compile only on their own loader node, not in the Fabric build.
         java.exclude("**/EtmcKey.java", "**/neoforge/**", "**/forge/**")
+        // Fabric <1.16.2 has no client command API (it postdates the last fabric-api that runs on
+        // 1.14.4-1.16.1), so the /etmc command is dropped there — keybind + GUI still cover it.
+        if (!mcAtLeast("1.16.2")) java.exclude("**/command/EtmcCommands.java")
     }
 }
 

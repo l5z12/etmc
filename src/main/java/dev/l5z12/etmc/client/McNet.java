@@ -5,9 +5,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.TitleScreen;
 import net.minecraft.client.gui.screen.multiplayer.MultiplayerScreen;
-import net.minecraft.client.network.ServerAddress;
 import net.minecraft.client.network.ServerInfo;
-import net.minecraft.client.option.ServerList;
 import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.world.GameMode;
 //?} else {
@@ -20,6 +18,15 @@ import net.minecraft.client.multiplayer.ServerList;
 import net.minecraft.client.multiplayer.resolver.ServerAddress;
 import net.minecraft.client.server.IntegratedServer;
 import net.minecraft.world.level.GameType;*/
+//?}
+// ServerAddress moved net.minecraft.network -> net.minecraft.client.network, and ServerList
+// net.minecraft.client.options -> net.minecraft.client.option, both at yarn 1.16.5.
+//? if yarn && >=1.16.5 {
+import net.minecraft.client.network.ServerAddress;
+import net.minecraft.client.option.ServerList;
+//?} else if yarn {
+/*import net.minecraft.network.ServerAddress;
+import net.minecraft.client.options.ServerList;*/
 //?}
 //? if yarn && >=1.20.3 {
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
@@ -180,7 +187,7 @@ public final class McNet {
         /*list.save();*/
         //?}
 
-        //? if yarn {
+        //? if yarn && >=1.17 {
         if (client.world == null) {
             client.setScreen(new MultiplayerScreen(new TitleScreen()));
         } else {
@@ -191,6 +198,28 @@ public final class McNet {
                         + address + ")."), false);
             }
         }
+        //?} else if yarn && >=1.16 {
+        /*if (client.world == null) {
+            client.openScreen(new MultiplayerScreen(new TitleScreen()));
+        } else {
+            client.openScreen(null);
+            if (client.player != null) {
+                client.player.sendMessage(Txt.literal("[etmc] Added '" + name
+                        + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
+                        + address + ")."), false);
+            }
+        }*/
+        //?} else if yarn {
+        /*if (client.world == null) {
+            client.openScreen(new MultiplayerScreen(new TitleScreen()));
+        } else {
+            client.openScreen(null);
+            if (client.player != null) {
+                client.player.sendMessage(Txt.literal("[etmc] Added '" + name
+                        + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
+                        + address + ")."));
+            }
+        }*/
         //?} else if <26 {
         /*if (client.level == null) {
             client.setScreen(new JoinMultiplayerScreen(new TitleScreen()));
@@ -250,8 +279,11 @@ public final class McNet {
         ConnectScreen.connect(parent, client, addr, info, false, null);
         //?} else if yarn && >=1.20 {
         /*ConnectScreen.connect(parent, client, addr, info, false);*/
-        //?} else if yarn {
+        //?} else if yarn && >=1.17 {
         /*ConnectScreen.connect(parent, client, addr, info);*/
+        //?} else if yarn {
+        /*// 1.16 has no static connect: the ConnectScreen(parent, client, ServerInfo) ctor connects itself.
+        client.openScreen(new ConnectScreen(parent, client, info));*/
         //?} else if <1.20 {
         /*ConnectScreen.startConnecting(parent, client, addr, info);*/
         //?} else if <1.20.5 {

@@ -4,7 +4,6 @@ package dev.l5z12.etmc.client.screen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.text.Text;
 //?} else {
 /*import net.minecraft.client.Minecraft;
@@ -12,6 +11,12 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;*/
+//?}
+// The clickable-widget base was renamed AbstractButtonWidget -> ClickableWidget at yarn 1.16.5.
+//? if yarn && >=1.16.5 {
+import net.minecraft.client.gui.widget.ClickableWidget;
+//?} else if yarn {
+/*import net.minecraft.client.gui.widget.AbstractButtonWidget;*/
 //?}
 
 /**
@@ -29,16 +34,35 @@ abstract class EtmcBaseScreen extends Screen {
     }
 
     protected MinecraftClient mc() {
+        //? if >=1.16 {
         return this.client;
+        //?} else {
+        /*return this.minecraft;*/
+        //?}
     }
 
     protected TextRenderer font() {
+        //? if >=1.16 {
         return this.textRenderer;
+        //?} else {
+        /*return this.font;*/
+        //?}
     }
 
+    //? if >=1.17 {
     protected <T extends ClickableWidget> T add(T widget) {
         return addDrawableChild(widget);
     }
+    //?} else if >=1.16.5 {
+    /*protected <T extends ClickableWidget> T add(T widget) {
+        // 1.16.5 still named it addButton (it took any ClickableWidget); renamed addDrawableChild at 1.17.
+        return addButton(widget);
+    }
+    *///?} else {
+    /*protected <T extends AbstractButtonWidget> T add(T widget) {
+        return addButton(widget);
+    }
+    *///?}
     //?} else {
     /*protected EtmcBaseScreen(Component title) {
         super(title);
@@ -57,10 +81,13 @@ abstract class EtmcBaseScreen extends Screen {
     }
     *///?}
 
-    /** Navigate to another screen. 26.x renamed {@code setScreen} -> {@code setScreenAndShow}. */
+    /** Navigate to another screen. 26.x renamed {@code setScreen} -> {@code setScreenAndShow}; yarn
+     * pre-1.17 it was {@code openScreen}. */
     protected void goTo(Screen screen) {
         //? if >=26 {
         /*mc().setScreenAndShow(screen);*/
+        //?} else if yarn && <1.17 {
+        /*mc().openScreen(screen);*/
         //?} else {
         mc().setScreen(screen);
         //?}

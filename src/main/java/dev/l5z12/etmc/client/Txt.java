@@ -1,8 +1,8 @@
 package dev.l5z12.etmc.client;
 
-//? if yarn {
+//? if yarn && >=1.16 {
 import net.minecraft.text.MutableText;
-//?} else {
+//?} else if !yarn {
 /*import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;*/
 //?}
@@ -32,12 +32,20 @@ public final class Txt {
     public static MutableText translatable(String key, Object... args) {
         return net.minecraft.text.Text.translatable(key, args);
     }
-    //?} else if yarn {
+    //?} else if yarn && >=1.16 {
     /*public static MutableText literal(String s) {
         return new LiteralText(s);
     }
 
     public static MutableText translatable(String key, Object... args) {
+        return new TranslatableText(key, args);
+    }
+    *///?} else if yarn {
+    /*public static net.minecraft.text.Text literal(String s) {
+        return new LiteralText(s);
+    }
+
+    public static net.minecraft.text.Text translatable(String key, Object... args) {
         return new TranslatableText(key, args);
     }
     *///?} else if >=1.19 {

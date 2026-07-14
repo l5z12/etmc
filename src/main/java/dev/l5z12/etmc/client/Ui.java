@@ -26,11 +26,40 @@ public final class Ui {
     public static Builder button(Text message, ButtonWidget.PressAction onPress) {
         return new Builder(message, onPress);
     }
+    //?} else {
+    /*public static Builder button(Component message, Button.OnPress onPress) {
+        return new Builder(message, onPress);
+    }
+    *///?}
 
+    // Pre-1.16 the widgets took String, not Text (Text arrived at 1.16); convert via getString().
+    //? if yarn && >=1.16 {
     public static TextFieldWidget textField(TextRenderer font, int x, int y, int w, int h, Text label) {
         return new TextFieldWidget(font, x, y, w, h, label);
     }
 
+    public static void setMessage(ButtonWidget b, Text msg) {
+        b.setMessage(msg);
+    }
+    //?} else if yarn {
+    /*public static TextFieldWidget textField(TextRenderer font, int x, int y, int w, int h, Text label) {
+        return new TextFieldWidget(font, x, y, w, h, label.getString());
+    }
+
+    public static void setMessage(ButtonWidget b, Text msg) {
+        b.setMessage(msg.getString());
+    }
+    *///?} else {
+    /*public static EditBox textField(Font font, int x, int y, int w, int h, Component label) {
+        return new EditBox(font, x, y, w, h, label);
+    }
+
+    public static void setMessage(Button b, Component msg) {
+        b.setMessage(msg);
+    }
+    *///?}
+
+    //? if yarn {
     public static void setText(TextFieldWidget f, String s) {
         f.setText(s);
     }
@@ -39,15 +68,7 @@ public final class Ui {
         return f.getText();
     }
     //?} else {
-    /*public static Builder button(Component message, Button.OnPress onPress) {
-        return new Builder(message, onPress);
-    }
-
-    public static EditBox textField(Font font, int x, int y, int w, int h, Component label) {
-        return new EditBox(font, x, y, w, h, label);
-    }
-
-    public static void setText(EditBox f, String s) {
+    /*public static void setText(EditBox f, String s) {
         f.setValue(s);
     }
 
@@ -93,9 +114,13 @@ public final class Ui {
         public ButtonWidget build() {
             return ButtonWidget.builder(message, onPress).dimensions(x, y, width, height).build();
         }
-        //?} else if yarn {
+        //?} else if yarn && >=1.16 {
         /*public ButtonWidget build() {
             return new ButtonWidget(x, y, width, height, message, onPress);
+        }
+        *///?} else if yarn {
+        /*public ButtonWidget build() {
+            return new ButtonWidget(x, y, width, height, message.getString(), onPress);
         }
         *///?} else if >=1.19.3 {
         /*public Button build() {

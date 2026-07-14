@@ -37,8 +37,10 @@ public final class EtmcManager {
 
     private static final EtmcManager INSTANCE = new EtmcManager();
 
-    /** Shared logger (slf4j is present on Fabric, NeoForge and Forge), so this stays loader-neutral. */
-    public static final org.slf4j.Logger LOGGER = org.slf4j.LoggerFactory.getLogger("etmc");
+    /** Shared logger. log4j2 ships with every Minecraft version and loader (slf4j only lands at 1.17+),
+     *  so keying off it stays version- and loader-neutral. */
+    public static final org.apache.logging.log4j.Logger LOGGER =
+            org.apache.logging.log4j.LogManager.getLogger("etmc");
 
     /** How long to wait for a direct (p2p) route before auto-joining over the available path (relay). */
     private static final long P2P_WAIT_TIMEOUT_MS = 8000;
@@ -57,10 +59,13 @@ public final class EtmcManager {
     }*/
     //?}
 
-    /** Navigate, honoring 26.x's {@code setScreen} -> {@code setScreenAndShow} rename. */
+    /** Navigate, honoring 26.x's {@code setScreen} -> {@code setScreenAndShow} rename and yarn's
+     * pre-1.17 {@code openScreen} name. */
     private static void goTo(Screen screen) {
         //? if >=26 {
         /*mc().setScreenAndShow(screen);*/
+        //?} else if yarn && <1.17 {
+        /*mc().openScreen(screen);*/
         //?} else {
         mc().setScreen(screen);
         //?}

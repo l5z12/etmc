@@ -87,8 +87,10 @@ public final class EtmcCommands {
     /*private static int menu(CommandContext<CommandSourceStack> ctx)*/
     //?}
     {
-        //? if yarn {
+        //? if yarn && >=1.17 {
         MinecraftClient.getInstance().execute(() -> MinecraftClient.getInstance().setScreen(new EtmcScreen(null)));
+        //?} else if yarn {
+        /*MinecraftClient.getInstance().execute(() -> MinecraftClient.getInstance().openScreen(new EtmcScreen(null)));*/
         //?} else if <26 {
         /*Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new EtmcScreen(null)));*/
         //?} else {

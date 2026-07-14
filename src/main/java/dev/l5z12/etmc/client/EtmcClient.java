@@ -1,12 +1,20 @@
 package dev.l5z12.etmc.client;
 
+//? if >=1.16.2 {
 import dev.l5z12.etmc.client.command.EtmcCommands;
+//?}
 import dev.l5z12.etmc.client.screen.EtmcScreen;
 import net.fabricmc.api.ClientModInitializer;
 //? if >=1.19 {
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 //?}
+// fabric-api 0.13.1+build.370-1.16 (the only build published for MC 1.16/1.16.1) doesn't
+// include the fabric-lifecycle-events-v1 client module; fall back to the old v0 callback there.
+//? if >=1.16.2 {
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+//?} else {
+/*import net.fabricmc.fabric.api.event.client.ClientTickCallback;*/
+//?}
 //? if yarn {
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 //?} else {
@@ -14,12 +22,11 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 //?}
 //? if >=1.21.6 {
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
-//?} else {
+//?} else if >=1.15 {
 /*import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;*/
 //?}
 //? if yarn {
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.util.Identifier;
 //?} else {
@@ -28,9 +35,15 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;*/
 //?}
+// KeyBinding moved net.minecraft.client.options -> net.minecraft.client.option at yarn 1.16.5.
+//? if yarn && >=1.16.5 {
+import net.minecraft.client.option.KeyBinding;
+//?} else if yarn {
+/*import net.minecraft.client.options.KeyBinding;*/
+//?}
 import org.lwjgl.glfw.GLFW;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * Client entry point: loads the EasyTier native library, registers the open-menu keybind, the HUD
@@ -39,7 +52,7 @@ import org.slf4j.LoggerFactory;
 public final class EtmcClient implements ClientModInitializer {
 
     public static final String MOD_ID = "etmc";
-    public static final Logger LOGGER = LoggerFactory.getLogger("etmc");
+    public static final Logger LOGGER = LogManager.getLogger("etmc");
 
     //? if yarn {
     private static KeyBinding openMenuKey;
@@ -67,15 +80,25 @@ public final class EtmcClient implements ClientModInitializer {
                 "key.etmc.open_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, KeyMapping.Category.MISC));*/
         //?}
 
+        //? if >=1.16.2 {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
+        //?} else {
+        /*ClientTickCallback.EVENT.register(client -> {*/
+        //?}
             EtmcManager.get().tick();
             if (openMenuKey != null) {
-                //? if yarn {
+                //? if yarn && >=1.17 {
                 while (openMenuKey.wasPressed()) {
                     if (client.currentScreen == null) {
                         client.setScreen(new EtmcScreen(null));
                     }
                 }
+                //?} else if yarn {
+                /*while (openMenuKey.wasPressed()) {
+                    if (client.currentScreen == null) {
+                        client.openScreen(new EtmcScreen(null));
+                    }
+                }*/
                 //?} else {
                 /*while (openMenuKey.consumeClick()) {
                     if (client.gui.screen() == null) {
@@ -86,21 +109,26 @@ public final class EtmcClient implements ClientModInitializer {
             }
         });
 
-        // HUD element API (fabric-api hud package) lands at 1.21.6; before that, HudRenderCallback.
+        // HUD element API (fabric-api hud package) lands at 1.21.6; 1.16-1.21.5 use HudRenderCallback with
+        // a graphics ctx; 1.15 uses the pre-MatrixStack 1-arg callback; 1.14.4's fabric-api has no
+        // rendering.v1 at all → the HUD is skipped there (keybind + GUI still cover it).
         //? if yarn && >=1.21.6 {
         HudElementRegistry.addLast(Identifier.of("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));
-        //?} else if yarn {
+        //?} else if yarn && >=1.16 {
         /*HudRenderCallback.EVENT.register((ctx, tickDelta) -> EtmcHud.render(ctx));*/
-        //?} else {
+        //?} else if yarn && >=1.15 {
+        /*HudRenderCallback.EVENT.register(tickDelta -> EtmcHud.render(0));*/
+        //?} else if !yarn {
         /*HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));*/
         //?}
 
-        // 1.19+: register via the command-registration event (v2 API). 1.16-1.18: the v1 client
-        // command API has no event — register directly on the global ClientCommandManager.DISPATCHER.
+        // 1.19+: register via the command-registration event (v2 API). 1.16.2-1.18: the v1 client
+        // command API has no event — register directly on ClientCommandManager.DISPATCHER. Below 1.16.2
+        // no fabric-api ships a client command API (it postdates 1.16.1) → the /etmc command is skipped.
         //? if >=1.19 {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
                 EtmcCommands.register(dispatcher));
-        //?} else {
+        //?} else if >=1.16.2 {
         /*EtmcCommands.register(net.fabricmc.fabric.api.client.command.v1.ClientCommandManager.DISPATCHER);*/
         //?}
     }

@@ -104,4 +104,107 @@ public final class JoinCode {
     public boolean isValidCandidate() {
         return networkName != null && !networkName.isBlank();
     }
+
+    /**
+     * Best-effort extraction of a JoinCode from an EasyTier TOML config. Reads
+     * {@code [network_identity] network_name / network_secret}, each {@code [[peer]] uri}, and the
+     * optional {@code [etmc] server = "ip:port"} / {@code label} extension. If no {@code [etmc]}
+     * server is present, tries to derive it from a top-level {@code ipv4 = "10.x.y.z/24"} key
+     * (the host's fixed virtual IP). Fields not present in the TOML are left at their defaults.
+     */
+    public static JoinCode fromToml(String raw) {
+        JoinCode jc = new JoinCode();
+        if (raw == null) return jc;
+        String[] lines = raw.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1);
+        String table = "";
+        boolean inPeer = false;
+        String rootIpv4 = null;
+        for (String line : lines) {
+            String t = line.trim();
+            if (t.isEmpty() || t.startsWith("#")) continue;
+            if (t.startsWith("[")) {
+                String name = tableName(t);
+                inPeer = "peer".equals(name);
+                table = name;
+                continue;
+            }
+            String key = keyName(t);
+            if (key.isEmpty()) continue;
+            String val = stringValue(t);
+            if (table.isEmpty()) {
+                if ("ipv4".equals(key)) rootIpv4 = val;
+            } else if ("network_identity".equals(table)) {
+                if ("network_name".equals(key)) jc.networkName = val;
+                else if ("network_secret".equals(key)) jc.networkSecret = val;
+            } else if (inPeer) {
+                if ("uri".equals(key) && val != null && !val.isBlank()) jc.relays.add(val);
+            } else if ("etmc".equals(table)) {
+                if ("server".equals(key)) {
+                    applyServer(jc, val);
+                } else if ("label".equals(key)) {
+                    jc.label = val == null ? "" : val;
+                }
+            }
+        }
+        // No [etmc] server line: derive from the root ipv4 (host's fixed virtual IP), stripping /cidr.
+        if ((jc.hostIp == null || jc.hostIp.equals(EtmcConfig.HOST_VIRTUAL_IP)) && rootIpv4 != null) {
+            int slash = rootIpv4.indexOf('/');
+            String ip = slash > 0 ? rootIpv4.substring(0, slash).trim() : rootIpv4.trim();
+            if (!ip.isEmpty()) jc.hostIp = ip;
+        }
+        return jc;
+    }
+
+    private static void applyServer(JoinCode jc, String server) {
+        if (server == null) return;
+        String s = server.trim();
+        if (s.isEmpty()) return;
+        int colon = s.lastIndexOf(':');
+        if (colon > 0 && s.indexOf(':') == colon) {
+            jc.hostIp = s.substring(0, colon).trim();
+            try {
+                int p = Integer.parseInt(s.substring(colon + 1).trim());
+                if (p > 0 && p <= 65535) jc.hostPort = p;
+            } catch (NumberFormatException ignored) {
+            }
+        } else {
+            jc.hostIp = s;
+        }
+    }
+
+    private static String tableName(String t) {
+        String s = t;
+        int hash = s.indexOf('#');
+        if (hash >= 0) s = s.substring(0, hash);
+        s = s.trim();
+        while (s.startsWith("[")) s = s.substring(1);
+        while (s.endsWith("]")) s = s.substring(0, s.length() - 1);
+        return s.trim().toLowerCase();
+    }
+
+    private static String keyName(String t) {
+        if (t.isEmpty() || t.startsWith("#")) return "";
+        int eq = t.indexOf('=');
+        if (eq < 0) return "";
+        return t.substring(0, eq).trim().toLowerCase();
+    }
+
+    private static String stringValue(String t) {
+        int eq = t.indexOf('=');
+        if (eq < 0) return "";
+        String v = t.substring(eq + 1).trim();
+        if (v.startsWith("\"")) {
+            int end = v.indexOf('"', 1);
+            if (end > 0) return v.substring(1, end);
+            return v.substring(1);
+        }
+        if (v.startsWith("'")) {
+            int end = v.indexOf('\'', 1);
+            if (end > 0) return v.substring(1, end);
+            return v.substring(1);
+        }
+        int hash = v.indexOf('#');
+        if (hash >= 0) v = v.substring(0, hash).trim();
+        return v;
+    }
 }

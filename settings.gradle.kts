@@ -56,6 +56,18 @@ stonecutter {
         version("1.18.1-fabric", "1.18.1")
         version("1.18-fabric", "1.18")
         version("1.17.1-fabric", "1.17.1")
+        // Legacy line below 1.17 (yarn + Loom reach to 1.14). 1.16.x still fits the post-MatrixStack /
+        // Text-based GUI tiers; 1.15/1.14 predate MatrixStack + Text-based widgets, so the facades carry
+        // a separate `<1.16` tier (String-typed buttons/labels, single-arg HudRenderCallback, no OrderedText).
+        version("1.16.5-fabric", "1.16.5")
+        version("1.16.4-fabric", "1.16.4")
+        version("1.16.3-fabric", "1.16.3")
+        version("1.16.2-fabric", "1.16.2")
+        version("1.16.1-fabric", "1.16.1")
+        version("1.16-fabric", "1.16")
+        version("1.15.2-fabric", "1.15.2")
+        version("1.15-fabric", "1.15")
+        version("1.14.4-fabric", "1.14.4")
         // Mojmap loader nodes (own buildscript): the shared root src/ is processed with fabric=false.
         version("26.2-neoforge", "26.2").buildscript("build.neoforge.gradle.kts")
         version("1.21.11-neoforge", "1.21.11").buildscript("build.neoforge.gradle.kts")
