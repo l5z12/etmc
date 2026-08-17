@@ -11,8 +11,8 @@ import net.minecraft.client.gui.screen.Screen;
 //? if yarn && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
 //?} else if yarn && >=1.16 {
-/*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else if yarn {
+/*import net.minecraft.client.util.math.MatrixStack;
+*///?} else if yarn {
 //?} else if <1.20 {
 /*import com.mojang.blaze3d.vertex.PoseStack;*/
 //?} else if <26 {
@@ -29,15 +29,13 @@ import net.minecraft.client.gui.DrawContext;
  */
 public final class EtmcConnectingScreen extends EtmcBaseScreen {
 
-    private final Screen parent;
     private final String label;
     private final Runnable onProceed;
     private final Runnable onCancel;
     private int ticks;
 
     public EtmcConnectingScreen(Screen parent, String label, Runnable onProceed, Runnable onCancel) {
-        super(Txt.literal("Establishing P2P connection"));
-        this.parent = parent;
+        super(Txt.literal("Establishing P2P connection"), parent);
         this.label = label;
         this.onProceed = onProceed;
         this.onCancel = onCancel;
@@ -62,8 +60,8 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
     //? if yarn && >=1.20 {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
     //?} else if yarn && >=1.16 {
-    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if yarn {
+    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)
+    *///?} else if yarn {
     /*public void render(int mouseX, int mouseY, float delta)*/
     //?} else if <1.20 {
     /*public void render(PoseStack ctx, int mouseX, int mouseY, float delta)*/
@@ -73,41 +71,23 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
     /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
     //?}
     {
-        // Pre-1.20.2 the base Screen.render() doesn't draw the menu background; draw it ourselves.
         //? if yarn && <1.16 {
-        /*int ctx = 0;
-        this.renderBackground();*/
-        //?} else if <1.20.2 {
-        /*this.renderBackground(ctx);*/
+        /*int ctx = 0;*/
         //?}
-        //? if >=26 {
-        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
-        //?} else if yarn && <1.16 {
-        /*super.render(mouseX, mouseY, delta);*/
-        //?} else {
-        super.render(ctx, mouseX, mouseY, delta);
-        //?}
+        renderBackdrop(ctx, mouseX, mouseY, delta);
         String dots = ".".repeat((this.ticks / 5) % 4);
         String sub = (label == null || label.isBlank() ? "Connecting" : "Connecting to " + label) + dots;
-        Gfx.centered(ctx, font(), this.title, this.width / 2, this.height / 2 - 50, 0xFFFFFFFF);
-        Gfx.centered(ctx, font(), Txt.literal(sub), this.width / 2, this.height / 2 - 30, 0xFFAAAAAA);
+        Gfx.centered(ctx, font(), this.title, this.width / 2, this.height / 2 - 50, COLOR_TEXT);
+        Gfx.centered(ctx, font(), Txt.literal(sub), this.width / 2, this.height / 2 - 30, COLOR_MUTED);
         Gfx.centered(ctx, font(),
                 Txt.literal("Waiting for a direct link — or join now over a relay."),
                 this.width / 2, this.height / 2 - 14, 0xFF777777);
     }
 
-    //? if yarn && >=1.18.2 {
+    /** Esc / Cancel aborts the pending join before returning to the parent screen. */
     @Override
-    //?}
     public void close() {
         if (onCancel != null) onCancel.run();
-        goTo(parent);
+        super.close();
     }
-
-    //? if !yarn || <1.18.2 {
-    /*@Override
-    public void onClose() {
-        this.close();
-    }*/
-    //?}
 }

@@ -29,6 +29,10 @@ dependencies {
     implementation "net.fabricmc.fabric-api:fabric-api:${project.property('deps.fabric_api')}"
     // Java 25 -> FFM is used, so JNA is compile-only (not bundled).
     compileOnly "net.java.dev.jna:jna:${project.property('jna_version')}"
+    // Lombok generates the accessors; compile-time only, so nothing lands in the jar. This is the
+    // newest toolchain in the matrix (Java 25), so it is the node that pins the Lombok version.
+    compileOnly "org.projectlombok:lombok:${project.property('lombok_version')}"
+    annotationProcessor "org.projectlombok:lombok:${project.property('lombok_version')}"
 }
 
 tasks.withType(JavaCompile).configureEach {

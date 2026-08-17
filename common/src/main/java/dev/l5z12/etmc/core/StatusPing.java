@@ -111,6 +111,7 @@ public final class StatusPing {
     private static int readVarIntFrom(byte[] a, int[] pos) {
         int value = 0, shift = 0, b;
         do {
+            if (pos[0] >= a.length) throw new IllegalStateException("truncated VarInt");
             b = a[pos[0]++] & 0xFF;
             value |= (b & 0x7F) << shift;
             shift += 7;
@@ -121,29 +122,30 @@ public final class StatusPing {
 
     /** Buffered byte source over the blocking {@code et.tcpRead} (which returns partial chunks). */
     private static final class Reader {
+        private static final int CHUNK = 8192;
+
         private final EasyTier et;
         private final long stream;
-        private final byte[] tmp = new byte[8192];
-        private byte[] data = new byte[0];
+        private final byte[] buf = new byte[CHUNK];
         private int pos = 0;
+        private int end = 0;
 
         Reader(EasyTier et, long stream) {
             this.et = et;
             this.stream = stream;
         }
 
+        /** Refills the buffer; throws {@link EOFException} at end of stream. */
+        private void fill() throws IOException {
+            int n = et.tcpRead(stream, buf, buf.length, IO_TIMEOUT_MS);
+            if (n <= 0) throw new EOFException();
+            pos = 0;
+            end = n;
+        }
+
         int readByte() throws IOException {
-            if (pos >= data.length) {
-                int n = et.tcpRead(stream, tmp, tmp.length, IO_TIMEOUT_MS);
-                if (n <= 0) throw new EOFException();
-                int rem = data.length - pos;
-                byte[] nd = new byte[rem + n];
-                System.arraycopy(data, pos, nd, 0, rem);
-                System.arraycopy(tmp, 0, nd, rem, n);
-                data = nd;
-                pos = 0;
-            }
-            return data[pos++] & 0xFF;
+            if (pos >= end) fill();
+            return buf[pos++] & 0xFF;
         }
 
         int readVarInt() throws IOException {
@@ -159,8 +161,13 @@ public final class StatusPing {
 
         byte[] readBytes(int len) throws IOException {
             byte[] out = new byte[len];
-            for (int i = 0; i < len; i++) {
-                out[i] = (byte) readByte();
+            int got = 0;
+            while (got < len) {
+                if (pos >= end) fill();
+                int n = Math.min(end - pos, len - got);
+                System.arraycopy(buf, pos, out, got, n);
+                pos += n;
+                got += n;
             }
             return out;
         }

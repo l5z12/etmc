@@ -40,6 +40,9 @@ neoForge {
 dependencies {
     // FFM is used on Java 21+, so JNA is compile-only here (not bundled).
     compileOnly("net.java.dev.jna:jna:${property("jna_version")}")
+    // Lombok generates the accessors; compile-time only, so nothing lands in the jar.
+    compileOnly("org.projectlombok:lombok:${property("lombok_version")}")
+    annotationProcessor("org.projectlombok:lombok:${property("lombok_version")}")
 }
 
 tasks.withType<JavaCompile>().configureEach {

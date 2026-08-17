@@ -21,6 +21,10 @@ repositories {
 // the plugin jar — no shading needed.
 sourceSets.main.java.srcDir("$rootDir/../common/src/main/java")
 sourceSets.main.resources.srcDir("$rootDir/../common/src/main/resources")
+// common/ has no Minecraft dependency, so this — the one build that compiles it without Loom /
+// ModDevGradle / ForgeGradle — is where its unit tests run. The loader nodes don't add this srcDir,
+// so `chiseledBuild` stays free of test compilation.
+sourceSets.test.java.srcDir("$rootDir/../common/src/test/java")
 
 dependencies {
     // Provided by the server at runtime (Bukkit/Paper API + its bundled gson).
@@ -28,9 +32,29 @@ dependencies {
     // Shared EtmcChannel (in common/) references netty; paper-api doesn't expose it on the compile
     // classpath. It's unused on the server (no client connection), but must still compile. netty is
     // present at runtime (the server bundles it), so compileOnly is correct.
-    compileOnly "io.netty:netty-transport:4.1.118.Final"
+    compileOnly "io.netty:netty-transport:${project.netty_version}"
     // JNA backend (Java 17 fallback); compileOnly on 1.21.x where FFM is used.
     compileOnly "net.java.dev.jna:jna:${project.jna_version}"
+
+    // Lombok generates the accessors; compile-time only, so nothing lands in the plugin jar.
+    compileOnly "org.projectlombok:lombok:${project.lombok_version}"
+    annotationProcessor "org.projectlombok:lombok:${project.lombok_version}"
+
+    // Tests for common/. gson and netty are compileOnly (server-provided) for main, so the test
+    // classpath has to bring its own copies.
+    testImplementation platform("org.junit:junit-bom:${project.junit_version}")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testImplementation "com.google.code.gson:gson:${project.gson_version}"
+    testImplementation "io.netty:netty-transport:${project.netty_version}"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    testLogging {
+        events 'failed'
+        exceptionFormat 'full'
+    }
 }
 
 // Java release per MC era (CI matrix overrides via -Ppaper_java): 17 for ≤1.20.4, 21 for ≥1.20.6.
@@ -49,10 +73,16 @@ java {
     }
 }
 
+// Bukkit refuses to load a plugin whose api-version is newer than the server it is running on, so
+// each jar declares the line it was built against (major.minor) instead of a hard-coded one. An
+// older api-version on a newer server is fine — that is what the field is for.
+def apiVersion = paperMc.tokenize('.').take(2).join('.')
+
 processResources {
     inputs.property 'version', project.version
+    inputs.property 'api_version', apiVersion
     filesMatching('plugin.yml') {
-        expand 'version': project.version
+        expand 'version': project.version, 'api_version': apiVersion
     }
 }
 

@@ -96,6 +96,14 @@ small, .muted { color: var(--muted); }
 .container { max-width: var(--maxw); margin: 0 auto; padding: 0 18px; }
 
 /* ----- top hotbar nav ----- */
+/* Keyboard users land here first and can jump past the nav; invisible until focused. */
+.skip-link {
+  position: absolute; left: 8px; top: -100px; z-index: 100;
+  padding: 10px 14px; background: var(--panel); color: var(--text);
+  border: 2px solid #000; font-family: var(--pixel);
+}
+.skip-link:focus { top: 8px; text-decoration: none; outline: 2px solid var(--green); }
+
 .nav {
   position: sticky; top: 0; z-index: 50;
   background: linear-gradient(#2a2a31, #1c1c22);

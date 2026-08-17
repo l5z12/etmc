@@ -22,6 +22,8 @@ public final class JoinCode {
     public static final String PREFIX = "ETMC1:";
     /** URL form usable in Minecraft's Add Server / Direct Connect address field: {@code etmc://v1/<b64>}. */
     public static final String LINK_PREFIX = "etmc://v1/";
+    /** Scheme every link form shares; {@link #decode} accepts any {@code etmc://<version>/<b64>}. */
+    private static final String SCHEME = "etmc://";
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
 
     public String networkName;
@@ -61,7 +63,7 @@ public final class JoinCode {
 
     /** True if the string looks like an etmc:// address. */
     public static boolean isLink(String s) {
-        return s != null && s.trim().regionMatches(true, 0, "etmc://", 0, 7);
+        return s != null && s.trim().regionMatches(true, 0, SCHEME, 0, SCHEME.length());
     }
 
     /**
@@ -72,7 +74,7 @@ public final class JoinCode {
     public static JoinCode decode(String code) {
         if (code == null) throw new IllegalArgumentException("empty join code");
         String s = code.trim();
-        if (s.regionMatches(true, 0, "etmc://", 0, 7)) {
+        if (isLink(s)) {
             // etmc://v1/<b64> (or any etmc://<ver>/<b64>) — the payload is the segment after the last '/'.
             int slash = s.lastIndexOf('/');
             s = slash >= 0 ? s.substring(slash + 1) : s;
@@ -106,6 +108,16 @@ public final class JoinCode {
     }
 
     /**
+     * What to call this network in the UI: the host's label, falling back to the network name.
+     * Never blank, so callers can use it directly in a screen title or server-list entry.
+     */
+    public String displayLabel() {
+        if (label != null && !label.isBlank()) return label;
+        if (networkName != null && !networkName.isBlank()) return networkName;
+        return "etmc";
+    }
+
+    /**
      * Best-effort extraction of a JoinCode from an EasyTier TOML config. Reads
      * {@code [network_identity] network_name / network_secret}, each {@code [[peer]] uri}, and the
      * optional {@code [etmc] server = "ip:port"} / {@code label} extension. If no {@code [etmc]}
@@ -115,35 +127,34 @@ public final class JoinCode {
     public static JoinCode fromToml(String raw) {
         JoinCode jc = new JoinCode();
         if (raw == null) return jc;
-        String[] lines = raw.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1);
         String table = "";
-        boolean inPeer = false;
         String rootIpv4 = null;
-        for (String line : lines) {
+        for (String line : Toml.lines(raw)) {
             String t = line.trim();
             if (t.isEmpty() || t.startsWith("#")) continue;
             if (t.startsWith("[")) {
-                String name = tableName(t);
-                inPeer = "peer".equals(name);
-                table = name;
+                table = Toml.tableName(t);
                 continue;
             }
-            String key = keyName(t);
+            String key = Toml.keyName(t);
             if (key.isEmpty()) continue;
-            String val = stringValue(t);
-            if (table.isEmpty()) {
-                if ("ipv4".equals(key)) rootIpv4 = val;
-            } else if ("network_identity".equals(table)) {
-                if ("network_name".equals(key)) jc.networkName = val;
-                else if ("network_secret".equals(key)) jc.networkSecret = val;
-            } else if (inPeer) {
-                if ("uri".equals(key) && val != null && !val.isBlank()) jc.relays.add(val);
-            } else if ("etmc".equals(table)) {
-                if ("server".equals(key)) {
-                    applyServer(jc, val);
-                } else if ("label".equals(key)) {
-                    jc.label = val == null ? "" : val;
+            String val = Toml.stringValue(t);
+            switch (table) {
+                case "" -> {
+                    if ("ipv4".equals(key)) rootIpv4 = val;
                 }
+                case "network_identity" -> {
+                    if ("network_name".equals(key)) jc.networkName = val;
+                    else if ("network_secret".equals(key)) jc.networkSecret = val;
+                }
+                case "peer" -> {
+                    if ("uri".equals(key) && val != null && !val.isBlank()) jc.relays.add(val);
+                }
+                case "etmc" -> {
+                    if ("server".equals(key)) applyServer(jc, val);
+                    else if ("label".equals(key)) jc.label = val == null ? "" : val;
+                }
+                default -> { /* any other table is irrelevant to a join code */ }
             }
         }
         // No [etmc] server line: derive from the root ipv4 (host's fixed virtual IP), stripping /cidr.
@@ -156,55 +167,9 @@ public final class JoinCode {
     }
 
     private static void applyServer(JoinCode jc, String server) {
-        if (server == null) return;
-        String s = server.trim();
-        if (s.isEmpty()) return;
-        int colon = s.lastIndexOf(':');
-        if (colon > 0 && s.indexOf(':') == colon) {
-            jc.hostIp = s.substring(0, colon).trim();
-            try {
-                int p = Integer.parseInt(s.substring(colon + 1).trim());
-                if (p > 0 && p <= 65535) jc.hostPort = p;
-            } catch (NumberFormatException ignored) {
-            }
-        } else {
-            jc.hostIp = s;
-        }
-    }
-
-    private static String tableName(String t) {
-        String s = t;
-        int hash = s.indexOf('#');
-        if (hash >= 0) s = s.substring(0, hash);
-        s = s.trim();
-        while (s.startsWith("[")) s = s.substring(1);
-        while (s.endsWith("]")) s = s.substring(0, s.length() - 1);
-        return s.trim().toLowerCase();
-    }
-
-    private static String keyName(String t) {
-        if (t.isEmpty() || t.startsWith("#")) return "";
-        int eq = t.indexOf('=');
-        if (eq < 0) return "";
-        return t.substring(0, eq).trim().toLowerCase();
-    }
-
-    private static String stringValue(String t) {
-        int eq = t.indexOf('=');
-        if (eq < 0) return "";
-        String v = t.substring(eq + 1).trim();
-        if (v.startsWith("\"")) {
-            int end = v.indexOf('"', 1);
-            if (end > 0) return v.substring(1, end);
-            return v.substring(1);
-        }
-        if (v.startsWith("'")) {
-            int end = v.indexOf('\'', 1);
-            if (end > 0) return v.substring(1, end);
-            return v.substring(1);
-        }
-        int hash = v.indexOf('#');
-        if (hash >= 0) v = v.substring(0, hash).trim();
-        return v;
+        MeshAddress addr = MeshAddress.parse(server, jc.hostPort);
+        if (addr == null) return;
+        jc.hostIp = addr.ip();
+        jc.hostPort = addr.port();
     }
 }

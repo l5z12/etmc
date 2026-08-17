@@ -18,6 +18,14 @@ public final class EtmcConnect {
     /** Everything {@link EtmcChannel} needs to open a data-plane stream to the host. */
     public record Target(EasyTier et, String instanceName, String hostIp, int hostPort) {}
 
+    /**
+     * Stand-in address handed to vanilla for an {@code etmc://} join. Minecraft insists on a
+     * parseable address, but nothing ever connects to this one: the pending {@link Target} above
+     * carries the real destination and the connection rides an {@link EtmcChannel}. Shared so the
+     * address mixin and the connect path can't drift apart.
+     */
+    public static final String PLACEHOLDER_ADDRESS = "127.0.0.1:25565";
+
     private static final AtomicReference<Target> PENDING = new AtomicReference<>();
 
     /** Set by the client manager; invoked (with the closing channel's instance name) on disconnect. */

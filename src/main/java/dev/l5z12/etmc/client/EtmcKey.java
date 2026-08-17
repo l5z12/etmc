@@ -9,9 +9,10 @@ import org.lwjgl.glfw.GLFW;
 //?}
 
 /**
- * Shared open-menu keybind for the Mojmap loaders (NeoForge/Forge). Excluded from the Fabric build
- * (which uses Fabric's KeyBinding API in EtmcClient instead). Loaders register {@link #OPEN_MENU}
- * and call {@link #handleTick()}.
+ * Shared client glue for the Mojmap loaders (NeoForge/Forge): the open-menu keybind and the
+ * per-tick work their entry points drive. Excluded from the Fabric build, which uses Fabric's
+ * KeyBinding API and lifecycle events in {@code EtmcClient} instead. Loaders register
+ * {@link #OPEN_MENU} on their mod bus and call {@link #clientTick()} each client tick.
  */
 public final class EtmcKey {
 
@@ -29,8 +30,25 @@ public final class EtmcKey {
             /*"key.categories.misc");*/
             //?}
 
+    private static volatile boolean inited;
+
     private EtmcKey() {}
 
+    /**
+     * One client tick for the Mojmap loaders. The native library is loaded on the first tick rather
+     * than at construction: NeoForge and Forge build the mod object well before the game is ready,
+     * and {@code EtmcManager.init()} needs the game directory.
+     */
+    public static void clientTick() {
+        if (!inited) {
+            inited = true;
+            EtmcManager.get().init();
+        }
+        handleTick();
+        EtmcManager.get().tick();
+    }
+
+    /** Opens the etmc menu when the keybind fires and no other screen is up. */
     public static void handleTick() {
         Minecraft mc = Minecraft.getInstance();
         while (OPEN_MENU.consumeClick()) {

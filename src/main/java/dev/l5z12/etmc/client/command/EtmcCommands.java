@@ -10,6 +10,7 @@ import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.ModConfig;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.screen.EtmcScreen;
+import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
@@ -115,7 +116,7 @@ public final class EtmcCommands {
         feedback(src, "Hosting on network '" + network + "'…");
         m.hostAsync(network, secret).whenComplete((code, err) -> reply(err == null
                 ? "Hosting! Share: " + (code != null ? code.encode() : "?")
-                : "Host failed: " + rootMessage(err)));
+                : "Host failed: " + Errors.message(err)));
         return 1;
     }
 
@@ -137,7 +138,7 @@ public final class EtmcCommands {
         }
         feedback(src, "Joining '" + jc.networkName + "'…");
         m.joinAsync(jc).whenComplete((port, err) -> {
-            if (err != null) reply("Join failed: " + rootMessage(err));
+            if (err != null) reply("Join failed: " + Errors.message(err));
         });
         return 1;
     }
@@ -154,7 +155,7 @@ public final class EtmcCommands {
         feedback(src, "Fetching config from " + url + " …");
         m.connectUrlAsync(url, server == null || server.isBlank() ? null : server.trim())
                 .whenComplete((port, err) -> {
-                    if (err != null) reply("Connect failed: " + rootMessage(err));
+                    if (err != null) reply("Connect failed: " + Errors.message(err));
                 });
         return 1;
     }
@@ -172,7 +173,7 @@ public final class EtmcCommands {
             return 0;
         }
         feedback(src, "Leaving…");
-        m.leaveAsync().whenComplete((v, err) -> reply(err == null ? "Left the network." : "Leave error: " + rootMessage(err)));
+        m.leaveAsync().whenComplete((v, err) -> reply(err == null ? "Left the network." : "Leave error: " + Errors.message(err)));
         return 1;
     }
 
@@ -266,10 +267,20 @@ public final class EtmcCommands {
     /*private static int relayAdd(CommandContext<CommandSourceStack> ctx, String uri)*/
     //?}
     {
+        var src = ctx.getSource();
         ModConfig cfg = EtmcManager.get().config();
-        cfg.relays.add(uri.trim());
+        String relay = uri.trim();
+        if (relay.isEmpty()) {
+            error(src, "Usage: /etmc relay add <uri>   (e.g. tcp://my.relay:11010)");
+            return 0;
+        }
+        if (cfg.relays.contains(relay)) {
+            feedback(src, "Relay already configured: " + relay);
+            return 1;
+        }
+        cfg.relays.add(relay);
         cfg.save();
-        feedback(ctx.getSource(), "Added relay: " + uri.trim());
+        feedback(src, "Added relay: " + relay);
         return 1;
     }
 
@@ -409,11 +420,5 @@ public final class EtmcCommands {
             }
         });*/
         //?}
-    }
-
-    private static String rootMessage(Throwable t) {
-        Throwable c = t;
-        while (c.getCause() != null) c = c.getCause();
-        return c.getMessage() == null ? c.toString() : c.getMessage();
     }
 }

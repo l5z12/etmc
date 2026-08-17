@@ -11,8 +11,8 @@ import net.minecraft.client.gui.screen.Screen;
 //? if yarn && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
 //?} else if yarn && >=1.16 {
-/*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else if yarn {
+/*import net.minecraft.client.util.math.MatrixStack;
+*///?} else if yarn {
 //?} else if <1.20 {
 /*import com.mojang.blaze3d.vertex.PoseStack;*/
 //?} else if <26 {
@@ -24,13 +24,9 @@ import net.minecraft.client.gui.DrawContext;
 /** Simple error/notice screen shown when an etmc join can't proceed (bad link, start failure, …). */
 public final class EtmcNoticeScreen extends EtmcBaseScreen {
 
-    private final Screen parent;
-    private final String message;
-
     public EtmcNoticeScreen(Screen parent, String title, String message) {
-        super(Txt.literal(title));
-        this.parent = parent;
-        this.message = message == null ? "Unknown error" : message;
+        super(Txt.literal(title), parent);
+        setMessage(message == null || message.isBlank() ? "Unknown error" : message, COLOR_TEXT);
     }
 
     @Override
@@ -43,8 +39,8 @@ public final class EtmcNoticeScreen extends EtmcBaseScreen {
     //? if yarn && >=1.20 {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
     //?} else if yarn && >=1.16 {
-    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if yarn {
+    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)
+    *///?} else if yarn {
     /*public void render(int mouseX, int mouseY, float delta)*/
     //?} else if <1.20 {
     /*public void render(PoseStack ctx, int mouseX, int mouseY, float delta)*/
@@ -54,35 +50,11 @@ public final class EtmcNoticeScreen extends EtmcBaseScreen {
     /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
     //?}
     {
-        // Pre-1.20.2 the base Screen.render() doesn't draw the menu background; draw it ourselves.
         //? if yarn && <1.16 {
-        /*int ctx = 0;
-        this.renderBackground();*/
-        //?} else if <1.20.2 {
-        /*this.renderBackground(ctx);*/
+        /*int ctx = 0;*/
         //?}
-        //? if >=26 {
-        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
-        //?} else if yarn && <1.16 {
-        /*super.render(mouseX, mouseY, delta);*/
-        //?} else {
-        super.render(ctx, mouseX, mouseY, delta);
-        //?}
-        Gfx.centered(ctx, font(), this.title, this.width / 2, this.height / 2 - 34, 0xFFFF5555);
-        Gfx.centered(ctx, font(), Txt.literal(message), this.width / 2, this.height / 2 - 12, 0xFFFFFFFF);
+        renderBackdrop(ctx, mouseX, mouseY, delta);
+        Gfx.centered(ctx, font(), this.title, this.width / 2, this.height / 2 - 34, COLOR_BAD);
+        Gfx.centered(ctx, font(), Txt.literal(message), this.width / 2, this.height / 2 - 12, messageColor);
     }
-
-    //? if yarn && >=1.18.2 {
-    @Override
-    //?}
-    public void close() {
-        goTo(parent);
-    }
-
-    //? if !yarn || <1.18.2 {
-    /*@Override
-    public void onClose() {
-        this.close();
-    }*/
-    //?}
 }

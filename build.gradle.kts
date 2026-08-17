@@ -54,6 +54,10 @@ dependencies {
     mappings("net.fabricmc:yarn:${property("deps.yarn")}:v2")
     modImplementation("net.fabricmc:fabric-loader:${property("deps.fabric_loader")}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${property("deps.fabric_api")}")
+    // Lombok generates the accessors; compile-time only, so nothing lands in the jar.
+    compileOnly("org.projectlombok:lombok:${property("lombok_version")}")
+    annotationProcessor("org.projectlombok:lombok:${property("lombok_version")}")
+
     // JNA is the FFI fallback for Java 17 (no java.lang.foreign): bundle it via Loom JiJ on those
     // versions so the runtime has it; on Java 19+ FFM is used so it's compileOnly (not bundled).
     if (javaVersion >= 19) {

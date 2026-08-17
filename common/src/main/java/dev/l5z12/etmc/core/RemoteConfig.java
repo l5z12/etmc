@@ -1,6 +1,7 @@
 package dev.l5z12.etmc.core;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -46,18 +47,34 @@ public final class RemoteConfig {
                 .GET()
                 .build();
 
-        HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        // Stream the body so an oversized (or endless) response is cut off as it arrives, instead of
+        // being buffered whole and only then rejected.
+        HttpResponse<InputStream> resp = client.send(req, HttpResponse.BodyHandlers.ofInputStream());
         int code = resp.statusCode();
-        if (code / 100 != 2) {
-            throw new IOException("server returned HTTP " + code);
+        try (InputStream in = resp.body()) {
+            if (code / 100 != 2) {
+                throw new IOException("server returned HTTP " + code);
+            }
+            String body = readCapped(in);
+            if (body.isBlank()) {
+                throw new IOException("empty config");
+            }
+            return body;
         }
-        String body = resp.body();
-        if (body == null || body.isBlank()) {
-            throw new IOException("empty config");
+    }
+
+    /** Reads at most {@link #MAX_BYTES} of UTF-8 text, failing if the source has more to give. */
+    private static String readCapped(InputStream in) throws IOException {
+        byte[] buf = new byte[MAX_BYTES + 1];
+        int n = 0;
+        while (n < buf.length) {
+            int r = in.read(buf, n, buf.length - n);
+            if (r < 0) break;
+            n += r;
         }
-        if (body.length() > MAX_BYTES) {
+        if (n > MAX_BYTES) {
             throw new IOException("config too large (>" + (MAX_BYTES / 1024) + " KB)");
         }
-        return body;
+        return new String(buf, 0, n, StandardCharsets.UTF_8);
     }
 }

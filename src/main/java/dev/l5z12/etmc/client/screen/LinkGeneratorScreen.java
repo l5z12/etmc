@@ -18,8 +18,8 @@ import net.minecraft.client.gui.screens.Screen;*/
 //? if yarn && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
 //?} else if yarn && >=1.16 {
-/*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else if yarn {
+/*import net.minecraft.client.util.math.MatrixStack;
+*///?} else if yarn {
 //?} else if <1.20 {
 /*import com.mojang.blaze3d.vertex.PoseStack;*/
 //?} else if <26 {
@@ -37,7 +37,6 @@ import net.minecraft.client.gui.DrawContext;
  */
 public final class LinkGeneratorScreen extends EtmcBaseScreen {
 
-    private final Screen parent;
     //? if yarn {
     private TextFieldWidget networkField;
     private TextFieldWidget secretField;
@@ -53,12 +52,9 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
     private EditBox hostPortField;
     private EditBox labelField;*/
     //?}
-    private volatile String message = "";
-    private volatile int messageColor = 0xFFAAAAAA;
 
     public LinkGeneratorScreen(Screen parent) {
-        super(Txt.literal("Generate join link"));
-        this.parent = parent;
+        super(Txt.literal("Generate join link"), parent);
     }
 
     @Override
@@ -122,7 +118,7 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         /*String clip = mc().keyboardHandler.getClipboard();*/
         //?}
         if (clip == null || clip.isBlank()) {
-            setMessage("Clipboard is empty.", 0xFFFF5555);
+            setMessage("Clipboard is empty.", COLOR_BAD);
             return;
         }
         String s = clip.trim();
@@ -130,19 +126,19 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         if (JoinCode.isLink(s) || s.startsWith(JoinCode.PREFIX)) {
             try {
                 fillFrom(JoinCode.decode(s));
-                setMessage("Loaded from join code.", 0xFF55FF55);
+                setMessage("Loaded from join code.", COLOR_GOOD);
             } catch (IllegalArgumentException e) {
-                setMessage("Bad code: " + e.getMessage(), 0xFFFF5555);
+                setMessage("Bad code: " + e.getMessage(), COLOR_BAD);
             }
             return;
         }
         JoinCode extracted = JoinCode.fromToml(clip);
         if (!extracted.isValidCandidate()) {
-            setMessage("Couldn't find network_name in the clipboard TOML.", 0xFFFF5555);
+            setMessage("Couldn't find network_name in the clipboard TOML.", COLOR_BAD);
             return;
         }
         fillFrom(extracted);
-        setMessage("Loaded from config.", 0xFF55FF55);
+        setMessage("Loaded from config.", COLOR_GOOD);
     }
 
     private void fillFrom(JoinCode jc) {
@@ -157,7 +153,7 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
     private JoinCode buildCode() {
         String network = Ui.getText(networkField).trim();
         if (network.isEmpty()) {
-            setMessage("Enter a network name.", 0xFFFF5555);
+            setMessage("Enter a network name.", COLOR_BAD);
             return null;
         }
         String secret = Ui.getText(secretField);
@@ -170,12 +166,12 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
             try {
                 int p = Integer.parseInt(portText);
                 if (p <= 0 || p > 65535) {
-                    setMessage("Port must be 1–65535.", 0xFFFF5555);
+                    setMessage("Port must be 1–65535.", COLOR_BAD);
                     return null;
                 }
                 port = p;
             } catch (NumberFormatException e) {
-                setMessage("Port must be a number.", 0xFFFF5555);
+                setMessage("Port must be a number.", COLOR_BAD);
                 return null;
             }
         }
@@ -191,7 +187,7 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         //?} else {
         /*mc().keyboardHandler.setClipboard(s);*/
         //?}
-        setMessage(link ? "Copied etmc:// link" : "Copied ETMC1 code", 0xFF55FF55);
+        setMessage(link ? "Copied etmc:// link" : "Copied ETMC1 code", COLOR_GOOD);
     }
 
     private static List<String> splitRelays(String text) {
@@ -212,8 +208,8 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
     //? if yarn && >=1.20 {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
     //?} else if yarn && >=1.16 {
-    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if yarn {
+    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)
+    *///?} else if yarn {
     /*public void render(int mouseX, int mouseY, float delta)*/
     //?} else if <1.20 {
     /*public void render(PoseStack ctx, int mouseX, int mouseY, float delta)*/
@@ -223,26 +219,16 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
     /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
     //?}
     {
-        // Pre-1.20.2 the base Screen.render() doesn't draw the menu background; draw it ourselves.
         //? if yarn && <1.16 {
-        /*int ctx = 0;
-        this.renderBackground();*/
-        //?} else if <1.20.2 {
-        /*this.renderBackground(ctx);*/
+        /*int ctx = 0;*/
         //?}
-        //? if >=26 {
-        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
-        //?} else if yarn && <1.16 {
-        /*super.render(mouseX, mouseY, delta);*/
-        //?} else {
-        super.render(ctx, mouseX, mouseY, delta);
-        //?}
+        renderBackdrop(ctx, mouseX, mouseY, delta);
         int cx = this.width / 2;
         int w = 280;
-        Gfx.centered(ctx, font(), this.title, cx, 18, 0xFFFFFF);
+        Gfx.centered(ctx, font(), this.title, cx, 18, COLOR_TEXT);
 
         int y = 42;
-        int labelColor = 0xFFAAAAAA;
+        int labelColor = COLOR_MUTED;
         Gfx.text(ctx, font(), Txt.literal("Network name"),   cx - w / 2, y, labelColor); y += 34;
         Gfx.text(ctx, font(), Txt.literal("Network secret"), cx - w / 2, y, labelColor); y += 34;
         Gfx.text(ctx, font(), Txt.literal("Relay URI (comma-separated for multiple)"),
@@ -256,23 +242,4 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
             Gfx.centered(ctx, font(), Txt.literal(message), cx, this.height - 14, messageColor);
         }
     }
-
-    private void setMessage(String msg, int color) {
-        this.message = msg;
-        this.messageColor = color;
-    }
-
-    //? if yarn && >=1.18.2 {
-    @Override
-    //?}
-    public void close() {
-        goTo(parent);
-    }
-
-    //? if !yarn || <1.18.2 {
-    /*@Override
-    public void onClose() {
-        this.close();
-    }*/
-    //?}
 }

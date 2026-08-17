@@ -1,6 +1,8 @@
 package dev.l5z12.etmc.core;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Builds EasyTier TOML configuration strings for etmc's two roles.
@@ -13,7 +15,8 @@ import java.util.List;
 public final class EtmcConfig {
 
     /** Virtual network the mesh uses internally (data-plane addressing only; never touches the host OS). */
-    public static final String NETWORK_CIDR_BASE = "10.126.126";
+    private static final String NETWORK_CIDR_BASE = "10.126.126";
+    /** Fixed address the host takes, so joiners know where to connect without decoding DHCP. */
     public static final String HOST_VIRTUAL_IP = NETWORK_CIDR_BASE + ".1";
     /** Virtual port the host's data-plane listener binds; joiners connect here. */
     public static final int DEFAULT_VIRTUAL_PORT = 25565;
@@ -31,12 +34,12 @@ public final class EtmcConfig {
     private static String build(String instName, String networkName, String secret,
                                 List<String> relays, String staticIpv4, boolean dhcp) {
         StringBuilder sb = new StringBuilder();
-        sb.append("instance_name = ").append(str(instName)).append('\n');
-        sb.append("hostname = ").append(str(instName)).append('\n');
+        sb.append("instance_name = ").append(Toml.quote(instName)).append('\n');
+        sb.append("hostname = ").append(Toml.quote(instName)).append('\n');
         if (dhcp) {
             sb.append("dhcp = true\n");
         } else {
-            sb.append("ipv4 = ").append(str(staticIpv4)).append('\n');
+            sb.append("ipv4 = ").append(Toml.quote(staticIpv4)).append('\n');
         }
         // No inbound listeners: we are a pure client of the user-provided relay and rely on the
         // relay (plus hole punching coordinated through it) for connectivity.
@@ -44,16 +47,20 @@ public final class EtmcConfig {
         sb.append('\n');
 
         sb.append("[network_identity]\n");
-        sb.append("network_name = ").append(str(networkName)).append('\n');
-        sb.append("network_secret = ").append(str(secret == null ? "" : secret)).append('\n');
+        sb.append("network_name = ").append(Toml.quote(networkName)).append('\n');
+        sb.append("network_secret = ").append(Toml.quote(secret)).append('\n');
         sb.append('\n');
 
         if (relays != null) {
+            // Deduplicated: the same URI listed twice would have EasyTier dial the relay twice.
+            Set<String> seen = new LinkedHashSet<>();
             for (String relay : relays) {
                 String r = relay == null ? "" : relay.trim();
-                if (r.isEmpty()) continue;
+                if (!r.isEmpty()) seen.add(r);
+            }
+            for (String r : seen) {
                 sb.append("[[peer]]\n");
-                sb.append("uri = ").append(str(r)).append('\n');
+                sb.append("uri = ").append(Toml.quote(r)).append('\n');
             }
             sb.append('\n');
         }
@@ -61,29 +68,5 @@ public final class EtmcConfig {
         sb.append("[flags]\n");
         sb.append("no_tun = true\n");
         return sb.toString();
-    }
-
-    /** Renders a TOML basic string with the necessary escaping. */
-    private static String str(String s) {
-        if (s == null) s = "";
-        StringBuilder b = new StringBuilder("\"");
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            switch (c) {
-                case '\\' -> b.append("\\\\");
-                case '"' -> b.append("\\\"");
-                case '\n' -> b.append("\\n");
-                case '\r' -> b.append("\\r");
-                case '\t' -> b.append("\\t");
-                default -> {
-                    if (c < 0x20) {
-                        b.append(String.format("\\u%04x", (int) c));
-                    } else {
-                        b.append(c);
-                    }
-                }
-            }
-        }
-        return b.append('"').toString();
     }
 }

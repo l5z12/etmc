@@ -16,6 +16,12 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class HostShare {
 
     private static final long ACCEPT_TIMEOUT_MS = 1000L;
+    /** Retries for the initial bind: the instance isn't ready the instant run_network_instance returns. */
+    private static final int BIND_ATTEMPTS = 12;
+    private static final long BIND_RETRY_MS = 300L;
+    /** Pause after a failed accept, so a persistently erroring listener can't spin a core. */
+    private static final long ACCEPT_ERROR_BACKOFF_MS = 250L;
+    private static final int LAN_CONNECT_TIMEOUT_MS = 5000;
 
     private final EasyTier et;
     private final String instName;
@@ -37,28 +43,19 @@ public final class HostShare {
 
     /** Binds the mesh listener and starts accepting. Throws if the bind keeps failing. */
     public void start() {
-        EasyTier.Bind b = bindWithRetry();
-        listenerHandle = b.handle();
-        Thread t = new Thread(this::acceptLoop, "etmc-host-accept");
-        t.setDaemon(true);
-        acceptThread = t;
-        t.start();
+        listenerHandle = bindWithRetry().handle();
+        acceptThread = Threads.start("etmc-host-accept", this::acceptLoop);
     }
 
     /** The instance may not be ready the instant after run_network_instance; give the bind a few tries. */
     private EasyTier.Bind bindWithRetry() {
         RuntimeException last = null;
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < BIND_ATTEMPTS; i++) {
             try {
                 return et.tcpBind(instName, virtualPort, 10_000L);
             } catch (RuntimeException e) {
                 last = e;
-                try {
-                    Thread.sleep(300);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+                if (!sleep(BIND_RETRY_MS)) break; // interrupted
             }
         }
         throw last != null ? last : new IllegalStateException("tcp bind failed");
@@ -70,7 +67,9 @@ public final class HostShare {
             try {
                 acc = et.tcpAccept(listenerHandle, ACCEPT_TIMEOUT_MS);
             } catch (Throwable t) {
-                if (stopped.get()) break;
+                // A failing accept usually means the listener is gone; back off so a permanent
+                // failure can't turn this loop into a busy spin.
+                if (stopped.get() || !sleep(ACCEPT_ERROR_BACKOFF_MS)) break;
                 continue;
             }
             if (acc == null) continue; // timeout
@@ -81,20 +80,15 @@ public final class HostShare {
     private void handlePeer(EasyTier.Accept acc) {
         Socket sock = new Socket();
         try {
-            sock.connect(new InetSocketAddress("127.0.0.1", lanPort), 5000);
+            sock.connect(new InetSocketAddress("127.0.0.1", lanPort), LAN_CONNECT_TIMEOUT_MS);
             sock.setTcpNoDelay(true);
         } catch (Exception e) {
-            try {
-                sock.close();
-            } catch (Exception ignored) {
-            }
+            closeQuietly(sock);
             et.tcpClose(acc.handle());
             return;
         }
         totalConnections.incrementAndGet();
-        final TcpBridge[] ref = new TcpBridge[1];
-        TcpBridge bridge = new TcpBridge(et, sock, acc.handle(), () -> bridges.remove(ref[0]));
-        ref[0] = bridge;
+        TcpBridge bridge = new TcpBridge(et, sock, acc.handle(), bridges::remove);
         bridges.add(bridge);
         bridge.start(acc.peerIp() == null ? "peer" : acc.peerIp());
     }
@@ -103,6 +97,7 @@ public final class HostShare {
         return bridges.size();
     }
 
+    /** Total peer connections accepted since {@link #start()} (bridged or not). */
     public long totalConnections() {
         return totalConnections.get();
     }
@@ -113,11 +108,30 @@ public final class HostShare {
             et.tcpListenerClose(listenerHandle);
         } catch (Throwable ignored) {
         }
+        listenerHandle = 0;
         for (TcpBridge b : bridges) {
             b.close();
         }
         bridges.clear();
         Thread t = acceptThread;
         if (t != null) t.interrupt();
+    }
+
+    private static void closeQuietly(Socket s) {
+        try {
+            s.close();
+        } catch (Exception ignored) {
+        }
+    }
+
+    /** Sleeps, returning false if the thread was interrupted (caller should unwind). */
+    private static boolean sleep(long ms) {
+        try {
+            Thread.sleep(ms);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 }

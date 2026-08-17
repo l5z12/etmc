@@ -16,6 +16,14 @@ import java.util.List;
 public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers, String errorMsg) {
 
     /**
+     * A snapshot is published to the render thread as soon as it is built, so freeze the peer list:
+     * readers iterate it every frame and must never see it change underneath them.
+     */
+    public NetworkStatus {
+        peers = peers == null ? List.of() : List.copyOf(peers);
+    }
+
+    /**
      * A reachable peer. {@code relay} = traffic is routed through another node (not a direct/P2P link);
      * {@code cost} is EasyTier's route cost (1 = direct/p2p, &gt;1 = relayed) for diagnostics.
      */
@@ -38,11 +46,13 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
         return n;
     }
 
+    @SuppressWarnings("deprecation") // see the JsonParser note below
     public static NetworkStatus parse(String json) {
         if (json == null || json.isBlank()) return empty();
         try {
             // Instance parse() (not the static parseString, added in Gson 2.8.6) so this shared code
-            // works against the older Gson bundled by 1.17/1.18 too.
+            // works against the older Gson bundled by 1.17/1.18 too. Deprecated on newer Gson, but
+            // still present — and compatibility across every supported version wins here.
             JsonObject root = new JsonParser().parse(json).getAsJsonObject();
 
             boolean running = optBool(root, "running", true);

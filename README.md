@@ -159,6 +159,24 @@ cd /path/to/etmc
 Override the EasyTier checkout location with `-Peasytier_repo=/path/to/EasyTier`. The jar bundles
 whatever natives are present; at runtime the loader extracts the one matching the player's OS/arch.
 
+### Tests
+
+`common/` (the FFI + networking core) has no Minecraft dependency, so its unit tests live in
+`common/src/test/java` and run in the standalone Paper build — the one build that compiles those
+sources without Loom/ModDevGradle/ForgeGradle:
+
+```bash
+./gradlew -p paper test
+```
+
+They cover the wire formats that have to stay byte-exact (`ETMC1:` / `etmc://`, EasyTier TOML
+generation and normalization, `collect_network_infos` parsing, the Server List Ping framing) **and**
+the networking core itself: the session state machine, both bridges, and the `etmc://` netty
+channel. Those run against `FakeEasyTier`, an in-memory stand-in for the FFI whose data plane is a
+little loopback mesh — the real one is peer-only, so a single process could never test against it.
+Real loopback sockets stand in for Minecraft. CI runs the suite on both Java 17 and 21 as part of
+the Paper matrix.
+
 ### Local machine config
 
 Machine-specific Gradle settings — your outbound **proxy** and the **JDK 8** path ForgeGradle's

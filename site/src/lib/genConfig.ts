@@ -19,14 +19,21 @@ export interface GenInput {
   virtualPort: number;
 }
 
-/** Renders a TOML/YAML double-quoted string with the necessary escaping (the escapes overlap). */
+/**
+ * Renders a TOML/YAML double-quoted string with the necessary escaping (the escapes overlap).
+ * Mirrors `dev.l5z12.etmc.core.Toml.quote` so a config generated here and one written by the mod
+ * are byte-identical — including the `\u00xx` form for the remaining control characters, which
+ * TOML forbids raw inside a basic string.
+ */
 function tstr(s: string): string {
   const escaped = (s ?? '')
     .replace(/\\/g, '\\\\')
     .replace(/"/g, '\\"')
     .replace(/\n/g, '\\n')
     .replace(/\r/g, '\\r')
-    .replace(/\t/g, '\\t');
+    .replace(/\t/g, '\\t')
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`);
   return `"${escaped}"`;
 }
 

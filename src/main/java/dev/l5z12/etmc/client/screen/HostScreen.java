@@ -4,6 +4,7 @@ import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
+import dev.l5z12.etmc.core.Errors;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -16,8 +17,8 @@ import net.minecraft.client.gui.screens.Screen;*/
 //? if yarn && >=1.20 {
 import net.minecraft.client.gui.DrawContext;
 //?} else if yarn && >=1.16 {
-/*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else if yarn {
+/*import net.minecraft.client.util.math.MatrixStack;
+*///?} else if yarn {
 //?} else if <1.20 {
 /*import com.mojang.blaze3d.vertex.PoseStack;*/
 //?} else if <26 {
@@ -29,7 +30,6 @@ import net.minecraft.client.gui.DrawContext;
 /** Host the current singleplayer world: pick a network name + optional secret, then start. */
 public final class HostScreen extends EtmcBaseScreen {
 
-    private final Screen parent;
     //? if yarn {
     private TextFieldWidget networkField;
     private TextFieldWidget secretField;
@@ -39,12 +39,9 @@ public final class HostScreen extends EtmcBaseScreen {
     private EditBox secretField;
     private Button hostButton;*/
     //?}
-    private volatile String message = "";
-    private volatile int messageColor = 0xFFAAAAAA;
 
     public HostScreen(Screen parent) {
-        super(Txt.literal("Host a world"));
-        this.parent = parent;
+        super(Txt.literal("Host a world"), parent);
     }
 
     @Override
@@ -76,8 +73,7 @@ public final class HostScreen extends EtmcBaseScreen {
                 .dimensions(cx - w / 2, y, w, 20).build());
 
         if (!m.config().hasRelay()) {
-            message = "Add a relay in Settings before hosting.";
-            messageColor = 0xFFFFAA00;
+            setMessage("Add a relay in Settings before hosting.", COLOR_WARN);
         }
     }
 
@@ -85,19 +81,19 @@ public final class HostScreen extends EtmcBaseScreen {
         EtmcManager m = EtmcManager.get();
         String network = Ui.getText(networkField).trim();
         if (network.isEmpty()) {
-            setMessage("Enter a network name.", 0xFFFF5555);
+            setMessage("Enter a network name.", COLOR_BAD);
             return;
         }
         if (!m.config().hasRelay()) {
-            setMessage("No relay configured (Settings).", 0xFFFF5555);
+            setMessage("No relay configured (Settings).", COLOR_BAD);
             return;
         }
         hostButton.active = false;
-        setMessage("Starting…", 0xFFFFFF55);
+        setMessage("Starting…", COLOR_BUSY);
         m.hostAsync(network, Ui.getText(secretField)).whenComplete((code, err) ->
                 mc().execute(() -> {
                     if (err != null) {
-                        setMessage("Failed: " + rootMessage(err), 0xFFFF5555);
+                        setMessage("Failed: " + Errors.message(err), COLOR_BAD);
                         hostButton.active = true;
                     } else {
                         goTo(new StatusScreen(parent));
@@ -109,8 +105,8 @@ public final class HostScreen extends EtmcBaseScreen {
     //? if yarn && >=1.20 {
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
     //?} else if yarn && >=1.16 {
-    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if yarn {
+    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)
+    *///?} else if yarn {
     /*public void render(int mouseX, int mouseY, float delta)*/
     //?} else if <1.20 {
     /*public void render(PoseStack ctx, int mouseX, int mouseY, float delta)*/
@@ -120,57 +116,22 @@ public final class HostScreen extends EtmcBaseScreen {
     /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
     //?}
     {
-        // Pre-1.20.2 the base Screen.render() doesn't draw the menu background; draw it ourselves.
         //? if yarn && <1.16 {
-        /*int ctx = 0;
-        this.renderBackground();*/
-        //?} else if <1.20.2 {
-        /*this.renderBackground(ctx);*/
+        /*int ctx = 0;*/
         //?}
-        //? if >=26 {
-        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
-        //?} else if yarn && <1.16 {
-        /*super.render(mouseX, mouseY, delta);*/
-        //?} else {
-        super.render(ctx, mouseX, mouseY, delta);
-        //?}
-        Gfx.centered(ctx, font(), this.title, this.width / 2, 24, 0xFFFFFF);
+        renderBackdrop(ctx, mouseX, mouseY, delta);
+        Gfx.centered(ctx, font(), this.title, this.width / 2, 24, COLOR_TEXT);
         int cx = this.width / 2;
         int w = 220;
-        Gfx.text(ctx, font(), Txt.literal("Network name"), cx - w / 2, this.height / 4, 0xFFAAAAAA);
+        Gfx.text(ctx, font(), Txt.literal("Network name"), cx - w / 2, this.height / 4, COLOR_MUTED);
         Gfx.text(ctx, font(), Txt.literal("Secret (optional, must match for peers)"),
-                cx - w / 2, this.height / 4 + 32, 0xFFAAAAAA);
+                cx - w / 2, this.height / 4 + 32, COLOR_MUTED);
         if (!message.isEmpty()) {
             Gfx.centered(ctx, font(), Txt.literal(message), cx, this.height - 40, messageColor);
         }
     }
 
-    private void setMessage(String msg, int color) {
-        this.message = msg;
-        this.messageColor = color;
-    }
-
-    //? if yarn && >=1.18.2 {
-    @Override
-    //?}
-    public void close() {
-        goTo(parent);
-    }
-
-    //? if !yarn || <1.18.2 {
-    /*@Override
-    public void onClose() {
-        this.close();
-    }*/
-    //?}
-
     private static String orDefault(String s, String def) {
         return s == null || s.isBlank() ? def : s;
-    }
-
-    private static String rootMessage(Throwable t) {
-        Throwable c = t;
-        while (c.getCause() != null) c = c.getCause();
-        return c.getMessage() == null ? c.toString() : c.getMessage();
     }
 }

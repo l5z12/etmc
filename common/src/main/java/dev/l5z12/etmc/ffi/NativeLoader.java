@@ -23,28 +23,31 @@ public final class NativeLoader {
     /** Result of resolving the platform native library. */
     public record Native(Path path, String resource) {}
 
+    /** The {@code <os>-<arch>} resource directory for this platform, e.g. {@code windows-x86_64}. */
     public static String osArchTag() {
-        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
-
-        String osTag;
-        if (os.contains("win")) osTag = "windows";
-        else if (os.contains("mac") || os.contains("darwin")) osTag = "macos";
-        else osTag = "linux";
-
         String archTag;
         if (arch.contains("aarch64") || arch.contains("arm64")) archTag = "aarch64";
         else if (arch.contains("64")) archTag = "x86_64";
         else archTag = arch;
 
-        return osTag + "-" + archTag;
+        return osTag() + "-" + archTag;
     }
 
+    /** The platform's shared-library file name for the EasyTier FFI cdylib. */
     public static String libFileName() {
+        return switch (osTag()) {
+            case "windows" -> "easytier_ffi.dll";
+            case "macos" -> "libeasytier_ffi.dylib";
+            default -> "libeasytier_ffi.so";
+        };
+    }
+
+    private static String osTag() {
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
-        if (os.contains("win")) return "easytier_ffi.dll";
-        if (os.contains("mac") || os.contains("darwin")) return "libeasytier_ffi.dylib";
-        return "libeasytier_ffi.so";
+        if (os.contains("win")) return "windows";
+        if (os.contains("mac") || os.contains("darwin")) return "macos";
+        return "linux";
     }
 
     /**
@@ -74,17 +77,33 @@ public final class NativeLoader {
         Path target = dir.resolve(digest + "-" + file);
 
         if (!Files.exists(target) || Files.size(target) != data.length) {
+            // Write beside the target and move into place, so a half-written library is never loaded.
             Path tmp = Files.createTempFile(dir, "et-", ".tmp");
-            try (OutputStream out = Files.newOutputStream(tmp)) {
-                out.write(data);
-            }
+            boolean moved = false;
             try {
-                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-            } catch (IOException atomicFailed) {
-                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+                try (OutputStream out = Files.newOutputStream(tmp)) {
+                    out.write(data);
+                }
+                try {
+                    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+                } catch (IOException atomicUnsupported) {
+                    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+                }
+                moved = true;
+            } finally {
+                // A failed move (e.g. Windows keeps the old copy locked while it is loaded) would
+                // otherwise leave the scratch file behind on every launch.
+                if (!moved) deleteQuietly(tmp);
             }
         }
         return new Native(target, resource);
+    }
+
+    private static void deleteQuietly(Path p) {
+        try {
+            Files.deleteIfExists(p);
+        } catch (IOException ignored) {
+        }
     }
 
     private static String shortHash(byte[] data) {

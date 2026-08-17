@@ -2,6 +2,7 @@ package dev.l5z12.etmc.client;
 
 import dev.l5z12.etmc.client.screen.EtmcConnectingScreen;
 import dev.l5z12.etmc.client.screen.EtmcNoticeScreen;
+import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcConnect;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.ImportedConfig;
@@ -12,6 +13,7 @@ import dev.l5z12.etmc.core.StatusPing;
 import dev.l5z12.etmc.ffi.EasyTier;
 import dev.l5z12.etmc.ffi.NativeLoader;
 import dev.l5z12.etmc.ffi.Panama;
+import lombok.Getter;
 //? if fabric {
 import net.fabricmc.loader.api.FabricLoader;
 //?}
@@ -25,9 +27,11 @@ import net.minecraft.client.gui.screens.Screen;*/
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Process-wide owner of the etmc {@link EtmcSession}: loads the native library, exposes async
@@ -44,6 +48,12 @@ public final class EtmcManager {
 
     /** How long to wait for a direct (p2p) route before auto-joining over the available path (relay). */
     private static final long P2P_WAIT_TIMEOUT_MS = 8000;
+    /** Status refresh cadence while a session is up. */
+    private static final long STATUS_POLL_INTERVAL_MS = 1500;
+    /** Faster cadence while an {@code etmc://} join waits for a route, so it reacts promptly. */
+    private static final long LINK_POLL_INTERVAL_MS = 600;
+    /** How often the P2P-wait progress line is logged while a link join is pending. */
+    private static final long LINK_LOG_INTERVAL_MS = 1000;
 
     public static EtmcManager get() {
         return INSTANCE;
@@ -77,21 +87,26 @@ public final class EtmcManager {
         return t;
     });
 
-    private ModConfig config;
-    private EtmcSession session;
-    private boolean nativeReady;
-    private String nativeError;
+    // Set once by init() and then read from the render thread, the worker, and (on disconnect) a
+    // netty event-loop thread — hence volatile.
+    @Getter private volatile ModConfig config;
+    @Getter private volatile EtmcSession session;
+    private volatile boolean nativeReady;
+    /** Why the native library failed to load, for the UI and {@code /etmc status}. */
+    @Getter private volatile String nativeError;
 
-    private volatile NetworkStatus cachedStatus = NetworkStatus.empty();
+    /** Latest status snapshot, refreshed off-thread; the HUD reads this every frame. */
+    @Getter private volatile NetworkStatus cachedStatus = NetworkStatus.empty();
     private long lastStatusPoll;
-    private long lastReconnectAttempt;
-    /** In-progress {@code etmc://} link join (null when none). */
+    /** Guards against queueing another status poll behind one that hasn't come back yet. */
+    private final AtomicBoolean statusPollInFlight = new AtomicBoolean();
+    /** In-progress {@code etmc://} link join (null when none). Client thread only. */
     private LinkAttempt linkAttempt;
 
     private EtmcManager() {}
 
     private static String shortId() {
-        return java.util.UUID.randomUUID().toString().substring(0, 8);
+        return UUID.randomUUID().toString().substring(0, 8);
     }
 
     /** Pushes the local player's name to the session so EasyTier device names read {@code etmc-host[-<username>]}. */
@@ -113,16 +128,17 @@ public final class EtmcManager {
     public void init() {
         this.config = ModConfig.load();
         try {
-            if (!Panama.isAvailable()) {
-                throw new IllegalStateException("FFM unavailable: " + Panama.initError());
-            }
             //? if fabric {
             Path cacheRoot = FabricLoader.getInstance().getConfigDir().resolve("etmc");
             //?} else {
             /*Path cacheRoot = mc().gameDirectory.toPath().resolve("config").resolve("etmc");*/
             //?}
             NativeLoader.Native nat = NativeLoader.extract(cacheRoot);
+            // FFM where the runtime has it (Java 19+), JNA on the Java 17 versions — EasyTier.load
+            // picks the backend, so this must NOT pre-check for java.lang.foreign.
             EasyTier et = EasyTier.load(nat.path());
+            LOGGER.info("[etmc] EasyTier backend: {} ({})",
+                    Panama.isAvailable() ? "FFM" : "JNA", nat.path());
             this.session = new EtmcSession(et);
             // When an etmc:// data-plane connection closes (disconnect / failure), leave the network —
             // but only if that channel's instance is still the active session (guards against a stale
@@ -136,29 +152,21 @@ public final class EtmcManager {
             this.nativeReady = true;
         } catch (Throwable t) {
             this.nativeReady = false;
-            this.nativeError = String.valueOf(t.getMessage());
+            this.nativeError = t.getMessage() == null ? t.toString() : t.getMessage();
+            LOGGER.warn("[etmc] EasyTier native library failed to load", t);
         }
     }
 
+    /**
+     * Whether etmc can host or join. Not a plain field read — the library can load while the session
+     * still fails to build — so every entry point checks this rather than {@code nativeReady}.
+     */
     public boolean isReady() {
         return nativeReady && session != null;
     }
 
-    public String nativeError() {
-        return nativeError;
-    }
-
-    public ModConfig config() {
-        return config;
-    }
-
-    public EtmcSession session() {
-        return session;
-    }
-
-    public NetworkStatus cachedStatus() {
-        return cachedStatus;
-    }
+    // config(), session(), cachedStatus() and nativeError() are generated (@Getter, fluent
+    // per lombok.config) from the fields above.
 
     // ------------------------------------------------------------------ operations
 
@@ -180,8 +188,7 @@ public final class EtmcManager {
         session.setPreferredLocalPort(config.joinLocalPort);
         return CompletableFuture.supplyAsync(() -> session.join(code), worker)
                 .thenApplyAsync(localPort -> {
-                    String label = code.label == null || code.label.isBlank() ? code.networkName : code.label;
-                    McNet.presentJoin(label, localPort);
+                    McNet.presentJoin(code.displayLabel(), localPort);
                     return localPort;
                 }, mc());
     }
@@ -210,8 +217,7 @@ public final class EtmcManager {
             return session.joinWithConfig(cfg);
         }, worker).thenApplyAsync(localPort -> {
             JoinCode cc = session.currentCode();
-            String label = cc != null && cc.label != null && !cc.label.isBlank() ? cc.label : "etmc server";
-            McNet.presentJoin(label, localPort);
+            McNet.presentJoin(cc == null ? "etmc server" : cc.displayLabel(), localPort);
             return localPort;
         }, mc());
     }
@@ -237,12 +243,11 @@ public final class EtmcManager {
             return;
         }
         syncPlayerName();
-        String label = code.label != null && !code.label.isBlank() ? code.label : code.networkName;
-        LinkAttempt a = new LinkAttempt(parent, code, label);
+        LinkAttempt a = new LinkAttempt(parent, code, code.displayLabel());
         this.linkAttempt = a;
         LOGGER.info("[etmc] etmc:// join: starting link instance for host {}:{} (network '{}')",
                 code.hostIp, code.hostPort, code.networkName);
-        goTo(new EtmcConnectingScreen(parent, label,
+        goTo(new EtmcConnectingScreen(parent, a.label,
                 () -> linkProceed(a), () -> linkCancel(a)));
         CompletableFuture.supplyAsync(() -> session.startLinkInstance(code), worker)
                 .whenComplete((inst, err) -> mc().execute(() -> {
@@ -252,10 +257,8 @@ public final class EtmcManager {
                         return;
                     }
                     if (err != null) {
-                        Throwable cause = err instanceof java.util.concurrent.CompletionException && err.getCause() != null
-                                ? err.getCause() : err;
-                        LOGGER.warn("[etmc] etmc:// join failed: {}", String.valueOf(cause.getMessage()), cause);
-                        showError(a.parent, "Couldn't start etmc network", cause.getMessage());
+                        LOGGER.warn("[etmc] etmc:// join failed: {}", Errors.message(err), Errors.root(err));
+                        showError(a.parent, "Couldn't start etmc network", Errors.message(err));
                         linkAttempt = null;
                         return;
                     }
@@ -286,7 +289,7 @@ public final class EtmcManager {
                 if (!p.relay()) direct = true;
             }
         }
-        if (now - a.lastLog > 1000) {
+        if (now - a.lastLog > LINK_LOG_INTERVAL_MS) {
             a.lastLog = now;
             LOGGER.info("[etmc] P2P wait {}s: host {} {} | peers: {}",
                     (now - a.startedAt) / 1000, a.code.hostIp,
@@ -384,22 +387,34 @@ public final class EtmcManager {
 
     // ------------------------------------------------------------------ periodic tick
 
-    /** Called every client tick. Refreshes status, drives a pending link join, handles auto-reconnect. */
+    /** Called every client tick. Refreshes the cached status and drives a pending link join. */
     public void tick() {
         if (!isReady() || !session.isActive()) return;
         long now = System.currentTimeMillis();
         // Poll faster while waiting on a link join so a direct route is noticed (and the timeout fires) promptly.
-        long interval = linkAttempt != null ? 600 : 1500;
+        long interval = linkAttempt != null ? LINK_POLL_INTERVAL_MS : STATUS_POLL_INTERVAL_MS;
         if (now - lastStatusPoll > interval) {
             lastStatusPoll = now;
-            EtmcSession s = session;
-            worker.submit(() -> {
-                try {
-                    cachedStatus = s.status();
-                } catch (Throwable ignored) {
-                }
-            });
+            pollStatus();
         }
         driveLinkAttempt(now);
+    }
+
+    /**
+     * Refreshes {@link #cachedStatus} on the worker. The worker also runs the blocking host/join
+     * calls, so polls are skipped rather than queued while one is outstanding — otherwise every tick
+     * during a slow join would pile up another stale poll behind it.
+     */
+    private void pollStatus() {
+        if (!statusPollInFlight.compareAndSet(false, true)) return;
+        EtmcSession s = session;
+        worker.submit(() -> {
+            try {
+                cachedStatus = s.status();
+            } catch (Throwable ignored) {
+            } finally {
+                statusPollInFlight.set(false);
+            }
+        });
     }
 }

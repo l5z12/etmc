@@ -231,9 +231,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       render();
     }
 
+    // One timer, so a second message doesn't get wiped early by the first one's timeout.
+    let toastTimer = 0;
     function flash(msg: string) {
       toast.textContent = msg;
-      window.setTimeout(() => { toast.innerHTML = '&nbsp;'; }, 2200);
+      window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => { toast.innerHTML = '&nbsp;'; }, 2200);
     }
 
     async function copyText(text: string, ok: string) {
@@ -266,7 +269,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      // Revoking synchronously can cancel the download in some browsers — let the click settle first.
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
       flash(paper ? 'Downloaded config.yml ✓' : 'Downloaded etmc.toml ✓');
     });
 

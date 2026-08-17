@@ -2,7 +2,6 @@ package dev.l5z12.etmc.forge;
 
 import dev.l5z12.etmc.client.EtmcHud;
 import dev.l5z12.etmc.client.EtmcKey;
-import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.command.EtmcCommands;
 //? if >=1.21.11 {
 /*import net.minecraft.resources.Identifier;*/
@@ -59,8 +58,6 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 @Mod("etmc")
 public final class EtmcForge {
 
-    private boolean inited;
-
     public EtmcForge() {
         // Mod bus + open-menu keybind.
         //? if >=1.21.6 {
@@ -107,25 +104,16 @@ public final class EtmcForge {
         // Game bus: client commands + ticking.
         //? if >=1.21.6 {
         RegisterClientCommandsEvent.BUS.addListener(e -> EtmcCommands.register(e.getDispatcher()));
-        TickEvent.ClientTickEvent.Post.BUS.addListener(e -> onClientTick());
+        TickEvent.ClientTickEvent.Post.BUS.addListener(e -> EtmcKey.clientTick());
         //?} else if >=1.18.2 {
         /*MinecraftForge.EVENT_BUS.addListener((RegisterClientCommandsEvent e) -> EtmcCommands.register(e.getDispatcher()));
         MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent e) -> {
-            if (e.phase == TickEvent.Phase.END) onClientTick();
+            if (e.phase == TickEvent.Phase.END) EtmcKey.clientTick();
         });*/
         //?} else {
         /*MinecraftForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent e) -> {
-            if (e.phase == TickEvent.Phase.END) onClientTick();
+            if (e.phase == TickEvent.Phase.END) EtmcKey.clientTick();
         });*/
         //?}
-    }
-
-    private void onClientTick() {
-        if (!inited) {
-            inited = true;
-            EtmcManager.get().init();
-        }
-        EtmcKey.handleTick();
-        EtmcManager.get().tick();
     }
 }

@@ -69,9 +69,6 @@ public final class Panama {
     private static Object lByte;
     private static Object lAddress;
 
-    /** A NULL pointer segment. */
-    public static Object NULL;
-
     static {
         boolean ok = false;
         Throwable err = null;
@@ -113,7 +110,6 @@ public final class Panama {
             lLong = field(cValueLayout, "JAVA_LONG");
             lByte = field(cValueLayout, "JAVA_BYTE");
             lAddress = field(cValueLayout, "ADDRESS");
-            NULL = field(cMemorySegment, "NULL");
 
             ok = true;
         } catch (Throwable t) {
@@ -255,8 +251,8 @@ public final class Panama {
         }
     }
 
-    /** Reinterprets a segment to a new byte size so it can be read. */
-    public static Object reinterpret(Object segment, long newSize) {
+    /** Reinterprets a zero-length segment to a byte size so its contents can be read. */
+    private static Object reinterpret(Object segment, long newSize) {
         try {
             return mSegReinterpret.invoke(segment, newSize);
         } catch (Exception e) {
@@ -270,10 +266,6 @@ public final class Panama {
         } catch (Exception e) {
             throw new RuntimeException("address() failed", unwrap(e));
         }
-    }
-
-    public static boolean isNull(Object segment) {
-        return segment == null || addressOf(segment) == 0L;
     }
 
     /**

@@ -31,8 +31,8 @@ import net.minecraft.client.options.ServerList;*/
 //? if yarn && >=1.20.3 {
 import net.minecraft.client.gui.screen.multiplayer.ConnectScreen;
 //?} else if yarn {
-/*import net.minecraft.client.gui.screen.ConnectScreen;*/
-//?} else {
+/*import net.minecraft.client.gui.screen.ConnectScreen;
+*///?} else {
 /*import net.minecraft.client.gui.screens.ConnectScreen;*/
 //?}
 
@@ -45,6 +45,9 @@ import java.util.concurrent.CompletableFuture;
  * per-version) mapping differences live here in one place.
  */
 public final class McNet {
+
+    /** @see dev.l5z12.etmc.core.EtmcConnect#PLACEHOLDER_ADDRESS */
+    private static final String PLACEHOLDER_ADDRESS = dev.l5z12.etmc.core.EtmcConnect.PLACEHOLDER_ADDRESS;
 
     private McNet() {}
 
@@ -171,8 +174,8 @@ public final class McNet {
         //? if yarn && >=1.20.2 {
         list.add(new ServerInfo(name, address, ServerInfo.ServerType.OTHER), true);
         //?} else if yarn && >=1.19 {
-        /*list.add(new ServerInfo(name, address, false), true);*/
-        //?} else if yarn {
+        /*list.add(new ServerInfo(name, address, false), true);
+        *///?} else if yarn {
         /*list.add(new ServerInfo(name, address, false));*/
         //?} else if >=1.19 && <1.20.2 {
         /*list.add(new ServerData(name, address, false), true);*/
@@ -193,9 +196,7 @@ public final class McNet {
         } else {
             client.setScreen(null);
             if (client.player != null) {
-                client.player.sendMessage(Txt.literal("[etmc] Added '" + name
-                        + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
-                        + address + ")."), false);
+                client.player.sendMessage(Txt.literal(addedHint(name, address)), false);
             }
         }
         //?} else if yarn && >=1.16 {
@@ -204,9 +205,7 @@ public final class McNet {
         } else {
             client.openScreen(null);
             if (client.player != null) {
-                client.player.sendMessage(Txt.literal("[etmc] Added '" + name
-                        + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
-                        + address + ")."), false);
+                client.player.sendMessage(Txt.literal(addedHint(name, address)), false);
             }
         }*/
         //?} else if yarn {
@@ -215,9 +214,7 @@ public final class McNet {
         } else {
             client.openScreen(null);
             if (client.player != null) {
-                client.player.sendMessage(Txt.literal("[etmc] Added '" + name
-                        + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
-                        + address + ")."));
+                client.player.sendMessage(Txt.literal(addedHint(name, address)));
             }
         }*/
         //?} else if <26 {
@@ -226,9 +223,7 @@ public final class McNet {
         } else {
             client.setScreen(null);
             if (client.player != null) {
-                client.player.displayClientMessage(Txt.literal("[etmc] Added '" + name
-                        + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
-                        + address + ")."), false);
+                client.player.displayClientMessage(Txt.literal(addedHint(name, address)), false);
             }
         }*/
         //?} else {
@@ -237,12 +232,16 @@ public final class McNet {
         } else {
             client.setScreenAndShow(null);
             if (client.player != null) {
-                client.player.sendSystemMessage(Txt.literal("[etmc] Added '" + name
-                        + "' to Multiplayer. Leave your world, then connect there (or Direct Connect "
-                        + address + ")."));
+                client.player.sendSystemMessage(Txt.literal(addedHint(name, address)));
             }
         }*/
         //?}
+    }
+
+    /** Chat line shown when a world is loaded, so the player knows where the entry went. */
+    private static String addedHint(String name, String address) {
+        return "[etmc] Added '" + name + "' to Multiplayer. Leave your world, then connect there"
+                + " (or Direct Connect " + address + ").";
     }
 
     /**
@@ -260,28 +259,28 @@ public final class McNet {
         /*Minecraft client = Minecraft.getInstance();*/
         //?}
         //? if yarn && >=1.20.2 {
-        ServerInfo info = new ServerInfo("etmc: " + label, "127.0.0.1:25565", ServerInfo.ServerType.OTHER);
+        ServerInfo info = new ServerInfo("etmc: " + label, PLACEHOLDER_ADDRESS, ServerInfo.ServerType.OTHER);
         //?} else if yarn {
-        /*ServerInfo info = new ServerInfo("etmc: " + label, "127.0.0.1:25565", false);*/
-        //?} else if <1.20.2 {
-        /*ServerData info = new ServerData("etmc: " + label, "127.0.0.1:25565", false);*/
+        /*ServerInfo info = new ServerInfo("etmc: " + label, PLACEHOLDER_ADDRESS, false);
+        *///?} else if <1.20.2 {
+        /*ServerData info = new ServerData("etmc: " + label, PLACEHOLDER_ADDRESS, false);*/
         //?} else {
-        /*ServerData info = new ServerData("etmc: " + label, "127.0.0.1:25565", ServerData.Type.OTHER);*/
+        /*ServerData info = new ServerData("etmc: " + label, PLACEHOLDER_ADDRESS, ServerData.Type.OTHER);*/
         //?}
         // Pin the host's protocol so ViaFabricPlus skips its own (unreachable) auto-detect probe.
         ViaHook.forceVersion(info, protocolVersion);
         //? if yarn {
-        ServerAddress addr = ServerAddress.parse("127.0.0.1:25565");
+        ServerAddress addr = ServerAddress.parse(PLACEHOLDER_ADDRESS);
         //?} else {
-        /*ServerAddress addr = ServerAddress.parseString("127.0.0.1:25565");*/
+        /*ServerAddress addr = ServerAddress.parseString(PLACEHOLDER_ADDRESS);*/
         //?}
         //? if yarn && >=1.20.5 {
         ConnectScreen.connect(parent, client, addr, info, false, null);
         //?} else if yarn && >=1.20 {
         /*ConnectScreen.connect(parent, client, addr, info, false);*/
         //?} else if yarn && >=1.17 {
-        /*ConnectScreen.connect(parent, client, addr, info);*/
-        //?} else if yarn {
+        /*ConnectScreen.connect(parent, client, addr, info);
+        *///?} else if yarn {
         /*// 1.16 has no static connect: the ConnectScreen(parent, client, ServerInfo) ctor connects itself.
         client.openScreen(new ConnectScreen(parent, client, info));*/
         //?} else if <1.20 {
@@ -293,12 +292,18 @@ public final class McNet {
         //?}
     }
 
+    /**
+     * Picks a free port for "Open to LAN" by binding and releasing an ephemeral one. Inherently
+     * racy (something else could take it in between), but it is what vanilla's own LAN dialog does,
+     * and {@code openToLan} reports the failure if it loses the race.
+     */
     private static int freePort() {
         try (ServerSocket ss = new ServerSocket(0)) {
             ss.setReuseAddress(true);
             return ss.getLocalPort();
         } catch (Exception e) {
-            return 0;
+            // Handing 0 to openToLan would fail with a far less obvious message than this.
+            throw new IllegalStateException("Couldn't reserve a local port for Open to LAN.", e);
         }
     }
 }

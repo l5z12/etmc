@@ -3,12 +3,14 @@ package dev.l5z12.etmc.paper;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
+import dev.l5z12.etmc.core.Toml;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Stream;
 
 /** {@code /etmc <status|code|config|reload>} — admin controls for the mesh. */
@@ -22,7 +24,7 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        String sub = args.length == 0 ? "status" : args[0].toLowerCase();
+        String sub = args.length == 0 ? "status" : args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "status" -> status(sender);
             case "code" -> code(sender);
@@ -84,16 +86,17 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         sb.append("dhcp = true\n");
         sb.append("listeners = []\n\n");
         sb.append("[network_identity]\n");
-        sb.append("network_name = ").append(q(plugin.network())).append('\n');
-        sb.append("network_secret = ").append(q(secretOf())).append("\n\n");
+        sb.append("network_name = ").append(Toml.quote(plugin.network())).append('\n');
+        sb.append("network_secret = ").append(Toml.quote(secretOf())).append("\n\n");
         for (String r : plugin.relays()) {
             if (r == null || r.isBlank()) continue;
-            sb.append("[[peer]]\nuri = ").append(q(r.trim())).append('\n');
+            sb.append("[[peer]]\nuri = ").append(Toml.quote(r.trim())).append('\n');
         }
         sb.append("\n[flags]\nno_tun = true\n\n");
         sb.append("[etmc]\n");
-        sb.append("server = ").append(q(EtmcConfig.HOST_VIRTUAL_IP + ":" + plugin.virtualPort())).append('\n');
-        sb.append("label = ").append(q(plugin.network())).append('\n');
+        sb.append("server = ")
+                .append(Toml.quote(EtmcConfig.HOST_VIRTUAL_IP + ":" + plugin.virtualPort())).append('\n');
+        sb.append("label = ").append(Toml.quote(plugin.network())).append('\n');
         return sb.toString();
     }
 
@@ -101,14 +104,10 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         return plugin.getConfig().getString("secret", "");
     }
 
-    private static String q(String s) {
-        return '"' + s.replace("\\", "\\\\").replace("\"", "\\\"") + '"';
-    }
-
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 1) {
-            String p = args[0].toLowerCase();
+            String p = args[0].toLowerCase(Locale.ROOT);
             return Stream.of("status", "code", "config", "reload").filter(s -> s.startsWith(p)).toList();
         }
         return List.of();

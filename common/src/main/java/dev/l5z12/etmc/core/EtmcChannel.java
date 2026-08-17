@@ -31,8 +31,10 @@ public final class EtmcChannel extends AbstractChannel {
 
     private static final ChannelMetadata METADATA = new ChannelMetadata(false);
     private static final int BUF = 32 * 1024;
+    /** Long: the read returns promptly on data or on close (handle cancellation), not on this timeout. */
     private static final long READ_TIMEOUT_MS = 3_600_000L;
     private static final long WRITE_TIMEOUT_MS = 60_000L;
+    private static final long CONNECT_TIMEOUT_MS = 15_000L;
 
     private final ChannelConfig config = new DefaultChannelConfig(this);
     private final EtmcConnect.Target target;
@@ -120,6 +122,7 @@ public final class EtmcChannel extends AbstractChannel {
         if (r != null) r.interrupt();
         Thread w = writer;
         if (w != null) w.interrupt();
+        writeQueue.clear(); // nothing can be sent any more; don't pin the pending payloads
         // Tell the client manager the connection is gone so it leaves the EasyTier network.
         EtmcConnect.fireDisconnect(target.instanceName());
     }
@@ -141,13 +144,18 @@ public final class EtmcChannel extends AbstractChannel {
         while (true) {
             Object msg = in.current();
             if (msg == null) break;
-            if (msg instanceof ByteBuf buf) {
-                int len = buf.readableBytes();
-                if (len > 0) {
-                    byte[] data = new byte[len];
-                    buf.getBytes(buf.readerIndex(), data);
-                    writeQueue.add(data);
-                }
+            if (!(msg instanceof ByteBuf buf)) {
+                // Minecraft's pipeline only ever writes ByteBufs here. Fail the write rather than
+                // drop it silently, so an incompatible handler shows up as an error, not lost data.
+                in.remove(new UnsupportedOperationException(
+                        "etmc channel cannot write " + msg.getClass().getName()));
+                continue;
+            }
+            int len = buf.readableBytes();
+            if (len > 0) {
+                byte[] data = new byte[len];
+                buf.getBytes(buf.readerIndex(), data);
+                writeQueue.add(data);
             }
             in.remove();
         }
@@ -174,7 +182,9 @@ public final class EtmcChannel extends AbstractChannel {
     }
 
     private void startReader() {
-        Thread t = new Thread(() -> {
+        // Publish the thread before starting it: doClose() interrupts through these fields, and a
+        // close racing the start must not leave a pump parked on the read gate.
+        Thread t = Threads.daemon("etmc-channel-rx", () -> {
             byte[] tmp = new byte[BUF];
             try {
                 while (open) {
@@ -184,25 +194,31 @@ public final class EtmcChannel extends AbstractChannel {
                     if (n <= 0) break;
                     ByteBuf out = config.getAllocator().buffer(n);
                     out.writeBytes(tmp, 0, n);
-                    eventLoop().execute(() -> {
-                        pipeline().fireChannelRead(out);
-                        pipeline().fireChannelReadComplete();
-                    });
+                    try {
+                        eventLoop().execute(() -> {
+                            pipeline().fireChannelRead(out);
+                            pipeline().fireChannelReadComplete();
+                        });
+                    } catch (Throwable rejected) {
+                        // event loop gone (channel/game shutting down): the buffer would never be
+                        // handed to the pipeline, so release it here instead of leaking it.
+                        out.release();
+                        throw rejected;
+                    }
                 }
             } catch (Throwable ignored) {
                 // fall through to close
             } finally {
-                eventLoop().execute(() -> close());
+                closeOnEventLoop();
             }
-        }, "etmc-channel-rx");
-        t.setDaemon(true);
+        });
         reader = t;
         t.start();
     }
 
     /** Drains {@link #writeQueue}, doing the blocking EasyTier write off the event loop (preserves order). */
     private void startWriter() {
-        Thread t = new Thread(() -> {
+        Thread t = Threads.daemon("etmc-channel-tx", () -> {
             try {
                 while (open) {
                     byte[] data = writeQueue.take(); // blocks until there's something to send
@@ -215,12 +231,20 @@ public final class EtmcChannel extends AbstractChannel {
             } catch (InterruptedException ignored) {
                 // channel closing
             } catch (Throwable ex) {
-                eventLoop().execute(() -> close());
+                closeOnEventLoop();
             }
-        }, "etmc-channel-tx");
-        t.setDaemon(true);
+        });
         writer = t;
         t.start();
+    }
+
+    /** Closes from an I/O thread: netty requires channel teardown to run on the event loop. */
+    private void closeOnEventLoop() {
+        try {
+            eventLoop().execute(this::close);
+        } catch (Throwable ignored) {
+            // event loop already shut down — nothing left to close against
+        }
     }
 
     private final class EtmcUnsafe extends AbstractUnsafe {
@@ -230,9 +254,10 @@ public final class EtmcChannel extends AbstractChannel {
                 return;
             }
             // EasyTier connect is blocking; do it off the event loop, then resolve on it.
-            Thread t = new Thread(() -> {
+            Threads.start("etmc-channel-connect", () -> {
                 try {
-                    var c = target.et().tcpConnect(target.instanceName(), target.hostIp(), target.hostPort(), 15_000L);
+                    var c = target.et().tcpConnect(target.instanceName(), target.hostIp(), target.hostPort(),
+                            CONNECT_TIMEOUT_MS);
                     stream = c.handle();
                     active = true;
                     eventLoop().execute(() -> {
@@ -247,9 +272,7 @@ public final class EtmcChannel extends AbstractChannel {
                         EtmcChannel.this.close();
                     });
                 }
-            }, "etmc-channel-connect");
-            t.setDaemon(true);
-            t.start();
+            });
         }
     }
 }

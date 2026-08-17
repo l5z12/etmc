@@ -100,11 +100,14 @@ gets commented when `fabric=false` must not contain `/* */`.
 - ✅ **MERGE DONE + VERIFIED**: the whole client tree is unified in root `src/` with `//? if fabric`
   guards, and **both `etmc-fabric-1.21.10.jar` (yarn) and `etmc-neoforge-1.21.10.jar` (mojmap) build
   green from that one tree** (Stonecutter `fabric` constant selects the branch). Merged: loader
-  constants; `Txt`/`Ui`/`Gfx` facades; `EtmcManager` (+slf4j LOGGER, supersedes `EtmcClientCore`);
+  constants; `Txt`/`Ui`/`Gfx` facades; `EtmcManager` (+log4j2 LOGGER, supersedes `EtmcClientCore`);
   `ModConfig` (supersedes `McConfig`); `EtmcHud`; `McNet`; `EtmcCommands`; `EtmcBaseScreen` + all 8
   screens; all 5 mixins; entry points `EtmcKey`/`EtmcNeoForge` (Fabric build excludes them via
-  `java.exclude`). Key facade trick: `EtmcBaseScreen.mc()/font()/add()` absorbed most per-screen
-  divergence. Only mojmap fix needed beyond the guards: `ServerData.ip` vs `ServerInfo.address`.
+  `java.exclude`). Key facade trick: `EtmcBaseScreen` absorbs the per-screen divergence —
+  `mc()/font()/add()/goTo()`, the `close()`/`onClose()` pair, and `renderBackdrop()` (the
+  background + `super.render`/`extractRenderState` prologue), so a screen's only version-guarded
+  code is its own render-hook signature. Only mojmap fix needed beyond the guards: `ServerData.ip`
+  vs `ServerInfo.address`.
 - Infra: `build.neoforge.gradle.kts` (ModDevGradle node, uses the processed `src/` with fabric=false);
   `1.21.10-neoforge` node in settings via `.buildscript(...)`; reuses the shared `etmc.mixins.json`
   (yarn class names = the merged files) + `neoforge.mods.toml`.

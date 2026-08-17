@@ -23,8 +23,8 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 //? if >=1.21.6 {
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 //?} else if >=1.15 {
-/*import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;*/
-//?}
+/*import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+*///?}
 //? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.InputUtil;
@@ -42,7 +42,6 @@ import net.minecraft.client.option.KeyBinding;
 /*import net.minecraft.client.options.KeyBinding;*/
 //?}
 import org.lwjgl.glfw.GLFW;
-import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 /**
@@ -52,7 +51,8 @@ import org.apache.logging.log4j.Logger;
 public final class EtmcClient implements ClientModInitializer {
 
     public static final String MOD_ID = "etmc";
-    public static final Logger LOGGER = LogManager.getLogger("etmc");
+    /** The one etmc logger, shared with {@link EtmcManager} (log4j2 exists on every version/loader). */
+    public static final Logger LOGGER = EtmcManager.LOGGER;
 
     //? if yarn {
     private static KeyBinding openMenuKey;
@@ -74,8 +74,8 @@ public final class EtmcClient implements ClientModInitializer {
                 "key.etmc.open_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, KeyBinding.Category.MISC));
         //?} else if yarn {
         /*openMenuKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
-                "key.etmc.open_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.misc"));*/
-        //?} else {
+                "key.etmc.open_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.misc"));
+        *///?} else {
         /*openMenuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
                 "key.etmc.open_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, KeyMapping.Category.MISC));*/
         //?}
@@ -115,8 +115,8 @@ public final class EtmcClient implements ClientModInitializer {
         //? if yarn && >=1.21.6 {
         HudElementRegistry.addLast(Identifier.of("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));
         //?} else if yarn && >=1.16 {
-        /*HudRenderCallback.EVENT.register((ctx, tickDelta) -> EtmcHud.render(ctx));*/
-        //?} else if yarn && >=1.15 {
+        /*HudRenderCallback.EVENT.register((ctx, tickDelta) -> EtmcHud.render(ctx));
+        *///?} else if yarn && >=1.15 {
         /*HudRenderCallback.EVENT.register(tickDelta -> EtmcHud.render(0));*/
         //?} else if !yarn {
         /*HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));*/

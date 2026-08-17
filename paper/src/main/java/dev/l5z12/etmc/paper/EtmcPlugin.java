@@ -1,11 +1,13 @@
 package dev.l5z12.etmc.paper;
 
+import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.ffi.EasyTier;
 import dev.l5z12.etmc.ffi.NativeLoader;
 import dev.l5z12.etmc.ffi.Panama;
+import lombok.Getter;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -23,13 +25,14 @@ import java.util.List;
 public final class EtmcPlugin extends JavaPlugin {
 
     private EasyTier et;
-    private EtmcSession session;
+    @Getter private EtmcSession session;
     private volatile boolean ready;
-    private volatile String startError;
-    private volatile JoinCode joinCode;
-    private volatile String network = "";
-    private volatile int virtualPort = EtmcConfig.DEFAULT_VIRTUAL_PORT;
-    private volatile List<String> relays = List.of();
+    /** Why the mesh failed to come up, for {@code /etmc status}; null while it is still starting. */
+    @Getter private volatile String startError;
+    @Getter private volatile JoinCode joinCode;
+    @Getter private volatile String network = "";
+    @Getter private volatile int virtualPort = EtmcConfig.DEFAULT_VIRTUAL_PORT;
+    @Getter private volatile List<String> relays = List.of();
 
     @Override
     public void onEnable() {
@@ -48,9 +51,6 @@ public final class EtmcPlugin extends JavaPlugin {
 
     private void startMesh() {
         try {
-            if (!Panama.isAvailable()) {
-                throw new IllegalStateException("java.lang.foreign (FFM) unavailable: " + Panama.initError());
-            }
             reloadConfig();
             network = getConfig().getString("network", "etmc-server");
             String secret = getConfig().getString("secret", "");
@@ -64,7 +64,9 @@ public final class EtmcPlugin extends JavaPlugin {
 
             Path cacheRoot = getDataFolder().toPath();
             NativeLoader.Native nat = NativeLoader.extract(cacheRoot);
+            // FFM on Java 19+, JNA below it — EasyTier.load picks the backend and reports if neither fits.
             et = EasyTier.load(nat.path());
+            getLogger().info("EasyTier backend: " + (Panama.isAvailable() ? "FFM" : "JNA"));
             session = new EtmcSession(et);
 
             joinCode = session.host(serverPort, network, secret, relays, virtualPort);
@@ -77,8 +79,8 @@ public final class EtmcPlugin extends JavaPlugin {
             getLogger().info("…or this link (paste into Add Server / Direct Connect):");
             getLogger().info(joinCode.encodeLink());
         } catch (Throwable t) {
-            startError = String.valueOf(t.getMessage());
-            getLogger().warning("etmc failed to start: " + startError);
+            startError = Errors.message(t);
+            getLogger().log(java.util.logging.Level.WARNING, "etmc failed to start: " + startError, t);
         }
     }
 
@@ -102,31 +104,9 @@ public final class EtmcPlugin extends JavaPlugin {
         }
     }
 
-    public boolean isReady() {
-        return ready;
-    }
+    // ------------------------------------------------------------------ getters
+    // The rest are generated (@Getter, fluent per lombok.config).
 
-    public String startError() {
-        return startError;
-    }
-
-    public EtmcSession session() {
-        return session;
-    }
-
-    public JoinCode joinCode() {
-        return joinCode;
-    }
-
-    public String network() {
-        return network;
-    }
-
-    public int virtualPort() {
-        return virtualPort;
-    }
-
-    public List<String> relays() {
-        return relays;
-    }
+    /** Whether the mesh is up. Named {@code isReady} because it reads as a state, not a field. */
+    public boolean isReady() { return ready; }
 }

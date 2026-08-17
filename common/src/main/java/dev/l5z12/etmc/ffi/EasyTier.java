@@ -52,15 +52,25 @@ public interface EasyTier {
     /**
      * Loads the native library at {@code lib} with the best available backend: FFM
      * ({@code java.lang.foreign}) on Java 19+, falling back to JNA on Java 17. Idempotent.
+     *
+     * @throws EasyTierException if neither backend is usable, or the library cannot be opened
      */
     static EasyTier load(Path lib) {
         synchronized (Holder.class) {
             if (Holder.instance == null) {
-                Holder.instance = FfmEasyTier.isSupported()
-                        ? FfmEasyTier.create(lib)
-                        : JnaEasyTier.create(lib);
+                Holder.instance = FfmEasyTier.isSupported() ? FfmEasyTier.create(lib) : loadViaJna(lib);
             }
             return Holder.instance;
+        }
+    }
+
+    /** JNA path (Java 17). Reports the missing dependency plainly rather than a raw linkage error. */
+    private static EasyTier loadViaJna(Path lib) {
+        try {
+            return JnaEasyTier.create(lib);
+        } catch (NoClassDefFoundError missingJna) {
+            throw new EasyTierException("this JVM has neither java.lang.foreign (Java 19+) nor JNA "
+                    + "on the classpath, so the EasyTier library cannot be called", missingJna);
         }
     }
 
