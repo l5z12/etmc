@@ -1,0 +1,56 @@
+name: site
+
+# Checks the docs/generator site. Split from build.yml — which deliberately ignores site/** because
+# no jar depends on it — so a site edit doesn't spin up the loader matrix, and a mod edit doesn't
+# spin up bun. Cheap: install, test, typecheck, build (~1 min, one runner).
+#
+# The test that matters here is the wire-format one: site/src/lib/genConfig.ts re-implements the
+# etmc:// link, the ETMC1: code and the TOML escaping in the browser, and only stays interchangeable
+# with the mod's JoinCode/Toml if it agrees byte for byte. Its Java twin (WireFormatTest) runs in the
+# paper job of build.yml; this is the other half of that pair.
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'site/**'
+      - '.github/workflows/site.yml'
+  pull_request:
+    paths:
+      - 'site/**'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: test + typecheck + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v4
+
+      - name: Set up bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Wire-format vectors (must match the mod's WireFormatTest)
+        run: bun test
+
+      - name: Typecheck
+        run: bun run check
+
+      - name: Build
+        run: bun run build

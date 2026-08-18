@@ -36,5 +36,12 @@ cargo build -p easytier-ffi --release --target aarch64-unknown-linux-gnu`;
 bun install
 bun run dev        # local dev
 bun run build      # static build -> dist/
+bun test           # wire-format vectors (must match the mod's WireFormatTest)
 bun run deploy     # astro build && wrangler deploy`}</code></pre>
+  <p>
+    The in-browser generator writes the <code>etmc://</code> link, the <code>ETMC1:</code> code and the
+    config TOML by hand — a second implementation of what the mod's <code>JoinCode</code> /
+    <code>Toml</code> produce. <code>bun test</code> and the mod's <code>WireFormatTest</code> assert the
+    same frozen vectors, so if you change either encoder, change both and run both.
+  </p>
 </DocsLayout>
