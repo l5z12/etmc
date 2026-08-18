@@ -2,6 +2,7 @@ package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.EtmcSession;
@@ -12,28 +13,12 @@ import net.minecraft.client.gui.screen.Screen;
 //?} else {
 /*import net.minecraft.client.gui.screens.Screen;*/
 //?}
-//? if yarn && >=1.20 {
-import net.minecraft.client.gui.DrawContext;
-//?} else if yarn && >=1.16 {
-/*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else if yarn {
-//?} else if <1.20 {
-/*import com.mojang.blaze3d.vertex.PoseStack;*/
-//?} else if <26 {
-/*import net.minecraft.client.gui.GuiGraphics;*/
-//?} else {
-/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
-//?}
 
 /** Live session status: virtual IP, peers/latency, the shareable code, and a Leave button. */
 public final class StatusScreen extends EtmcBaseScreen {
 
-    private final Screen parent;
-    private volatile String toast = "";
-
     public StatusScreen(Screen parent) {
-        super(Txt.literal("etmc status"));
-        this.parent = parent;
+        super(Txt.literal("etmc status"), parent);
     }
 
     @Override
@@ -61,101 +46,58 @@ public final class StatusScreen extends EtmcBaseScreen {
     }
 
     private void copyCode(boolean link) {
-        JoinCode code = EtmcManager.get().session().currentCode();
-        if (code != null) {
-            //? if yarn {
-            mc().keyboard.setClipboard(link ? code.encodeLink() : code.encode());
-            //?} else {
-            /*mc().keyboardHandler.setClipboard(link ? code.encodeLink() : code.encode());*/
-            //?}
-            toast = link ? "Copied etmc:// link" : "Copied join code";
+        EtmcSession s = EtmcManager.get().session();
+        JoinCode code = s == null ? null : s.currentCode();
+        if (code == null) {
+            setMessage("No join code — the session ended.", COLOR_WARN);
+            return;
         }
+        McScreens.setClipboard(link ? code.encodeLink() : code.encode());
+        setMessage(link ? "Copied etmc:// link" : "Copied join code", COLOR_GOOD);
     }
 
     private void leave() {
-        EtmcManager.get().leaveAsync().whenComplete((v, err) ->
-                mc().execute(() -> goTo(parent)));
+        EtmcManager.get().leaveAsync().whenComplete((v, err) -> mc().execute(this::close));
     }
 
     @Override
-    //? if yarn && >=1.20 {
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
-    //?} else if yarn && >=1.16 {
-    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if yarn {
-    /*public void render(int mouseX, int mouseY, float delta)*/
-    //?} else if <1.20 {
-    /*public void render(PoseStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if <26 {
-    /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
-    //?} else {
-    /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
-    //?}
-    {
-        // Pre-1.20.2 the base Screen.render() doesn't draw the menu background; draw it ourselves.
-        //? if yarn && <1.16 {
-        /*int ctx = 0;
-        this.renderBackground();*/
-        //?} else if <1.20.2 {
-        /*this.renderBackground(ctx);*/
-        //?}
-        //? if >=26 {
-        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
-        //?} else if yarn && <1.16 {
-        /*super.render(mouseX, mouseY, delta);*/
-        //?} else {
-        super.render(ctx, mouseX, mouseY, delta);
-        //?}
+    protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
         EtmcManager m = EtmcManager.get();
-        Gfx.centered(ctx, font(), this.title, this.width / 2, 18, 0xFFFFFF);
+        Gfx.centered(ctx, font(), this.title, this.width / 2, 18, COLOR_TEXT);
 
         EtmcSession s = m.session();
         if (s == null || !s.isActive()) {
             Gfx.centered(ctx, font(), Txt.literal("No active session"),
-                    this.width / 2, 48, 0xFFAAAAAA);
+                    this.width / 2, 48, COLOR_MUTED);
             return;
         }
         NetworkStatus st = m.cachedStatus();
         int x = this.width / 2 - 110;
         int y = 44;
         String role = s.mode() == EtmcSession.Mode.HOST ? "Hosting" : "Joined";
-        Gfx.text(ctx, font(), Txt.literal("Role: " + role), x, y, 0xFF55FF55);
+        Gfx.text(ctx, font(), Txt.literal("Role: " + role), x, y, COLOR_GOOD);
         y += 12;
         Gfx.text(ctx, font(), Txt.literal("Virtual IP: "
-                + (st.virtualIp() == null ? "(assigning…)" : st.virtualIp())), x, y, 0xFFFFFFFF);
+                + (st.virtualIp() == null ? "(assigning…)" : st.virtualIp())), x, y, COLOR_TEXT);
         y += 12;
-        Gfx.text(ctx, font(), Txt.literal("Active connections: " + s.activeConnections()), x, y, 0xFFFFFFFF);
+        Gfx.text(ctx, font(), Txt.literal("Active connections: " + s.activeConnections()), x, y, COLOR_TEXT);
         y += 12;
         if (s.mode() == EtmcSession.Mode.JOIN) {
-            Gfx.text(ctx, font(), Txt.literal("Local proxy: 127.0.0.1:" + s.localPort()), x, y, 0xFFAAAAAA);
+            Gfx.text(ctx, font(), Txt.literal("Local proxy: 127.0.0.1:" + s.localPort()), x, y, COLOR_MUTED);
             y += 12;
         }
         Gfx.text(ctx, font(), Txt.literal("Peers (" + st.peerCount()
-                + ", P2P " + st.directPeerCount() + "):"), x, y, 0xFFAAAAAA);
+                + ", P2P " + st.directPeerCount() + "):"), x, y, COLOR_MUTED);
         y += 12;
         for (NetworkStatus.Peer p : st.peers()) {
             String ping = p.latencyMs() >= 0 ? p.latencyMs() + " ms" : "—";
             String line = "  " + p.hostname() + "  " + (p.ipv4() == null ? "" : p.ipv4()) + "  " + ping
                     + (p.relay() ? "  (relay)" : "");
-            Gfx.text(ctx, font(), Txt.literal(line), x, y, p.relay() ? 0xFFFFAA00 : 0xFFDDDDDD);
+            Gfx.text(ctx, font(), Txt.literal(line), x, y, p.relay() ? COLOR_WARN : 0xFFDDDDDD);
             y += 11;
         }
-        if (!toast.isEmpty()) {
-            Gfx.centered(ctx, font(), Txt.literal(toast), this.width / 2, this.height - 16, 0xFF55FF55);
+        if (!message.isEmpty()) {
+            Gfx.centered(ctx, font(), Txt.literal(message), this.width / 2, this.height - 16, messageColor);
         }
     }
-
-    //? if yarn && >=1.18.2 {
-    @Override
-    //?}
-    public void close() {
-        goTo(parent);
-    }
-
-    //? if !yarn || <1.18.2 {
-    /*@Override
-    public void onClose() {
-        this.close();
-    }*/
-    //?}
 }

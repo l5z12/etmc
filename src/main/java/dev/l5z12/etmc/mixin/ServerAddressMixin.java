@@ -1,5 +1,6 @@
 package dev.l5z12.etmc.mixin;
 
+import dev.l5z12.etmc.core.EtmcConnect;
 import dev.l5z12.etmc.core.JoinCode;
 // ServerAddress moved net.minecraft.network -> net.minecraft.client.network at yarn 1.16.5.
 //? if yarn && >=1.16.5 {
@@ -55,9 +56,9 @@ public class ServerAddressMixin {
     private static void etmc$parseLink(String address, CallbackInfoReturnable<ServerAddress> cir) {
         if (JoinCode.isLink(address)) {
             //? if yarn {
-            cir.setReturnValue(ServerAddress.parse("127.0.0.1:25565"));
+            cir.setReturnValue(ServerAddress.parse(EtmcConnect.PLACEHOLDER_ADDRESS));
             //?} else {
-            /*cir.setReturnValue(ServerAddress.parseString("127.0.0.1:25565"));*/
+            /*cir.setReturnValue(ServerAddress.parseString(EtmcConnect.PLACEHOLDER_ADDRESS));*/
             //?}
         }
     }

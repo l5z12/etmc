@@ -34,6 +34,9 @@ repositories {
 dependencies {
     implementation minecraft.dependency("net.minecraftforge:forge:${project.property('deps.forge')}")
     compileOnly "net.java.dev.jna:jna:${project.property('jna_version')}"
+    // Lombok generates the accessors; compile-time only, so nothing lands in the jar.
+    compileOnly "org.projectlombok:lombok:${project.property('lombok_version')}"
+    annotationProcessor "org.projectlombok:lombok:${project.property('lombok_version')}"
 }
 
 tasks.withType(JavaCompile).configureEach {

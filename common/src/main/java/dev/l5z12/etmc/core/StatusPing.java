@@ -47,26 +47,21 @@ public final class StatusPing {
 
             // Read the Status Response frame: VarInt(len){ VarInt(packetId) VarInt(jsonLen) json }.
             Reader r = new Reader(et, stream);
-            int frameLen = r.readVarInt();
+            int frameLen = readVarInt(r::readByte);
             if (frameLen <= 0 || frameLen > MAX_FRAME) return -1;
             byte[] frame = r.readBytes(frameLen);
 
-            int[] pos = {0};
-            int packetId = readVarIntFrom(frame, pos);
+            Cursor body = new Cursor(frame);
+            int packetId = readVarInt(body);
             if (packetId != 0x00) return -1;
-            int jsonLen = readVarIntFrom(frame, pos);
-            if (jsonLen <= 0 || pos[0] + jsonLen > frame.length) return -1;
-            String json = new String(frame, pos[0], jsonLen, StandardCharsets.UTF_8);
+            int jsonLen = readVarInt(body);
+            if (jsonLen <= 0 || body.pos + jsonLen > frame.length) return -1;
+            String json = new String(frame, body.pos, jsonLen, StandardCharsets.UTF_8);
             return parseProtocol(json);
         } catch (Throwable t) {
             return -1;
         } finally {
-            if (stream != 0) {
-                try {
-                    et.tcpClose(stream);
-                } catch (Throwable ignored) {
-                }
-            }
+            Io.closeStream(et, stream);
         }
     }
 
@@ -108,59 +103,79 @@ public final class StatusPing {
         out.write(b, 0, b.length);
     }
 
-    private static int readVarIntFrom(byte[] a, int[] pos) {
-        int value = 0, shift = 0, b;
-        do {
-            b = a[pos[0]++] & 0xFF;
+    /** One byte at a time, from either the live mesh stream or an already-buffered frame. */
+    private interface ByteSource {
+        int nextByte() throws IOException;
+    }
+
+    /**
+     * Reads one Minecraft VarInt. Capped at the 5 bytes the protocol allows: a 6th byte would shift
+     * past the width of an {@code int} (Java masks the shift distance, so it would silently corrupt
+     * the value instead of overflowing) and no honest server sends one.
+     */
+    private static int readVarInt(ByteSource src) throws IOException {
+        int value = 0;
+        for (int shift = 0; shift <= 28; shift += 7) {
+            int b = src.nextByte();
             value |= (b & 0x7F) << shift;
-            shift += 7;
-            if (shift > 35) throw new IllegalStateException("VarInt too long");
-        } while ((b & 0x80) != 0);
-        return value;
+            if ((b & 0x80) == 0) return value;
+        }
+        throw new IOException("VarInt longer than 5 bytes");
+    }
+
+    /** A read position in an already-buffered frame. */
+    private static final class Cursor implements ByteSource {
+        private final byte[] data;
+        private int pos = 0;
+
+        Cursor(byte[] data) {
+            this.data = data;
+        }
+
+        @Override
+        public int nextByte() throws IOException {
+            if (pos >= data.length) throw new EOFException("truncated VarInt");
+            return data[pos++] & 0xFF;
+        }
     }
 
     /** Buffered byte source over the blocking {@code et.tcpRead} (which returns partial chunks). */
     private static final class Reader {
+        private static final int CHUNK = 8192;
+
         private final EasyTier et;
         private final long stream;
-        private final byte[] tmp = new byte[8192];
-        private byte[] data = new byte[0];
+        private final byte[] buf = new byte[CHUNK];
         private int pos = 0;
+        private int end = 0;
 
         Reader(EasyTier et, long stream) {
             this.et = et;
             this.stream = stream;
         }
 
-        int readByte() throws IOException {
-            if (pos >= data.length) {
-                int n = et.tcpRead(stream, tmp, tmp.length, IO_TIMEOUT_MS);
-                if (n <= 0) throw new EOFException();
-                int rem = data.length - pos;
-                byte[] nd = new byte[rem + n];
-                System.arraycopy(data, pos, nd, 0, rem);
-                System.arraycopy(tmp, 0, nd, rem, n);
-                data = nd;
-                pos = 0;
-            }
-            return data[pos++] & 0xFF;
+        /** Refills the buffer; throws {@link EOFException} at end of stream. */
+        private void fill() throws IOException {
+            int n = et.tcpRead(stream, buf, buf.length, IO_TIMEOUT_MS);
+            if (n <= 0) throw new EOFException();
+            pos = 0;
+            end = n;
         }
 
-        int readVarInt() throws IOException {
-            int value = 0, shift = 0, b;
-            do {
-                b = readByte();
-                value |= (b & 0x7F) << shift;
-                shift += 7;
-                if (shift > 35) throw new IOException("VarInt too long");
-            } while ((b & 0x80) != 0);
-            return value;
+        int readByte() throws IOException {
+            if (pos >= end) fill();
+            return buf[pos++] & 0xFF;
         }
 
         byte[] readBytes(int len) throws IOException {
             byte[] out = new byte[len];
-            for (int i = 0; i < len; i++) {
-                out[i] = (byte) readByte();
+            int got = 0;
+            while (got < len) {
+                if (pos >= end) fill();
+                int n = Math.min(end - pos, len - got);
+                System.arraycopy(buf, pos, out, got, n);
+                pos += n;
+                got += n;
             }
             return out;
         }

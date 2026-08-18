@@ -1,6 +1,7 @@
 package dev.l5z12.etmc.core;
 
 import dev.l5z12.etmc.ffi.EasyTier;
+import lombok.Getter;
 
 import java.io.IOException;
 import java.util.List;
@@ -20,16 +21,18 @@ public final class EtmcSession {
 
     private final EasyTier et;
 
-    private volatile State state = State.IDLE;
-    private volatile Mode mode = Mode.NONE;
-    private volatile String instName;
-    private volatile String lastError;
+    @Getter private volatile State state = State.IDLE;
+    @Getter private volatile Mode mode = Mode.NONE;
+    @Getter private volatile String instName;
+    /** Why the last host/join failed; only meaningful in {@link State#ERROR}. */
+    @Getter private volatile String lastError;
 
     private volatile HostShare hostShare;
     private volatile JoinProxy joinProxy;
-    private volatile JoinCode currentCode;
-    private volatile int lanPort;
-    private volatile int localPort;
+    @Getter private volatile JoinCode currentCode;
+    /** Port the LAN world is served on locally (host), and the loopback port to point MC at (join). */
+    @Getter private volatile int lanPort;
+    @Getter private volatile int localPort;
     private volatile int virtualPort = EtmcConfig.DEFAULT_VIRTUAL_PORT;
     /** Preferred loopback port for joins (0 = ephemeral); helps mods persist per-server settings. */
     private volatile int preferredLocalPort = 0;
@@ -144,9 +147,9 @@ public final class EtmcSession {
      * Minecraft server at its mesh address. Returns the loopback port to connect Minecraft to.
      */
     public synchronized int joinWithConfig(ImportedConfig cfg) {
-        JoinCode display = new JoinCode(cfg.label, "", java.util.List.of(),
-                cfg.serverIp, cfg.serverPort, cfg.label);
-        return startJoin(cfg.toml, cfg.instanceName, cfg.serverIp, cfg.serverPort, display);
+        JoinCode display = new JoinCode(cfg.label(), "", List.of(),
+                cfg.serverIp(), cfg.serverPort(), cfg.label());
+        return startJoin(cfg.toml(), cfg.instanceName(), cfg.serverIp(), cfg.serverPort(), display);
     }
 
     private synchronized int startJoin(String toml, String inst, String serverIp, int serverPort, JoinCode display) {
@@ -180,7 +183,7 @@ public final class EtmcSession {
             JoinProxy jp = joinProxy;
             if (jp != null) jp.stop();
             String name = instName;
-            if (name != null && et != null) {
+            if (name != null) {
                 try {
                     et.deleteNetworkInstance(name);
                 } catch (Throwable ignored) {
@@ -223,15 +226,11 @@ public final class EtmcSession {
     }
 
     // ------------------------------------------------------------------ getters
+    // The plain field reads are generated (@Getter, fluent per lombok.config); these two are not
+    // straight reads, so they stay here.
 
-    public State state() { return state; }
-    public Mode mode() { return mode; }
+    /** Whether a host or join is in progress — the guard every UI entry point checks. */
     public boolean isActive() { return mode != Mode.NONE; }
-    public String instName() { return instName; }
-    public JoinCode currentCode() { return currentCode; }
-    public int lanPort() { return lanPort; }
-    public int localPort() { return localPort; }
-    public String lastError() { return lastError; }
 
     // ------------------------------------------------------------------ internals
 

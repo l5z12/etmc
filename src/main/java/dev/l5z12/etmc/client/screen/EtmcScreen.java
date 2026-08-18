@@ -10,27 +10,12 @@ import net.minecraft.client.gui.screen.Screen;
 //?} else {
 /*import net.minecraft.client.gui.screens.Screen;*/
 //?}
-//? if yarn && >=1.20 {
-import net.minecraft.client.gui.DrawContext;
-//?} else if yarn && >=1.16 {
-/*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else if yarn {
-//?} else if <1.20 {
-/*import com.mojang.blaze3d.vertex.PoseStack;*/
-//?} else if <26 {
-/*import net.minecraft.client.gui.GuiGraphics;*/
-//?} else {
-/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
-//?}
 
 /** Main etmc menu: host, join, status/leave, settings. */
 public final class EtmcScreen extends EtmcBaseScreen {
 
-    private final Screen parent;
-
     public EtmcScreen(Screen parent) {
-        super(Txt.literal("etmc"));
-        this.parent = parent;
+        super(Txt.literal("etmc"), parent);
     }
 
     @Override
@@ -86,65 +71,24 @@ public final class EtmcScreen extends EtmcBaseScreen {
     }
 
     @Override
-    //? if yarn && >=1.20 {
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
-    //?} else if yarn && >=1.16 {
-    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if yarn {
-    /*public void render(int mouseX, int mouseY, float delta)*/
-    //?} else if <1.20 {
-    /*public void render(PoseStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if <26 {
-    /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
-    //?} else {
-    /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
-    //?}
-    {
-        // Pre-1.20.2 the base Screen.render() doesn't draw the menu background; draw it ourselves.
-        //? if yarn && <1.16 {
-        /*int ctx = 0;
-        this.renderBackground();*/
-        //?} else if <1.20.2 {
-        /*this.renderBackground(ctx);*/
-        //?}
-        //? if >=26 {
-        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
-        //?} else if yarn && <1.16 {
-        /*super.render(mouseX, mouseY, delta);*/
-        //?} else {
-        super.render(ctx, mouseX, mouseY, delta);
-        //?}
-        Gfx.centered(ctx, font(), this.title, this.width / 2, 28, 0xFFFFFF);
+    protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
+        Gfx.centered(ctx, font(), this.title, this.width / 2, 28, COLOR_TEXT);
 
         EtmcManager m = EtmcManager.get();
         String sub;
-        int color = 0xFFAAAAAA;
+        int color = COLOR_MUTED;
         if (!m.isReady()) {
             sub = "Native library not loaded — see logs";
-            color = 0xFFFF5555;
+            color = COLOR_BAD;
         } else if (m.session() != null && m.session().isActive()) {
             sub = m.session().mode() == EtmcSession.Mode.HOST ? "Currently hosting" : "Currently joined";
-            color = 0xFF55FF55;
+            color = COLOR_GOOD;
         } else if (!m.config().hasRelay()) {
             sub = "No relay set — add one in Settings";
-            color = 0xFFFFAA00;
+            color = COLOR_WARN;
         } else {
             sub = "EasyTier P2P multiplayer, in-game";
         }
         Gfx.centered(ctx, font(), Txt.literal(sub), this.width / 2, 44, color);
     }
-
-    //? if yarn && >=1.18.2 {
-    @Override
-    //?}
-    public void close() {
-        goTo(parent);
-    }
-
-    //? if !yarn || <1.18.2 {
-    /*@Override
-    public void onClose() {
-        this.close();
-    }*/
-    //?}
 }

@@ -22,22 +22,14 @@ import java.util.List;
  * </pre>
  * The {@code [etmc]} table is stripped before the config reaches EasyTier. If it is absent the
  * caller must supply the server address out-of-band.
+ *
+ * @param toml         the normalized config, ready for {@code run_network_instance}
+ * @param instanceName the unique instance name forced into it
+ * @param serverIp     the Minecraft server's address on the mesh
+ * @param serverPort   the Minecraft server's port on the mesh
+ * @param label        what to call this server in the UI; never blank
  */
-public final class ImportedConfig {
-
-    public final String toml;
-    public final String instanceName;
-    public final String serverIp;
-    public final int serverPort;
-    public final String label;
-
-    private ImportedConfig(String toml, String instanceName, String serverIp, int serverPort, String label) {
-        this.toml = toml;
-        this.instanceName = instanceName;
-        this.serverIp = serverIp;
-        this.serverPort = serverPort;
-        this.label = label;
-    }
+public record ImportedConfig(String toml, String instanceName, String serverIp, int serverPort, String label) {
 
     /**
      * Parses and normalizes a raw EasyTier TOML config.
@@ -45,125 +37,57 @@ public final class ImportedConfig {
      * @param raw            the fetched config text
      * @param instanceName   the unique instance name to force
      * @param overrideServer optional {@code ip:port} used when the config has no {@code [etmc] server}
-     * @throws IllegalArgumentException if no server address can be determined
+     * @throws IllegalArgumentException if the config is empty or no server address can be determined
      */
     public static ImportedConfig parse(String raw, String instanceName, String overrideServer) {
-        String[] lines = raw.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1);
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("Empty config.");
+        }
         List<String> kept = new ArrayList<>();
         String table = "";
-        boolean inEtmc = false;
-        boolean hasFlags = false;
         int flagsHeaderIdx = -1;
         String serverFromCfg = null;
         String labelFromCfg = null;
 
-        for (String line : lines) {
+        for (String line : Toml.lines(raw)) {
             String t = line.trim();
             if (t.startsWith("[")) {
-                String name = tableName(t);
-                if ("etmc".equals(name)) {
-                    inEtmc = true;
-                    table = "etmc";
-                    continue; // drop the [etmc] header
-                }
-                inEtmc = false;
-                table = name;
+                table = Toml.tableName(t);
+                if ("etmc".equals(table)) continue; // drop the [etmc] header
                 kept.add(line);
-                if ("flags".equals(name)) {
-                    hasFlags = true;
-                    flagsHeaderIdx = kept.size() - 1;
-                }
+                if ("flags".equals(table)) flagsHeaderIdx = kept.size() - 1;
                 continue;
             }
-            if (inEtmc) {
-                String key = keyName(t);
-                if ("server".equals(key)) serverFromCfg = stringValue(t);
-                else if ("label".equals(key)) labelFromCfg = stringValue(t);
-                continue; // drop [etmc] body
+            String key = Toml.keyName(t);
+            if ("etmc".equals(table)) {
+                // drop the [etmc] body, keeping what it tells us about the Minecraft server
+                if ("server".equals(key)) serverFromCfg = Toml.stringValue(t);
+                else if ("label".equals(key)) labelFromCfg = Toml.stringValue(t);
+                continue;
             }
-            String key = keyName(t);
             if (table.isEmpty() && "instance_name".equals(key)) continue; // re-added below
             if ("flags".equals(table) && "no_tun".equals(key)) continue;  // re-added below
             kept.add(line);
         }
 
+        boolean hasFlags = flagsHeaderIdx >= 0;
         if (hasFlags) {
             kept.add(flagsHeaderIdx + 1, "no_tun = true");
         }
 
         StringBuilder sb = new StringBuilder();
-        sb.append("instance_name = \"").append(escape(instanceName)).append("\"\n");
+        sb.append("instance_name = ").append(Toml.quote(instanceName)).append('\n');
         for (String l : kept) sb.append(l).append('\n');
         if (!hasFlags) sb.append("\n[flags]\nno_tun = true\n");
 
         String server = (serverFromCfg != null && !serverFromCfg.isBlank()) ? serverFromCfg : overrideServer;
-        if (server == null || server.isBlank()) {
+        MeshAddress addr = MeshAddress.parse(server, EtmcConfig.DEFAULT_VIRTUAL_PORT);
+        if (addr == null) {
             throw new IllegalArgumentException(
                     "No server address. Add `[etmc]\\nserver = \"ip:port\"` to the config or fill the Server field.");
         }
-        String ip;
-        int port;
-        String s = server.trim();
-        int colon = s.lastIndexOf(':');
-        // Only split host:port for IPv4/hostnames (a single colon). Leave bare IPv6 untouched.
-        if (colon > 0 && s.indexOf(':') == colon) {
-            ip = s.substring(0, colon).trim();
-            port = parsePort(s.substring(colon + 1).trim());
-        } else {
-            ip = s;
-            port = EtmcConfig.DEFAULT_VIRTUAL_PORT;
-        }
 
-        String label = labelFromCfg != null && !labelFromCfg.isBlank() ? labelFromCfg : ip + ":" + port;
-        return new ImportedConfig(sb.toString(), instanceName, ip, port, label);
-    }
-
-    private static String tableName(String t) {
-        String s = t;
-        int hash = s.indexOf('#');
-        if (hash >= 0) s = s.substring(0, hash);
-        s = s.trim();
-        while (s.startsWith("[")) s = s.substring(1);
-        while (s.endsWith("]")) s = s.substring(0, s.length() - 1);
-        return s.trim().toLowerCase();
-    }
-
-    private static String keyName(String t) {
-        if (t.isEmpty() || t.startsWith("#")) return "";
-        int eq = t.indexOf('=');
-        if (eq < 0) return "";
-        return t.substring(0, eq).trim().toLowerCase();
-    }
-
-    private static String stringValue(String t) {
-        int eq = t.indexOf('=');
-        if (eq < 0) return "";
-        String v = t.substring(eq + 1).trim();
-        if (v.startsWith("\"")) {
-            int end = v.indexOf('"', 1);
-            if (end > 0) return v.substring(1, end);
-            return v.substring(1);
-        }
-        if (v.startsWith("'")) {
-            int end = v.indexOf('\'', 1);
-            if (end > 0) return v.substring(1, end);
-            return v.substring(1);
-        }
-        int hash = v.indexOf('#');
-        if (hash >= 0) v = v.substring(0, hash).trim();
-        return v;
-    }
-
-    private static int parsePort(String s) {
-        try {
-            int p = Integer.parseInt(s.trim());
-            if (p > 0 && p <= 65535) return p;
-        } catch (NumberFormatException ignored) {
-        }
-        return EtmcConfig.DEFAULT_VIRTUAL_PORT;
-    }
-
-    private static String escape(String s) {
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+        String label = labelFromCfg != null && !labelFromCfg.isBlank() ? labelFromCfg : addr.toString();
+        return new ImportedConfig(sb.toString(), instanceName, addr.ip(), addr.port(), label);
     }
 }

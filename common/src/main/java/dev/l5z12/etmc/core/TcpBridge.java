@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /**
  * Bridges a loopback {@link Socket} (Minecraft's vanilla TCP) and an EasyTier data-plane stream
@@ -26,10 +27,14 @@ public final class TcpBridge {
     private final EasyTier et;
     private final Socket local;
     private final long stream;
-    private final Runnable onClose;
+    private final Consumer<TcpBridge> onClose;
     private final AtomicBoolean closed = new AtomicBoolean(false);
 
-    public TcpBridge(EasyTier et, Socket local, long stream, Runnable onClose) {
+    /**
+     * @param onClose run once when either direction ends, with this bridge as the argument, so an
+     *                owner can drop it from its live-connection set
+     */
+    public TcpBridge(EasyTier et, Socket local, long stream, Consumer<TcpBridge> onClose) {
         this.et = et;
         this.local = local;
         this.stream = stream;
@@ -38,12 +43,8 @@ public final class TcpBridge {
 
     /** Starts both pump threads. Non-blocking. */
     public void start(String name) {
-        Thread a = new Thread(this::pumpMeshToLocal, "etmc-bridge-rx-" + name);
-        Thread b = new Thread(this::pumpLocalToMesh, "etmc-bridge-tx-" + name);
-        a.setDaemon(true);
-        b.setDaemon(true);
-        a.start();
-        b.start();
+        Threads.start("etmc-bridge-rx-" + name, this::pumpMeshToLocal);
+        Threads.start("etmc-bridge-tx-" + name, this::pumpLocalToMesh);
     }
 
     private void pumpMeshToLocal() {
@@ -83,23 +84,13 @@ public final class TcpBridge {
 
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
-        try {
-            et.tcpClose(stream);
-        } catch (Throwable ignored) {
-        }
-        try {
-            local.close();
-        } catch (Throwable ignored) {
-        }
+        Io.closeStream(et, stream);
+        Io.closeQuietly(local);
         if (onClose != null) {
             try {
-                onClose.run();
+                onClose.accept(this);
             } catch (Throwable ignored) {
             }
         }
-    }
-
-    public boolean isClosed() {
-        return closed.get();
     }
 }

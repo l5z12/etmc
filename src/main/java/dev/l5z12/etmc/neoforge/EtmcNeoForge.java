@@ -2,7 +2,6 @@ package dev.l5z12.etmc.neoforge;
 
 import dev.l5z12.etmc.client.EtmcHud;
 import dev.l5z12.etmc.client.EtmcKey;
-import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.command.EtmcCommands;
 //? if >=1.21.11 {
 /*import net.minecraft.resources.Identifier;*/
@@ -38,8 +37,6 @@ import net.neoforged.neoforge.common.NeoForge;
 @Mod("etmc")
 public final class EtmcNeoForge {
 
-    private boolean inited;
-
     public EtmcNeoForge(IEventBus modBus) {
         // Mod bus: keybind + HUD overlay.
         modBus.addListener((RegisterKeyMappingsEvent e) -> e.register(EtmcKey.OPEN_MENU));
@@ -64,20 +61,11 @@ public final class EtmcNeoForge {
         // Game bus: client commands + ticking.
         NeoForge.EVENT_BUS.addListener((RegisterClientCommandsEvent e) -> EtmcCommands.register(e.getDispatcher()));
         //? if >=1.20.5 {
-        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> onClientTick());
+        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post e) -> EtmcKey.clientTick());
         //?} else {
         /*NeoForge.EVENT_BUS.addListener((TickEvent.ClientTickEvent e) -> {
-            if (e.phase == TickEvent.Phase.END) onClientTick();
+            if (e.phase == TickEvent.Phase.END) EtmcKey.clientTick();
         });*/
         //?}
-    }
-
-    private void onClientTick() {
-        if (!inited) {
-            inited = true;
-            EtmcManager.get().init();
-        }
-        EtmcKey.handleTick();
-        EtmcManager.get().tick();
     }
 }

@@ -17,23 +17,10 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;*/
 //?}
-//? if yarn && >=1.20 {
-import net.minecraft.client.gui.DrawContext;
-//?} else if yarn && >=1.16 {
-/*import net.minecraft.client.util.math.MatrixStack;*/
-//?} else if yarn {
-//?} else if <1.20 {
-/*import com.mojang.blaze3d.vertex.PoseStack;*/
-//?} else if <26 {
-/*import net.minecraft.client.gui.GuiGraphics;*/
-//?} else {
-/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
-//?}
 
 /** Configure relays (required), default virtual port, and toggles. */
 public final class SettingsScreen extends EtmcBaseScreen {
 
-    private final Screen parent;
     //? if yarn {
     private TextFieldWidget relaysField;
     private TextFieldWidget portField;
@@ -47,8 +34,7 @@ public final class SettingsScreen extends EtmcBaseScreen {
     //?}
 
     public SettingsScreen(Screen parent) {
-        super(Txt.literal("etmc settings"));
-        this.parent = parent;
+        super(Txt.literal("etmc settings"), parent);
     }
 
     @Override
@@ -60,7 +46,7 @@ public final class SettingsScreen extends EtmcBaseScreen {
 
         relaysField = Ui.textField(font(), cx - w / 2, y, w, 20, Txt.literal("Relays"));
         relaysField.setMaxLength(2048);
-        Ui.setText(relaysField, String.join(", ", cfg.relays));
+        Ui.setText(relaysField, cfg.relaysAsText());
         add(relaysField);
         y += 40;
 
@@ -104,43 +90,16 @@ public final class SettingsScreen extends EtmcBaseScreen {
     }
 
     @Override
-    //? if yarn && >=1.20 {
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
-    //?} else if yarn && >=1.16 {
-    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if yarn {
-    /*public void render(int mouseX, int mouseY, float delta)*/
-    //?} else if <1.20 {
-    /*public void render(PoseStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if <26 {
-    /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
-    //?} else {
-    /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
-    //?}
-    {
-        // Pre-1.20.2 the base Screen.render() doesn't draw the menu background; draw it ourselves.
-        //? if yarn && <1.16 {
-        /*int ctx = 0;
-        this.renderBackground();*/
-        //?} else if <1.20.2 {
-        /*this.renderBackground(ctx);*/
-        //?}
-        //? if >=26 {
-        /*super.extractRenderState(ctx, mouseX, mouseY, delta);*/
-        //?} else if yarn && <1.16 {
-        /*super.render(mouseX, mouseY, delta);*/
-        //?} else {
-        super.render(ctx, mouseX, mouseY, delta);
-        //?}
-        Gfx.centered(ctx, font(), this.title, this.width / 2, 18, 0xFFFFFF);
+    protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
+        Gfx.centered(ctx, font(), this.title, this.width / 2, 18, COLOR_TEXT);
         int cx = this.width / 2;
         int w = 280;
         Gfx.text(ctx, font(),
                 Txt.literal("Relay URIs (comma-separated, e.g. tcp://my.relay:11010)"),
-                cx - w / 2, this.height / 6 - 4, 0xFFAAAAAA);
+                cx - w / 2, this.height / 6 - 4, COLOR_MUTED);
         Gfx.text(ctx, font(), Txt.literal("Host virtual port (default "
                         + EtmcConfig.DEFAULT_VIRTUAL_PORT + ")"),
-                cx - w / 2, this.height / 6 + 34, 0xFFAAAAAA);
+                cx - w / 2, this.height / 6 + 34, COLOR_MUTED);
     }
 
     //? if yarn {
@@ -158,18 +117,4 @@ public final class SettingsScreen extends EtmcBaseScreen {
     //?}
         return Txt.literal("Auto-reconnect: " + (cfg.autoReconnect ? "ON" : "OFF"));
     }
-
-    //? if yarn && >=1.18.2 {
-    @Override
-    //?}
-    public void close() {
-        goTo(parent);
-    }
-
-    //? if !yarn || <1.18.2 {
-    /*@Override
-    public void onClose() {
-        this.close();
-    }*/
-    //?}
 }

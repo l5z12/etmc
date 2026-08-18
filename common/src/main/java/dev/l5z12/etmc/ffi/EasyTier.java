@@ -12,8 +12,8 @@ import java.util.Map;
  *   <li>{@code JnaEasyTier} — JNA, for Java 17 runtimes (MC 1.19.x and 1.20.1–1.20.4) where FFM is absent.</li>
  * </ul>
  *
- * <p>Obtain the process-wide instance via {@link #load(Path)} / {@link #get()}. The native library
- * keeps a single global instance manager, so this is a singleton.
+ * <p>Obtain the process-wide instance via {@link #load(Path)}. The native library keeps a single
+ * global instance manager, so this is a singleton.
  *
  * <p>Data-plane reads/writes use plain {@code byte[]} so callers never touch native memory; each
  * backend marshals into its own native buffers internally.
@@ -51,27 +51,31 @@ public interface EasyTier {
 
     /**
      * Loads the native library at {@code lib} with the best available backend: FFM
-     * ({@code java.lang.foreign}) on Java 19+, falling back to JNA on Java 17. Idempotent.
+     * ({@code java.lang.foreign}) on Java 19+, falling back to JNA on Java 17.
+     *
+     * <p>Idempotent, and that is the point of the singleton: the native library keeps one global
+     * instance manager, so a second load (the Paper plugin's {@code /etmc reload}, say) must reuse
+     * the binding already linked rather than link a second one over the same manager.
+     *
+     * @throws EasyTierException if neither backend is usable, or the library cannot be opened
      */
     static EasyTier load(Path lib) {
         synchronized (Holder.class) {
             if (Holder.instance == null) {
-                Holder.instance = FfmEasyTier.isSupported()
-                        ? FfmEasyTier.create(lib)
-                        : JnaEasyTier.create(lib);
+                Holder.instance = FfmEasyTier.isSupported() ? FfmEasyTier.create(lib) : loadViaJna(lib);
             }
             return Holder.instance;
         }
     }
 
-    static EasyTier get() {
-        EasyTier i = Holder.instance;
-        if (i == null) throw new EasyTierException("EasyTier native library not loaded yet");
-        return i;
-    }
-
-    static boolean isLoaded() {
-        return Holder.instance != null;
+    /** JNA path (Java 17). Reports the missing dependency plainly rather than a raw linkage error. */
+    private static EasyTier loadViaJna(Path lib) {
+        try {
+            return JnaEasyTier.create(lib);
+        } catch (NoClassDefFoundError missingJna) {
+            throw new EasyTierException("this JVM has neither java.lang.foreign (Java 19+) nor JNA "
+                    + "on the classpath, so the EasyTier library cannot be called", missingJna);
+        }
     }
 
     /** Holds the singleton (interfaces can't have mutable static fields directly). */

@@ -7,6 +7,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * {@link EasyTier} backend built on {@code java.lang.foreign} (FFM) via the {@link Panama} reflection
@@ -66,43 +68,45 @@ public final class FfmEasyTier implements EasyTier {
         return Panama.isAvailable();
     }
 
-    /** Loads the native library at {@code dll} and binds an FFM backend. */
+    /**
+     * Loads the native library at {@code dll} and binds an FFM backend.
+     *
+     * <p>The path is absolutized first, as the JNA backend already does. A relative one does load —
+     * {@code libraryLookup} resolves it against the working directory — but the Paper plugin passes
+     * {@code getDataFolder()}, which Bukkit may well hand back relative, and a library found only
+     * from the right working directory is a footgun neither backend should carry.
+     */
     public static FfmEasyTier create(Path dll) {
         if (!Panama.isAvailable()) {
             throw new EasyTierException("FFM (java.lang.foreign) unavailable", Panama.initError());
         }
-        return new FfmEasyTier(Panama.loadLibrary(dll));
+        return new FfmEasyTier(Panama.loadLibrary(dll.toAbsolutePath()));
     }
 
     // ------------------------------------------------------------------ lifecycle
 
     @Override
     public void parseConfig(String toml) {
-        Object arena = Panama.newArena();
-        try {
-            int rc = (int) invoke(parseConfig, Panama.cString(arena, toml));
-            if (rc != 0) throw new EasyTierException("parse_config failed: " + lastError());
-        } finally {
-            Panama.closeArena(arena);
-        }
+        callWithToml(parseConfig, "parse_config", toml);
     }
 
     @Override
     public void runNetworkInstance(String toml) {
-        Object arena = Panama.newArena();
-        try {
-            int rc = (int) invoke(runNetworkInstance, Panama.cString(arena, toml));
-            if (rc != 0) throw new EasyTierException("run_network_instance failed: " + lastError());
-        } finally {
-            Panama.closeArena(arena);
-        }
+        callWithToml(runNetworkInstance, "run_network_instance", toml);
+    }
+
+    /** The two TOML entry points differ only in which handle they call and what the failure is called. */
+    private void callWithToml(MethodHandle fn, String name, String toml) {
+        useArena(arena -> {
+            int rc = (int) invoke(fn, Panama.cString(arena, toml));
+            if (rc != 0) throw new EasyTierException(name + " failed: " + lastError());
+        });
     }
 
     @Override
     public void deleteNetworkInstance(String... names) {
         if (names == null || names.length == 0) return;
-        Object arena = Panama.newArena();
-        try {
+        useArena(arena -> {
             Object array = Panama.alloc(arena, (long) names.length * PTR_BYTES);
             ByteBuffer arr = Panama.buffer(array);
             for (int i = 0; i < names.length; i++) {
@@ -111,24 +115,22 @@ public final class FfmEasyTier implements EasyTier {
             }
             int rc = (int) invoke(deleteInstance, array, (long) names.length);
             if (rc != 0) throw new EasyTierException("delete_network_instance failed: " + lastError());
-        } finally {
-            Panama.closeArena(arena);
-        }
+        });
     }
 
     @Override
     public Map<String, String> collectNetworkInfos(int max) {
-        Object arena = Panama.newArena();
-        try {
+        return inArena(arena -> {
+            // An arena hands back zeroed memory, and this relies on it: the native call fills only the
+            // pairs it has, so a non-zero tail would be read as a real key/value (and then freed) if it
+            // over-reported. Reuse this array across calls and it would have to be cleared by hand.
             Object array = Panama.alloc(arena, (long) max * KV_PAIR_BYTES);
-            ByteBuffer zb = Panama.buffer(array);
-            for (int i = 0; i < zb.capacity(); i++) zb.put(i, (byte) 0);
+            ByteBuffer bb = Panama.buffer(array);
 
             int count = (int) invoke(collectInfos, array, (long) max);
             if (count < 0) throw new EasyTierException("collect_network_infos failed: " + lastError());
 
             Map<String, String> out = new LinkedHashMap<>();
-            ByteBuffer bb = Panama.buffer(array);
             for (int i = 0; i < count; i++) {
                 long base = i * KV_PAIR_BYTES;
                 long keyPtr = bb.getLong((int) base);
@@ -140,26 +142,20 @@ public final class FfmEasyTier implements EasyTier {
                 if (key != null) out.put(key, val == null ? "" : val);
             }
             return out;
-        } finally {
-            Panama.closeArena(arena);
-        }
+        });
     }
 
     @Override
     public String lastError() {
-        Object arena = Panama.newArena();
-        try {
-            Object slot = Panama.alloc(arena, PTR_BYTES);
-            Panama.buffer(slot).putLong(0, 0L);
+        return inArena(arena -> {
+            Object slot = ptrSlot(arena);
             invoke(getErrorMsg, slot);
             long ptr = Panama.buffer(slot).getLong(0);
             if (ptr == 0) return "(no error message)";
             String msg = Panama.readCString(ptr, CSTR_CAP);
             freeNative(ptr);
             return msg == null ? "(no error message)" : msg;
-        } finally {
-            Panama.closeArena(arena);
-        }
+        });
     }
 
     private void freeNative(long ptr) {
@@ -173,23 +169,19 @@ public final class FfmEasyTier implements EasyTier {
 
     @Override
     public Bind tcpBind(String inst, int localPort, long timeoutMs) {
-        Object arena = Panama.newArena();
-        try {
+        return inArena(arena -> {
             Object outIp = ptrSlot(arena);
             Object outPort = shortSlot(arena);
             long h = (long) invoke(tcpBind, Panama.cString(arena, inst),
                     (short) localPort, timeoutMs, outIp, outPort);
             if (h == 0) throw new EasyTierException("data_plane_tcp_bind failed: " + lastError());
             return new Bind(h, takeString(outIp), readUShort(outPort));
-        } finally {
-            Panama.closeArena(arena);
-        }
+        });
     }
 
     @Override
     public Accept tcpAccept(long listener, long timeoutMs) {
-        Object arena = Panama.newArena();
-        try {
+        return inArena(arena -> {
             Object outLip = ptrSlot(arena);
             Object outLport = shortSlot(arena);
             Object outPip = ptrSlot(arena);
@@ -198,24 +190,19 @@ public final class FfmEasyTier implements EasyTier {
             if (h == 0) return null;
             return new Accept(h, takeString(outLip), readUShort(outLport),
                     takeString(outPip), readUShort(outPport));
-        } finally {
-            Panama.closeArena(arena);
-        }
+        });
     }
 
     @Override
     public Bind tcpConnect(String inst, String dstIp, int dstPort, long timeoutMs) {
-        Object arena = Panama.newArena();
-        try {
+        return inArena(arena -> {
             Object outIp = ptrSlot(arena);
             Object outPort = shortSlot(arena);
             long h = (long) invoke(tcpConnect, Panama.cString(arena, inst), Panama.cString(arena, dstIp),
                     (short) dstPort, timeoutMs, outIp, outPort);
             if (h == 0) throw new EasyTierException("data_plane_tcp_connect failed: " + lastError());
             return new Bind(h, takeString(outIp), readUShort(outPort));
-        } finally {
-            Panama.closeArena(arena);
-        }
+        });
     }
 
     @Override
@@ -245,7 +232,15 @@ public final class FfmEasyTier implements EasyTier {
 
     // ------------------------------------------------------------------ per-thread native scratch
 
-    /** A per-thread, growable native buffer used to marshal data-plane reads/writes. */
+    /**
+     * A per-thread, growable native buffer used to marshal data-plane reads/writes.
+     *
+     * <p>Its arena is an <b>automatic</b> one, not a confined one: etmc's data-plane threads are
+     * per-connection (two pumps per bridged player, plus the channel's reader/writer), and a confined
+     * arena is freed only by {@code close()} — which a thread-local cache never gets to call. Every
+     * finished connection would strand 32 KB of native memory for the life of the JVM. An automatic
+     * arena is collected with the {@link Scratch} that holds it once the thread is gone.
+     */
     private static final class Scratch {
         Object arena;
         Object seg;
@@ -254,13 +249,14 @@ public final class FfmEasyTier implements EasyTier {
     }
 
     private static final ThreadLocal<Scratch> SCRATCH = ThreadLocal.withInitial(Scratch::new);
+    private static final int SCRATCH_MIN_BYTES = 32 * 1024;
 
     private static Scratch scratch(int len) {
         Scratch s = SCRATCH.get();
         if (s.cap < len) {
-            int cap = Math.max(len, 32 * 1024);
-            if (s.arena != null) Panama.closeArena(s.arena);
-            s.arena = Panama.newArena();
+            int cap = Math.max(len, SCRATCH_MIN_BYTES);
+            // The outgrown arena needs no close: dropping the last reference to it is the release.
+            s.arena = Panama.newAutoArena();
             s.seg = Panama.alloc(s.arena, cap);
             s.bb = Panama.buffer(s.seg);
             s.cap = cap;
@@ -269,6 +265,28 @@ public final class FfmEasyTier implements EasyTier {
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /**
+     * Runs {@code body} against a fresh confined arena and releases it afterwards. Every call that
+     * marshals arguments into native memory the callee must not outlive goes through here, so arena
+     * lifetime is stated once rather than in eight try/finally blocks.
+     */
+    private static <T> T inArena(Function<Object, T> body) {
+        Object arena = Panama.newArena();
+        try {
+            return body.apply(arena);
+        } finally {
+            Panama.closeArena(arena);
+        }
+    }
+
+    /** {@link #inArena} for the calls that return nothing. */
+    private static void useArena(Consumer<Object> body) {
+        inArena(arena -> {
+            body.accept(arena);
+            return null;
+        });
+    }
 
     private static Object ptrSlot(Object arena) {
         Object slot = Panama.alloc(arena, PTR_BYTES);

@@ -1,11 +1,13 @@
 package dev.l5z12.etmc.paper;
 
+import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.ffi.EasyTier;
 import dev.l5z12.etmc.ffi.NativeLoader;
 import dev.l5z12.etmc.ffi.Panama;
+import lombok.Getter;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -22,14 +24,24 @@ import java.util.List;
  */
 public final class EtmcPlugin extends JavaPlugin {
 
-    private EasyTier et;
-    private EtmcSession session;
+    /**
+     * Serializes mesh starts. Each one runs on its own Bukkit async worker, so two {@code /etmc
+     * reload}s in quick succession would otherwise build two EasyTier instances under the same name
+     * and strand whichever one lost the assignment to {@link #session}.
+     */
+    private final Object meshLock = new Object();
+
+    // Written by startMesh() on an async worker, read by the command handlers on the main thread.
+    @Getter private volatile EtmcSession session;
     private volatile boolean ready;
-    private volatile String startError;
-    private volatile JoinCode joinCode;
-    private volatile String network = "";
-    private volatile int virtualPort = EtmcConfig.DEFAULT_VIRTUAL_PORT;
-    private volatile List<String> relays = List.of();
+    /** Set by {@link #onDisable()} so a start still in flight tears itself back down. */
+    private volatile boolean disabled;
+    /** Why the mesh failed to come up, for {@code /etmc status}; null while it is still starting. */
+    @Getter private volatile String startError;
+    @Getter private volatile JoinCode joinCode;
+    @Getter private volatile String network = "";
+    @Getter private volatile int virtualPort = EtmcConfig.DEFAULT_VIRTUAL_PORT;
+    @Getter private volatile List<String> relays = List.of();
 
     @Override
     public void onEnable() {
@@ -46,15 +58,29 @@ public final class EtmcPlugin extends JavaPlugin {
         getServer().getScheduler().runTaskAsynchronously(this, this::startMesh);
     }
 
+    /**
+     * Brings the mesh up, replacing whatever was running. Always called on a Bukkit async worker —
+     * the native load, the instance start and the mesh bind all block for seconds.
+     */
     private void startMesh() {
+        synchronized (meshLock) {
+            stopMesh();
+            startError = null;
+            joinCode = null;
+            if (disabled) return; // the plugin went away while this task was queued
+            doStartMesh();
+            // A disable that landed mid-start would have found nothing to tear down; undo it here.
+            if (disabled) stopMesh();
+        }
+    }
+
+    private void doStartMesh() {
         try {
-            if (!Panama.isAvailable()) {
-                throw new IllegalStateException("java.lang.foreign (FFM) unavailable: " + Panama.initError());
-            }
             reloadConfig();
             network = getConfig().getString("network", "etmc-server");
             String secret = getConfig().getString("secret", "");
-            relays = getConfig().getStringList("relays");
+            // Frozen: this list is published to the command thread via relays().
+            relays = List.copyOf(getConfig().getStringList("relays"));
             virtualPort = getConfig().getInt("virtual-port", EtmcConfig.DEFAULT_VIRTUAL_PORT);
             int serverPort = getServer().getPort();
 
@@ -64,10 +90,14 @@ public final class EtmcPlugin extends JavaPlugin {
 
             Path cacheRoot = getDataFolder().toPath();
             NativeLoader.Native nat = NativeLoader.extract(cacheRoot);
-            et = EasyTier.load(nat.path());
-            session = new EtmcSession(et);
+            // FFM on Java 19+, JNA below it — EasyTier.load picks the backend and reports if neither fits.
+            EasyTier et = EasyTier.load(nat.path());
+            getLogger().info("EasyTier backend: " + (Panama.isAvailable() ? "FFM" : "JNA"));
+            EtmcSession fresh = new EtmcSession(et);
 
-            joinCode = session.host(serverPort, network, secret, relays, virtualPort);
+            joinCode = fresh.host(serverPort, network, secret, relays, virtualPort);
+            // Published only once it is actually hosting, so `ready` never leads a half-built session.
+            session = fresh;
 
             ready = true;
             getLogger().info("Mesh up — network '" + network + "', reachable on the mesh at "
@@ -77,56 +107,43 @@ public final class EtmcPlugin extends JavaPlugin {
             getLogger().info("…or this link (paste into Add Server / Direct Connect):");
             getLogger().info(joinCode.encodeLink());
         } catch (Throwable t) {
-            startError = String.valueOf(t.getMessage());
-            getLogger().warning("etmc failed to start: " + startError);
+            startError = Errors.message(t);
+            getLogger().log(java.util.logging.Level.WARNING, "etmc failed to start: " + startError, t);
         }
     }
 
-    /** Restart the mesh with the current config.yml (called by /etmc reload). */
-    public synchronized void restart() {
-        try {
-            if (session != null) session.leave();
-        } catch (Throwable ignored) {
-        }
-        ready = false;
-        startError = null;
-        joinCode = null;
+    /**
+     * Restarts the mesh with the current config.yml (called by {@code /etmc reload}).
+     *
+     * <p>The teardown runs on the worker too, not here: {@link #startMesh()} holds {@link #meshLock}
+     * for as long as a bind takes, and waiting for it on the command thread would stall the server.
+     */
+    public void restart() {
         getServer().getScheduler().runTaskAsynchronously(this, this::startMesh);
     }
 
     @Override
     public void onDisable() {
+        // Best-effort and deliberately un-synchronized: a start may be holding meshLock for another
+        // few seconds, and shutdown must not wait on it. `disabled` makes that start tear itself back
+        // down when it finishes; leave() here handles the (normal) case where nothing is starting.
+        disabled = true;
+        stopMesh();
+    }
+
+    /** Tears the running instance down, if any. Idempotent. */
+    private void stopMesh() {
+        ready = false;
         try {
-            if (session != null) session.leave();
+            EtmcSession s = session;
+            if (s != null) s.leave();
         } catch (Throwable ignored) {
         }
     }
 
-    public boolean isReady() {
-        return ready;
-    }
+    // ------------------------------------------------------------------ getters
+    // The rest are generated (@Getter, fluent per lombok.config).
 
-    public String startError() {
-        return startError;
-    }
-
-    public EtmcSession session() {
-        return session;
-    }
-
-    public JoinCode joinCode() {
-        return joinCode;
-    }
-
-    public String network() {
-        return network;
-    }
-
-    public int virtualPort() {
-        return virtualPort;
-    }
-
-    public List<String> relays() {
-        return relays;
-    }
+    /** Whether the mesh is up. Named {@code isReady} because it reads as a state, not a field. */
+    public boolean isReady() { return ready; }
 }

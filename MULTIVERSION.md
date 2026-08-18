@@ -34,17 +34,36 @@ built via **Stonecutter** (`dev.kikugie.stonecutter`). CI builds everything.
 - JNA is `compileOnly` on FFM rows; the JNA rows (1.17–1.20.1) **bundle** it (per-version build).
 
 ## Per-version code variants (Stonecutter `//? if` comments)
-- **GUI**: `DrawContext` (1.20+) vs `MatrixStack` + `DrawableHelper` (1.17–1.19) — funnelled through
-  `client/Gfx.java` so screens/HUD call `Gfx.centered/text/fill` and only `Gfx` carries the split.
-  Pre-1.20 `drawCenteredTextWithShadow` only has the **`OrderedText`** overload → `Gfx.centered`
-  passes `t.asOrderedText()` (works 1.17–1.19; 1.19.4 has both overloads).
+- **GUI**: `DrawContext` (1.20+) vs `MatrixStack` + `DrawableHelper` (1.17–1.19) vs `PoseStack`/
+  `GuiGraphics` (mojmap) vs `GuiGraphicsExtractor` (26.x) — funnelled through `client/Gfx.java` so
+  screens/HUD call `Gfx.centered/text/fill` and only `Gfx` carries the split. `Gfx` takes the context
+  as **`Object`** and casts per branch: naming the type in a caller's signature would spread the whole
+  ladder back into every screen, and the value always comes from the render hook of the build being
+  compiled. Pre-1.20 `drawCenteredTextWithShadow` only has the **`OrderedText`** overload →
+  `Gfx.centered` passes `t.asOrderedText()` (works 1.17–1.19; 1.19.4 has both overloads).
+- **Screen render hook**: the name, context type and parameter list all move (`render(int,int,float)`
+  pre-1.16 … `render(GuiGraphics, …)` … `extractRenderState(GuiGraphicsExtractor, …)` at 26.x). It is
+  declared **once** in `EtmcBaseScreen`, which calls `renderBackdrop(...)` and then the version-neutral
+  `draw(Object ctx, int mouseX, int mouseY, float delta)` that each screen overrides. A new Minecraft
+  generation is one edit there, not one per screen.
+- **Client handle, screen navigation, clipboard**: the client class (`MinecraftClient` yarn vs
+  `Minecraft` mojmap/26.x), the navigation call (`openScreen` `<1.17` → `setScreen` →
+  `setScreenAndShow` at 26.x), where the current screen lives (`currentScreen` / `screen` /
+  `gui.screen()` at 26.x) and the clipboard handle (`keyboard` yarn vs `keyboardHandler` mojmap) all
+  live in `client/McScreens.java`. Callers use `McScreens.mc/goTo/current/getClipboard/setClipboard`,
+  so a new generation is one edit there rather than one per caller.
+- **Client command source**: `FabricClientCommandSource` (Fabric) vs `CommandSourceStack` (mojmap),
+  with `sendFeedback`/`sendError` vs `sendSuccess`/`sendFailure` (supplier-taking from 1.20). Wrapped
+  once in `EtmcCommands.Src`, so every command handler is plain Java. The chat call an async callback
+  uses is a separate 3-way split (`sendMessage` yarn / `displayClientMessage` mojmap `<26` /
+  `sendSystemMessage` 26.x), guarded to the one line inside `EtmcCommands.reply`.
 - **Text factories**: `Text.literal/translatable` are **1.19+** only; 1.16–1.18 use `new LiteralText` /
   `new TranslatableText`. Funnelled through `client/Txt.java` (`Txt.literal/translatable`).
 - **Buttons**: `ButtonWidget.builder(...).dimensions(...).build()` is **1.19.4+**; older uses the
   `new ButtonWidget(x,y,w,h,text,onPress)` ctor. `client/Ui.java` mirrors the builder fluent shape so
   call sites only change `ButtonWidget.builder(` → `Ui.button(`.
-- **Screen close hook**: `Screen.close()` is **1.18+**; 1.17.1 is `onClose()`. Each screen keeps a
-  plain `close()` and adds a guarded `onClose()` delegate for `<1.18` so callers are untouched.
+- **Screen close hook**: `Screen.close()` is **1.18+**; 1.17.1 is `onClose()`. `EtmcBaseScreen` keeps
+  a plain `close()` and adds a guarded `onClose()` delegate for `<1.18` so callers are untouched.
 - **Client commands**: `…client.command.v2` (1.19+, registered via `ClientCommandRegistrationCallback`)
   vs `…v1` (1.16–1.18, registered on the static `ClientCommandManager.DISPATCHER`). Guarded in
   `EtmcCommands` (imports) + `EtmcClient` (registration).
@@ -100,11 +119,14 @@ gets commented when `fabric=false` must not contain `/* */`.
 - ✅ **MERGE DONE + VERIFIED**: the whole client tree is unified in root `src/` with `//? if fabric`
   guards, and **both `etmc-fabric-1.21.10.jar` (yarn) and `etmc-neoforge-1.21.10.jar` (mojmap) build
   green from that one tree** (Stonecutter `fabric` constant selects the branch). Merged: loader
-  constants; `Txt`/`Ui`/`Gfx` facades; `EtmcManager` (+slf4j LOGGER, supersedes `EtmcClientCore`);
+  constants; `Txt`/`Ui`/`Gfx` facades; `EtmcManager` (+log4j2 LOGGER, supersedes `EtmcClientCore`);
   `ModConfig` (supersedes `McConfig`); `EtmcHud`; `McNet`; `EtmcCommands`; `EtmcBaseScreen` + all 8
   screens; all 5 mixins; entry points `EtmcKey`/`EtmcNeoForge` (Fabric build excludes them via
-  `java.exclude`). Key facade trick: `EtmcBaseScreen.mc()/font()/add()` absorbed most per-screen
-  divergence. Only mojmap fix needed beyond the guards: `ServerData.ip` vs `ServerInfo.address`.
+  `java.exclude`). Key facade trick: `EtmcBaseScreen` absorbs the per-screen divergence —
+  `mc()/font()/add()/goTo()`, the `close()`/`onClose()` pair, `renderBackdrop()` (the background +
+  `super.render`/`extractRenderState` prologue) and the render hook itself, so a screen carries **no**
+  version-guarded render code at all: it overrides `draw(Object ctx, …)` and is plain Java. Only
+  mojmap fix needed beyond the guards: `ServerData.ip` vs `ServerInfo.address`.
 - Infra: `build.neoforge.gradle.kts` (ModDevGradle node, uses the processed `src/` with fabric=false);
   `1.21.10-neoforge` node in settings via `.buildscript(...)`; reuses the shared `etmc.mixins.json`
   (yarn class names = the merged files) + `neoforge.mods.toml`.

@@ -1,7 +1,7 @@
 name: etmc
 version: '${version}'
 main: dev.l5z12.etmc.paper.EtmcPlugin
-api-version: '1.21'
+api-version: '${api_version}'
 authors: [L5Z12]
 description: Expose this server over an EasyTier P2P mesh — no port-forwarding.
 website: https://github.com/L5Z12/etmc

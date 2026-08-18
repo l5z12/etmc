@@ -3,7 +3,6 @@ package dev.l5z12.etmc.client;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import dev.l5z12.etmc.core.EtmcConfig;
-import dev.l5z12.etmc.core.JoinCode;
 //? if fabric {
 import net.fabricmc.loader.api.FabricLoader;
 //?}
@@ -12,12 +11,15 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
- * Persisted etmc settings (relays the user provides, saved network presets, HUD/auto-reconnect
- * preferences). Stored as JSON in the Fabric config dir.
+ * Persisted etmc settings (the relays the user provides, the last network they hosted, HUD
+ * preference). Stored as JSON in the config dir; unknown keys from older versions are ignored.
  */
 public final class ModConfig {
 
@@ -25,8 +27,6 @@ public final class ModConfig {
 
     /** User-provided relay node URIs (e.g. {@code tcp://my.relay:11010}). Required to connect. */
     public List<String> relays = new ArrayList<>();
-    /** Saved networks for quick host/join. */
-    public List<JoinCode> presets = new ArrayList<>();
 
     public String lastNetworkName = "";
     public String lastSecret = "";
@@ -36,6 +36,11 @@ public final class ModConfig {
     public int joinLocalPort = 0;
 
     public boolean hudEnabled = true;
+    /**
+     * NOT IMPLEMENTED YET: the Settings screen toggles and persists this, but nothing reads it —
+     * a dropped session is not retried. Wire it in {@code EtmcManager.tick()} (or drop the toggle)
+     * before advertising auto-reconnect as a feature.
+     */
     public boolean autoReconnect = true;
 
     private transient Path file;
@@ -63,22 +68,34 @@ public final class ModConfig {
         } else {
             cfg = new ModConfig();
         }
+        // A hand-edited or older config can be missing/garbage in any field: normalize rather than
+        // let a bad value reach EasyTier (or, for the port, silently bind somewhere unexpected).
         if (cfg.relays == null) cfg.relays = new ArrayList<>();
-        if (cfg.presets == null) cfg.presets = new ArrayList<>();
         if (cfg.defaultVirtualPort <= 0 || cfg.defaultVirtualPort > 65535) {
             cfg.defaultVirtualPort = EtmcConfig.DEFAULT_VIRTUAL_PORT;
+        }
+        if (cfg.joinLocalPort < 0 || cfg.joinLocalPort > 65535) {
+            cfg.joinLocalPort = 0; // 0 = ephemeral
         }
         cfg.file = file;
         return cfg;
     }
 
+    /** Writes the config. Best-effort: a failure here must never break a host/join in progress. */
     public void save() {
         if (file == null) {
             file = configFile();
         }
         try {
             Files.createDirectories(file.getParent());
-            Files.writeString(file, GSON.toJson(this), StandardCharsets.UTF_8);
+            // Write-then-rename: a crash mid-write would otherwise truncate the config to nothing.
+            Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
+            Files.writeString(tmp, GSON.toJson(this), StandardCharsets.UTF_8);
+            try {
+                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException atomicUnsupported) {
+                Files.move(tmp, file, StandardCopyOption.REPLACE_EXISTING);
+            }
         } catch (IOException e) {
             // non-fatal
         }
@@ -91,19 +108,23 @@ public final class ModConfig {
         return false;
     }
 
-    /** Returns relays as a comma/newline editable single string. */
+    /**
+     * The relay list as one editable line, in the form {@link #setRelaysFromText} reads back — the
+     * two are a pair, so the Settings screen's field round-trips.
+     */
     public String relaysAsText() {
-        return String.join("\n", relays);
+        return String.join(", ", relays);
     }
 
+    /** Replaces the relay list from editable text; entries are trimmed, blanks and repeats dropped. */
     public void setRelaysFromText(String text) {
-        List<String> out = new ArrayList<>();
+        Set<String> out = new LinkedHashSet<>();
         if (text != null) {
             for (String line : text.split("[\\r\\n,]+")) {
                 String t = line.trim();
                 if (!t.isEmpty()) out.add(t);
             }
         }
-        relays = out;
+        relays = new ArrayList<>(out);
     }
 }

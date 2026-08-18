@@ -10,6 +10,7 @@ import java.net.Socket;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Join side: listens on a loopback {@link ServerSocket} that we point Minecraft at, and for each
@@ -28,13 +29,9 @@ public final class JoinProxy {
 
     private final AtomicBoolean stopped = new AtomicBoolean(false);
     private final Set<TcpBridge> bridges = ConcurrentHashMap.newKeySet();
-    private ServerSocket server;
-    private volatile int localPort;
+    private final AtomicLong connectionSeq = new AtomicLong();
+    private volatile ServerSocket server;
     private volatile Thread acceptThread;
-
-    public JoinProxy(EasyTier et, String instName, String hostIp, int hostPort) {
-        this(et, instName, hostIp, hostPort, 0);
-    }
 
     /**
      * @param desiredPort preferred loopback port (0 = ephemeral). A stable port lets mods like
@@ -51,54 +48,56 @@ public final class JoinProxy {
     /** Opens the loopback listener and starts accepting. Returns the bound local port. */
     public int start() throws IOException {
         InetAddress loopback = InetAddress.getByName("127.0.0.1");
-        server = new ServerSocket();
-        server.setReuseAddress(true);
+        ServerSocket ss = new ServerSocket();
         try {
-            server.bind(new InetSocketAddress(loopback, Math.max(0, desiredPort)));
-        } catch (IOException preferredTaken) {
-            // desired port unavailable -> fall back to an ephemeral port
-            server.bind(new InetSocketAddress(loopback, 0));
+            ss.setReuseAddress(true);
+            try {
+                ss.bind(new InetSocketAddress(loopback, Math.max(0, desiredPort)));
+            } catch (IOException preferredTaken) {
+                // desired port unavailable -> fall back to an ephemeral port
+                ss.bind(new InetSocketAddress(loopback, 0));
+            }
+        } catch (IOException | RuntimeException e) {
+            Io.closeQuietly(ss);
+            throw e;
         }
-        localPort = server.getLocalPort();
-        Thread t = new Thread(this::acceptLoop, "etmc-join-accept");
-        t.setDaemon(true);
-        acceptThread = t;
-        t.start();
-        return localPort;
-    }
-
-    public int localPort() {
-        return localPort;
+        server = ss;
+        acceptThread = Threads.start("etmc-join-accept", this::acceptLoop);
+        return ss.getLocalPort();
     }
 
     private void acceptLoop() {
+        ServerSocket ss = server;
         while (!stopped.get()) {
             Socket sock;
             try {
-                sock = server.accept();
+                sock = ss.accept();
             } catch (IOException e) {
                 break; // server closed
             }
-            handleLocal(sock);
+            // The mesh connect blocks (up to CONNECT_TIMEOUT_MS), so it must not run here: this loop
+            // has to stay free to accept the next connection (Minecraft opens one to ping and another
+            // to play, and mods may open more).
+            Threads.start("etmc-join-connect-" + connectionSeq.incrementAndGet(), () -> bridgeToHost(sock));
         }
     }
 
-    private void handleLocal(Socket sock) {
+    private void bridgeToHost(Socket sock) {
         EasyTier.Bind conn;
         try {
             sock.setTcpNoDelay(true);
             conn = et.tcpConnect(instName, hostIp, hostPort, CONNECT_TIMEOUT_MS);
         } catch (Throwable e) {
-            try {
-                sock.close();
-            } catch (Exception ignored) {
-            }
+            Io.closeQuietly(sock);
             return;
         }
-        final TcpBridge[] ref = new TcpBridge[1];
-        TcpBridge bridge = new TcpBridge(et, sock, conn.handle(), () -> bridges.remove(ref[0]));
-        ref[0] = bridge;
+        TcpBridge bridge = new TcpBridge(et, sock, conn.handle(), bridges::remove);
         bridges.add(bridge);
+        if (stopped.get()) {
+            // stop() raced us and has already closed everything it could see — don't leave this one running
+            bridge.close();
+            return;
+        }
         bridge.start("host");
     }
 
@@ -108,14 +107,12 @@ public final class JoinProxy {
 
     public void stop() {
         if (!stopped.compareAndSet(false, true)) return;
-        try {
-            if (server != null) server.close();
-        } catch (IOException ignored) {
-        }
+        Io.closeQuietly(server);
+        // Each close() removes its own bridge via the onClose callback, so the set empties itself;
+        // clearing it here instead would drop a bridge that raced in without ever closing it.
         for (TcpBridge b : bridges) {
             b.close();
         }
-        bridges.clear();
         Thread t = acceptThread;
         if (t != null) t.interrupt();
     }
