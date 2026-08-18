@@ -2,6 +2,7 @@ package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.Errors;
@@ -45,13 +46,9 @@ public final class JoinScreen extends EtmcBaseScreen {
         //?}
         y += 28;
 
-        add(Ui.button(Txt.literal("Paste from clipboard"), b -> {
-            //? if yarn {
-            Ui.setText(codeField, mc().keyboard.getClipboard().trim());
-            //?} else {
-            /*Ui.setText(codeField, mc().keyboardHandler.getClipboard().trim());*/
-            //?}
-        }).dimensions(cx - w / 2, y, w, 20).build());
+        add(Ui.button(Txt.literal("Paste from clipboard"),
+                        b -> Ui.setText(codeField, McScreens.getClipboard().trim()))
+                .dimensions(cx - w / 2, y, w, 20).build());
         y += 28;
 
         joinButton = Ui.button(Txt.literal("Join"), b -> startJoining())

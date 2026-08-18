@@ -25,11 +25,6 @@ import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 /*import net.fabricmc.fabric.api.client.command.v1.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v1.FabricClientCommandSource;*/
 //?}
-//? if yarn {
-import net.minecraft.client.MinecraftClient;
-//?} else {
-/*import net.minecraft.client.Minecraft;*/
-//?}
 //? if !fabric {
 /*import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;*/
@@ -147,11 +142,8 @@ public final class EtmcCommands {
     }
 
     private static int status(Src src) {
+        if (!checkReady(src)) return 0;
         EtmcManager m = EtmcManager.get();
-        if (!m.isReady()) {
-            src.error("etmc native library not loaded: " + m.nativeError());
-            return 0;
-        }
         EtmcSession s = m.session();
         if (s == null || !s.isActive()) {
             src.feedback("etmc idle. /etmc host <network> or /etmc join <code>.");
@@ -178,11 +170,7 @@ public final class EtmcCommands {
             return 0;
         }
         String link = jc.encodeLink();
-        //? if yarn {
-        MinecraftClient.getInstance().keyboard.setClipboard(link);
-        //?} else {
-        /*Minecraft.getInstance().keyboardHandler.setClipboard(link);*/
-        //?}
+        McScreens.setClipboard(link);
         src.feedback("etmc:// link copied to clipboard (paste into Add Server / Direct Connect):");
         src.feedback(link);
         src.feedback("Join code: " + jc.encode());
@@ -312,28 +300,17 @@ public final class EtmcCommands {
 
     /** Posts a chat line from an async callback (back on the client thread). */
     private static void reply(String msg) {
-        //? if yarn {
-        MinecraftClient client = MinecraftClient.getInstance();
+        var client = McScreens.mc();
         client.execute(() -> {
-            if (client.player != null) {
-                client.player.sendMessage(Txt.literal("[etmc] " + msg), false);
-            }
+            if (client.player == null) return;
+            //? if yarn {
+            client.player.sendMessage(Txt.literal("[etmc] " + msg), false);
+            //?} else if <26 {
+            /*client.player.displayClientMessage(Txt.literal("[etmc] " + msg), false);*/
+            //?} else {
+            /*client.player.sendSystemMessage(Txt.literal("[etmc] " + msg));*/
+            //?}
         });
-        //?} else if <26 {
-        /*Minecraft client = Minecraft.getInstance();
-        client.execute(() -> {
-            if (client.player != null) {
-                client.player.displayClientMessage(Txt.literal("[etmc] " + msg), false);
-            }
-        });*/
-        //?} else {
-        /*Minecraft client = Minecraft.getInstance();
-        client.execute(() -> {
-            if (client.player != null) {
-                client.player.sendSystemMessage(Txt.literal("[etmc] " + msg));
-            }
-        });*/
-        //?}
     }
 
     // ------------------------------------------------------------------ shared helpers

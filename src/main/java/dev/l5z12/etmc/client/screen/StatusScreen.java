@@ -2,6 +2,7 @@ package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.EtmcSession;
@@ -51,11 +52,7 @@ public final class StatusScreen extends EtmcBaseScreen {
             setMessage("No join code — the session ended.", COLOR_WARN);
             return;
         }
-        //? if yarn {
-        mc().keyboard.setClipboard(link ? code.encodeLink() : code.encode());
-        //?} else {
-        /*mc().keyboardHandler.setClipboard(link ? code.encodeLink() : code.encode());*/
-        //?}
+        McScreens.setClipboard(link ? code.encodeLink() : code.encode());
         setMessage(link ? "Copied etmc:// link" : "Copied join code", COLOR_GOOD);
     }
 

@@ -46,9 +46,17 @@ built via **Stonecutter** (`dev.kikugie.stonecutter`). CI builds everything.
   declared **once** in `EtmcBaseScreen`, which calls `renderBackdrop(...)` and then the version-neutral
   `draw(Object ctx, int mouseX, int mouseY, float delta)` that each screen overrides. A new Minecraft
   generation is one edit there, not one per screen.
+- **Client handle, screen navigation, clipboard**: the client class (`MinecraftClient` yarn vs
+  `Minecraft` mojmap/26.x), the navigation call (`openScreen` `<1.17` → `setScreen` →
+  `setScreenAndShow` at 26.x), where the current screen lives (`currentScreen` / `screen` /
+  `gui.screen()` at 26.x) and the clipboard handle (`keyboard` yarn vs `keyboardHandler` mojmap) all
+  live in `client/McScreens.java`. Callers use `McScreens.mc/goTo/current/getClipboard/setClipboard`,
+  so a new generation is one edit there rather than one per caller.
 - **Client command source**: `FabricClientCommandSource` (Fabric) vs `CommandSourceStack` (mojmap),
   with `sendFeedback`/`sendError` vs `sendSuccess`/`sendFailure` (supplier-taking from 1.20). Wrapped
-  once in `EtmcCommands.Src`, so every command handler is plain Java.
+  once in `EtmcCommands.Src`, so every command handler is plain Java. The chat call an async callback
+  uses is a separate 3-way split (`sendMessage` yarn / `displayClientMessage` mojmap `<26` /
+  `sendSystemMessage` 26.x), guarded to the one line inside `EtmcCommands.reply`.
 - **Text factories**: `Text.literal/translatable` are **1.19+** only; 1.16–1.18 use `new LiteralText` /
   `new TranslatableText`. Funnelled through `client/Txt.java` (`Txt.literal/translatable`).
 - **Buttons**: `ButtonWidget.builder(...).dimensions(...).build()` is **1.19.4+**; older uses the

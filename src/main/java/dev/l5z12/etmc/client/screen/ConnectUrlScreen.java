@@ -2,6 +2,7 @@ package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.Errors;
@@ -55,13 +56,7 @@ public final class ConnectUrlScreen extends EtmcBaseScreen {
         add(serverField);
         y += 48;
 
-        add(Ui.button(Txt.literal("Paste URL"), b -> {
-                    //? if yarn {
-                    Ui.setText(urlField, mc().keyboard.getClipboard().trim());
-                    //?} else {
-                    /*Ui.setText(urlField, mc().keyboardHandler.getClipboard().trim());*/
-                    //?}
-                })
+        add(Ui.button(Txt.literal("Paste URL"), b -> Ui.setText(urlField, McScreens.getClipboard().trim()))
                 .dimensions(cx - w / 2, y, w, 20).build());
         y += 28;
 

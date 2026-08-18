@@ -1,6 +1,7 @@
 package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.EtmcConfig;
@@ -100,12 +101,8 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
     }
 
     private void loadFromClipboard() {
-        //? if yarn {
-        String clip = mc().keyboard.getClipboard();
-        //?} else {
-        /*String clip = mc().keyboardHandler.getClipboard();*/
-        //?}
-        if (clip == null || clip.isBlank()) {
+        String clip = McScreens.getClipboard();
+        if (clip.isBlank()) {
             setMessage("Clipboard is empty.", COLOR_BAD);
             return;
         }
@@ -170,11 +167,7 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         JoinCode code = buildCode();
         if (code == null) return;
         String s = link ? code.encodeLink() : code.encode();
-        //? if yarn {
-        mc().keyboard.setClipboard(s);
-        //?} else {
-        /*mc().keyboardHandler.setClipboard(s);*/
-        //?}
+        McScreens.setClipboard(s);
         setMessage(link ? "Copied etmc:// link" : "Copied ETMC1 code", COLOR_GOOD);
     }
 

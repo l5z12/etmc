@@ -263,10 +263,13 @@ public final class EtmcManager {
     private void driveLinkAttempt(long now) {
         LinkAttempt a = linkAttempt;
         if (a == null || !a.instanceReady || a.proceeded) return;
+        // One read of the volatile snapshot: the decision below and the line that logs it have to
+        // describe the same set of peers.
+        NetworkStatus st = cachedStatus();
         boolean direct = false;
         boolean found = false;
         int hostCost = -1;
-        for (NetworkStatus.Peer p : cachedStatus().peers()) {
+        for (NetworkStatus.Peer p : st.peers()) {
             if (p.ipv4() != null && p.ipv4().equals(a.code.hostIp)) {
                 found = true;
                 hostCost = p.cost();
@@ -278,7 +281,7 @@ public final class EtmcManager {
             LOGGER.info("[etmc] P2P wait {}s: host {} {} | peers: {}",
                     (now - a.startedAt) / 1000, a.code.hostIp,
                     found ? "cost=" + hostCost + (direct ? " (p2p)" : " (relay)") : "not in route table yet",
-                    peerSummary(cachedStatus()));
+                    peerSummary(st));
         }
         if (direct) {
             LOGGER.info("[etmc] direct P2P route to host ready — connecting");
@@ -324,13 +327,13 @@ public final class EtmcManager {
         // ViaFabricPlus is installed but can't auto-detect across an etmc:// join (it raw-sockets the
         // placeholder address). Detect the host's protocol ourselves over the mesh, then connect with it
         // pinned so VFP translates without probing. A failed probe (-1) just lets VFP fall back as before.
+        // Pulled out of the attempt so the callback captures only what it needs, not the whole
+        // LinkAttempt (which holds the parent screen); the destination comes off `target` itself.
         Screen parent = a.parent;
         String label = a.label;
-        String inst = a.instName;
-        String hostIp = a.code.hostIp;
-        int hostPort = a.code.hostPort;
         CompletableFuture
-                .supplyAsync(() -> StatusPing.protocolVersion(s.easyTier(), inst, hostIp, hostPort), worker)
+                .supplyAsync(() -> StatusPing.protocolVersion(
+                        s.easyTier(), target.instanceName(), target.hostIp(), target.hostPort()), worker)
                 .whenComplete((proto, err) -> McScreens.mc().execute(() ->
                         armAndConnect(target, parent, label, (err == null && proto != null) ? proto : -1)));
     }
