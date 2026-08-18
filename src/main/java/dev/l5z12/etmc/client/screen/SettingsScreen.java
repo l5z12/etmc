@@ -58,7 +58,7 @@ public final class SettingsScreen extends EtmcBaseScreen {
 
         relaysField = Ui.textField(font(), cx - w / 2, y, w, 20, Txt.literal("Relays"));
         relaysField.setMaxLength(2048);
-        Ui.setText(relaysField, String.join(", ", cfg.relays));
+        Ui.setText(relaysField, cfg.relaysAsText());
         add(relaysField);
         y += 40;
 

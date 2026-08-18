@@ -53,6 +53,7 @@ public final class Panama {
     private static Method mFind;            // SymbolLookup.find(String) -> Optional<MemorySegment>
     private static Method mDowncallHandle;  // Linker.downcallHandle(MemorySegment, FunctionDescriptor, Option[])
     private static Method mArenaOfConfined; // Arena.ofConfined()
+    private static Method mArenaOfAuto;     // Arena.ofAuto()
     private static Method mArenaAllocate;   // Arena.allocate(long)
     private static Method mArenaClose;      // Arena.close()
     private static Method mFdOf;            // FunctionDescriptor.of(MemoryLayout, MemoryLayout[])
@@ -93,6 +94,7 @@ public final class Panama {
             mDowncallHandle = cLinker.getMethod("downcallHandle", cMemorySegment, cFunctionDescriptor, optsArray.getClass());
 
             mArenaOfConfined = cArena.getMethod("ofConfined");
+            mArenaOfAuto = cArena.getMethod("ofAuto");
             mArenaAllocate = cArena.getMethod("allocate", long.class);
             mArenaClose = cArena.getMethod("close");
 
@@ -201,6 +203,23 @@ public final class Panama {
             return mArenaOfConfined.invoke(null);
         } catch (Exception e) {
             throw new RuntimeException("Arena.ofConfined failed", unwrap(e));
+        }
+    }
+
+    /**
+     * Creates an <em>automatic</em> arena: its memory is released by the garbage collector once
+     * nothing references a segment allocated from it, so it must not (and cannot) be closed.
+     *
+     * <p>This is the right arena for anything cached per thread. A confined arena is freed only by
+     * an explicit {@code close()} — a per-thread cache has no moment to call it, so when the thread
+     * ends its native memory would be leaked for the life of the JVM.
+     */
+    public static Object newAutoArena() {
+        ensure();
+        try {
+            return mArenaOfAuto.invoke(null);
+        } catch (Exception e) {
+            throw new RuntimeException("Arena.ofAuto failed", unwrap(e));
         }
     }
 

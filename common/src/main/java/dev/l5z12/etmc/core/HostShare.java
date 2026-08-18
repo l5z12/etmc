@@ -73,7 +73,13 @@ public final class HostShare {
                 continue;
             }
             if (acc == null) continue; // timeout
-            handlePeer(acc);
+            try {
+                handlePeer(acc);
+            } catch (Throwable t) {
+                // One peer must never take the loop down with it: the world would keep running while
+                // silently refusing every later join.
+                Io.closeStream(et, acc.handle());
+            }
         }
     }
 
@@ -83,13 +89,19 @@ public final class HostShare {
             sock.connect(new InetSocketAddress("127.0.0.1", lanPort), LAN_CONNECT_TIMEOUT_MS);
             sock.setTcpNoDelay(true);
         } catch (Exception e) {
-            closeQuietly(sock);
-            et.tcpClose(acc.handle());
+            Io.closeQuietly(sock);
+            Io.closeStream(et, acc.handle());
             return;
         }
         totalConnections.incrementAndGet();
         TcpBridge bridge = new TcpBridge(et, sock, acc.handle(), bridges::remove);
         bridges.add(bridge);
+        if (stopped.get()) {
+            // stop() raced us and has already closed everything it could see — don't leave this one
+            // pumping (and holding a socket + mesh stream) after the session is gone.
+            bridge.close();
+            return;
+        }
         bridge.start(acc.peerIp() == null ? "peer" : acc.peerIp());
     }
 
@@ -109,19 +121,13 @@ public final class HostShare {
         } catch (Throwable ignored) {
         }
         listenerHandle = 0;
+        // Each close() removes its own bridge via the onClose callback, so the set empties itself;
+        // clearing it here instead would drop a bridge that raced in without ever closing it.
         for (TcpBridge b : bridges) {
             b.close();
         }
-        bridges.clear();
         Thread t = acceptThread;
         if (t != null) t.interrupt();
-    }
-
-    private static void closeQuietly(Socket s) {
-        try {
-            s.close();
-        } catch (Exception ignored) {
-        }
     }
 
     /** Sleeps, returning false if the thread was interrupted (caller should unwind). */

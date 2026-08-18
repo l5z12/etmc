@@ -11,13 +11,22 @@ package dev.l5z12.etmc.core;
  */
 public final class Errors {
 
+    /** Cause chains are a handful deep in practice; the bound is only there to stop a cyclic one. */
+    private static final int MAX_DEPTH = 32;
+
     private Errors() {}
 
-    /** The innermost cause of {@code t} (or {@code t} itself). */
+    /**
+     * The innermost cause of {@code t} (or {@code t} itself). Bounded: this runs on the client thread
+     * to build an error message, and a cause chain that loops back on itself (A caused by B caused by
+     * A) would otherwise freeze the game rather than report the failure.
+     */
     public static Throwable root(Throwable t) {
         Throwable c = t;
-        while (c.getCause() != null && c.getCause() != c) {
-            c = c.getCause();
+        for (int depth = 0; depth < MAX_DEPTH; depth++) {
+            Throwable cause = c.getCause();
+            if (cause == null || cause == c) break;
+            c = cause;
         }
         return c;
     }

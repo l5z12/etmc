@@ -103,6 +103,30 @@ class HostShareTest {
         }
     }
 
+    /**
+     * A listener that errors for a while must not end the host. The accept loop backs off and keeps
+     * going, so the world stays joinable once the mesh settles — rather than quietly refusing every
+     * later player while still looking "up" in the HUD.
+     */
+    @Test
+    void aFailingAcceptDoesNotEndTheHost() throws Exception {
+        start();
+        et.acceptFailures.set(3);
+        lan.setSoTimeout(5000);
+
+        FakeEasyTier.Stream peer = et.connectFromPeer(VIRTUAL_PORT);
+
+        try (Socket world = lan.accept()) {
+            Await.until("the peer to be bridged once the listener recovers",
+                    () -> share.activeConnections() == 1);
+            peer.deliver("hello".getBytes(StandardCharsets.UTF_8));
+            byte[] got = new byte[5];
+            world.setSoTimeout(5000);
+            assertEquals(got.length, world.getInputStream().readNBytes(got, 0, got.length));
+            assertEquals("hello", new String(got, StandardCharsets.UTF_8));
+        }
+    }
+
     @Test
     void aBindThatNeverSucceedsIsReported() throws IOException {
         lan = Sockets.listen();

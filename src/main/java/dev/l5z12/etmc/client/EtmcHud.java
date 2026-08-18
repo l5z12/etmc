@@ -159,8 +159,8 @@ public final class EtmcHud {
         cachedFrom = st;
         cachedMode = mode;
         cachedConnections = connections;
-        cachedLines = lines;
-        return lines;
+        cachedLines = List.copyOf(lines); // frozen: it is handed back on every frame until it changes
+        return cachedLines;
     }
 
     private record Line(String text, int color) {}

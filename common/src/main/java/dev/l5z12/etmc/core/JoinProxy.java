@@ -59,7 +59,7 @@ public final class JoinProxy {
                 ss.bind(new InetSocketAddress(loopback, 0));
             }
         } catch (IOException | RuntimeException e) {
-            closeQuietly(ss);
+            Io.closeQuietly(ss);
             throw e;
         }
         server = ss;
@@ -94,13 +94,13 @@ public final class JoinProxy {
             sock.setTcpNoDelay(true);
             conn = et.tcpConnect(instName, hostIp, hostPort, CONNECT_TIMEOUT_MS);
         } catch (Throwable e) {
-            closeQuietly(sock);
+            Io.closeQuietly(sock);
             return;
         }
         TcpBridge bridge = new TcpBridge(et, sock, conn.handle(), bridges::remove);
         bridges.add(bridge);
         if (stopped.get()) {
-            // stop() raced us and already drained the set — don't leave this one running
+            // stop() raced us and has already closed everything it could see — don't leave this one running
             bridge.close();
             return;
         }
@@ -113,27 +113,13 @@ public final class JoinProxy {
 
     public void stop() {
         if (!stopped.compareAndSet(false, true)) return;
-        closeQuietly(server);
+        Io.closeQuietly(server);
+        // Each close() removes its own bridge via the onClose callback, so the set empties itself;
+        // clearing it here instead would drop a bridge that raced in without ever closing it.
         for (TcpBridge b : bridges) {
             b.close();
         }
-        bridges.clear();
         Thread t = acceptThread;
         if (t != null) t.interrupt();
-    }
-
-    private static void closeQuietly(ServerSocket s) {
-        if (s == null) return;
-        try {
-            s.close();
-        } catch (IOException ignored) {
-        }
-    }
-
-    private static void closeQuietly(Socket s) {
-        try {
-            s.close();
-        } catch (IOException ignored) {
-        }
     }
 }

@@ -108,9 +108,12 @@ public final class ModConfig {
         return false;
     }
 
-    /** Returns relays as a comma/newline editable single string. */
+    /**
+     * The relay list as one editable line, in the form {@link #setRelaysFromText} reads back — the
+     * two are a pair, so the Settings screen's field round-trips.
+     */
     public String relaysAsText() {
-        return String.join("\n", relays);
+        return String.join(", ", relays);
     }
 
     /** Replaces the relay list from editable text; entries are trimmed, blanks and repeats dropped. */

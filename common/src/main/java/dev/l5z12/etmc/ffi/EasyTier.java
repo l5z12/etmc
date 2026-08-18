@@ -51,7 +51,11 @@ public interface EasyTier {
 
     /**
      * Loads the native library at {@code lib} with the best available backend: FFM
-     * ({@code java.lang.foreign}) on Java 19+, falling back to JNA on Java 17. Idempotent.
+     * ({@code java.lang.foreign}) on Java 19+, falling back to JNA on Java 17.
+     *
+     * <p>Idempotent, and that is the point of the singleton: the native library keeps one global
+     * instance manager, so a second load (the Paper plugin's {@code /etmc reload}, say) must reuse
+     * the binding already linked rather than link a second one over the same manager.
      *
      * @throws EasyTierException if neither backend is usable, or the library cannot be opened
      */
@@ -72,16 +76,6 @@ public interface EasyTier {
             throw new EasyTierException("this JVM has neither java.lang.foreign (Java 19+) nor JNA "
                     + "on the classpath, so the EasyTier library cannot be called", missingJna);
         }
-    }
-
-    static EasyTier get() {
-        EasyTier i = Holder.instance;
-        if (i == null) throw new EasyTierException("EasyTier native library not loaded yet");
-        return i;
-    }
-
-    static boolean isLoaded() {
-        return Holder.instance != null;
     }
 
     /** Holds the singleton (interfaces can't have mutable static fields directly). */

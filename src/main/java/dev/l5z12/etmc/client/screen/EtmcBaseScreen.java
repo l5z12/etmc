@@ -1,5 +1,6 @@
 package dev.l5z12.etmc.client.screen;
 
+import dev.l5z12.etmc.client.McScreens;
 //? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -113,16 +114,9 @@ abstract class EtmcBaseScreen extends Screen {
     }
     *///?}
 
-    /** Navigate to another screen. 26.x renamed {@code setScreen} -> {@code setScreenAndShow}; yarn
-     * pre-1.17 it was {@code openScreen}. */
+    /** Navigate to another screen; the per-version call lives in {@link McScreens}. */
     protected void goTo(Screen screen) {
-        //? if >=26 {
-        /*mc().setScreenAndShow(screen);*/
-        //?} else if yarn && <1.17 {
-        /*mc().openScreen(screen);*/
-        //?} else {
-        mc().setScreen(screen);
-        //?}
+        McScreens.goTo(screen);
     }
 
     /** Sets the status line drawn by the subclass's render hook. */

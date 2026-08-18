@@ -47,26 +47,21 @@ public final class StatusPing {
 
             // Read the Status Response frame: VarInt(len){ VarInt(packetId) VarInt(jsonLen) json }.
             Reader r = new Reader(et, stream);
-            int frameLen = r.readVarInt();
+            int frameLen = readVarInt(r::readByte);
             if (frameLen <= 0 || frameLen > MAX_FRAME) return -1;
             byte[] frame = r.readBytes(frameLen);
 
-            int[] pos = {0};
-            int packetId = readVarIntFrom(frame, pos);
+            Cursor body = new Cursor(frame);
+            int packetId = readVarInt(body);
             if (packetId != 0x00) return -1;
-            int jsonLen = readVarIntFrom(frame, pos);
-            if (jsonLen <= 0 || pos[0] + jsonLen > frame.length) return -1;
-            String json = new String(frame, pos[0], jsonLen, StandardCharsets.UTF_8);
+            int jsonLen = readVarInt(body);
+            if (jsonLen <= 0 || body.pos + jsonLen > frame.length) return -1;
+            String json = new String(frame, body.pos, jsonLen, StandardCharsets.UTF_8);
             return parseProtocol(json);
         } catch (Throwable t) {
             return -1;
         } finally {
-            if (stream != 0) {
-                try {
-                    et.tcpClose(stream);
-                } catch (Throwable ignored) {
-                }
-            }
+            Io.closeStream(et, stream);
         }
     }
 
@@ -108,16 +103,40 @@ public final class StatusPing {
         out.write(b, 0, b.length);
     }
 
-    private static int readVarIntFrom(byte[] a, int[] pos) {
-        int value = 0, shift = 0, b;
-        do {
-            if (pos[0] >= a.length) throw new IllegalStateException("truncated VarInt");
-            b = a[pos[0]++] & 0xFF;
+    /** One byte at a time, from either the live mesh stream or an already-buffered frame. */
+    private interface ByteSource {
+        int nextByte() throws IOException;
+    }
+
+    /**
+     * Reads one Minecraft VarInt. Capped at the 5 bytes the protocol allows: a 6th byte would shift
+     * past the width of an {@code int} (Java masks the shift distance, so it would silently corrupt
+     * the value instead of overflowing) and no honest server sends one.
+     */
+    private static int readVarInt(ByteSource src) throws IOException {
+        int value = 0;
+        for (int shift = 0; shift <= 28; shift += 7) {
+            int b = src.nextByte();
             value |= (b & 0x7F) << shift;
-            shift += 7;
-            if (shift > 35) throw new IllegalStateException("VarInt too long");
-        } while ((b & 0x80) != 0);
-        return value;
+            if ((b & 0x80) == 0) return value;
+        }
+        throw new IOException("VarInt longer than 5 bytes");
+    }
+
+    /** A read position in an already-buffered frame. */
+    private static final class Cursor implements ByteSource {
+        private final byte[] data;
+        private int pos = 0;
+
+        Cursor(byte[] data) {
+            this.data = data;
+        }
+
+        @Override
+        public int nextByte() throws IOException {
+            if (pos >= data.length) throw new EOFException("truncated VarInt");
+            return data[pos++] & 0xFF;
+        }
     }
 
     /** Buffered byte source over the blocking {@code et.tcpRead} (which returns partial chunks). */
@@ -146,17 +165,6 @@ public final class StatusPing {
         int readByte() throws IOException {
             if (pos >= end) fill();
             return buf[pos++] & 0xFF;
-        }
-
-        int readVarInt() throws IOException {
-            int value = 0, shift = 0, b;
-            do {
-                b = readByte();
-                value |= (b & 0x7F) << shift;
-                shift += 7;
-                if (shift > 35) throw new IOException("VarInt too long");
-            } while ((b & 0x80) != 0);
-            return value;
         }
 
         byte[] readBytes(int len) throws IOException {

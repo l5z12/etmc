@@ -3,7 +3,6 @@ package dev.l5z12.etmc.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.l5z12.etmc.client.screen.EtmcScreen;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
 //? if >=1.19 {
 import org.lwjgl.glfw.GLFW;
 //?}
@@ -49,18 +48,11 @@ public final class EtmcKey {
     }
 
     /** Opens the etmc menu when the keybind fires and no other screen is up. */
-    public static void handleTick() {
-        Minecraft mc = Minecraft.getInstance();
+    private static void handleTick() {
         while (OPEN_MENU.consumeClick()) {
-            //? if >=26 {
-            /*if (mc.gui.screen() == null) {
-                mc.setScreenAndShow(new EtmcScreen(null));
-            }*/
-            //?} else {
-            if (mc.screen == null) {
-                mc.setScreen(new EtmcScreen(null));
+            if (McScreens.current() == null) {
+                McScreens.goTo(new EtmcScreen(null));
             }
-            //?}
         }
     }
 }

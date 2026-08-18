@@ -7,6 +7,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import dev.l5z12.etmc.client.EtmcManager;
+import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.ModConfig;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.screen.EtmcScreen;
@@ -88,15 +89,7 @@ public final class EtmcCommands {
     /*private static int menu(CommandContext<CommandSourceStack> ctx)*/
     //?}
     {
-        //? if yarn && >=1.17 {
-        MinecraftClient.getInstance().execute(() -> MinecraftClient.getInstance().setScreen(new EtmcScreen(null)));
-        //?} else if yarn {
-        /*MinecraftClient.getInstance().execute(() -> MinecraftClient.getInstance().openScreen(new EtmcScreen(null)));*/
-        //?} else if <26 {
-        /*Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreen(new EtmcScreen(null)));*/
-        //?} else {
-        /*Minecraft.getInstance().execute(() -> Minecraft.getInstance().setScreenAndShow(new EtmcScreen(null)));*/
-        //?}
+        McScreens.mc().execute(() -> McScreens.goTo(new EtmcScreen(null)));
         return 1;
     }
 

@@ -112,12 +112,7 @@ public final class EtmcChannel extends AbstractChannel {
         active = false;
         long s = stream;
         stream = 0;
-        if (s != 0) {
-            try {
-                target.et().tcpClose(s);
-            } catch (Throwable ignored) {
-            }
-        }
+        Io.closeStream(target.et(), s);
         Thread r = reader;
         if (r != null) r.interrupt();
         Thread w = writer;
@@ -230,7 +225,8 @@ public final class EtmcChannel extends AbstractChannel {
                 }
             } catch (InterruptedException ignored) {
                 // channel closing
-            } catch (Throwable ex) {
+            } catch (Throwable ignored) {
+                // the mesh write failed — fall through to close
                 closeOnEventLoop();
             }
         });

@@ -245,7 +245,15 @@ public final class FfmEasyTier implements EasyTier {
 
     // ------------------------------------------------------------------ per-thread native scratch
 
-    /** A per-thread, growable native buffer used to marshal data-plane reads/writes. */
+    /**
+     * A per-thread, growable native buffer used to marshal data-plane reads/writes.
+     *
+     * <p>Its arena is an <b>automatic</b> one, not a confined one: etmc's data-plane threads are
+     * per-connection (two pumps per bridged player, plus the channel's reader/writer), and a confined
+     * arena is freed only by {@code close()} — which a thread-local cache never gets to call. Every
+     * finished connection would strand 32 KB of native memory for the life of the JVM. An automatic
+     * arena is collected with the {@link Scratch} that holds it once the thread is gone.
+     */
     private static final class Scratch {
         Object arena;
         Object seg;
@@ -254,13 +262,14 @@ public final class FfmEasyTier implements EasyTier {
     }
 
     private static final ThreadLocal<Scratch> SCRATCH = ThreadLocal.withInitial(Scratch::new);
+    private static final int SCRATCH_MIN_BYTES = 32 * 1024;
 
     private static Scratch scratch(int len) {
         Scratch s = SCRATCH.get();
         if (s.cap < len) {
-            int cap = Math.max(len, 32 * 1024);
-            if (s.arena != null) Panama.closeArena(s.arena);
-            s.arena = Panama.newArena();
+            int cap = Math.max(len, SCRATCH_MIN_BYTES);
+            // The outgrown arena needs no close: dropping the last reference to it is the release.
+            s.arena = Panama.newAutoArena();
             s.seg = Panama.alloc(s.arena, cap);
             s.bb = Panama.buffer(s.seg);
             s.cap = cap;

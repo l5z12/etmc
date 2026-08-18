@@ -84,14 +84,8 @@ public final class TcpBridge {
 
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
-        try {
-            et.tcpClose(stream);
-        } catch (Throwable ignored) {
-        }
-        try {
-            local.close();
-        } catch (Throwable ignored) {
-        }
+        Io.closeStream(et, stream);
+        Io.closeQuietly(local);
         if (onClose != null) {
             try {
                 onClose.accept(this);

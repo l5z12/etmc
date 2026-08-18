@@ -26,13 +26,11 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 /*import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 *///?}
 //? if yarn {
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.util.Identifier;
 //?} else {
 /*import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;*/
 //?}
 // KeyBinding moved net.minecraft.client.options -> net.minecraft.client.option at yarn 1.16.5.
@@ -50,9 +48,8 @@ import org.apache.logging.log4j.Logger;
  */
 public final class EtmcClient implements ClientModInitializer {
 
-    public static final String MOD_ID = "etmc";
     /** The one etmc logger, shared with {@link EtmcManager} (log4j2 exists on every version/loader). */
-    public static final Logger LOGGER = EtmcManager.LOGGER;
+    private static final Logger LOGGER = EtmcManager.LOGGER;
 
     //? if yarn {
     private static KeyBinding openMenuKey;
@@ -87,25 +84,16 @@ public final class EtmcClient implements ClientModInitializer {
         //?}
             EtmcManager.get().tick();
             if (openMenuKey != null) {
-                //? if yarn && >=1.17 {
+                // Only the "was it pressed" call differs by loader; where the screen goes is McScreens'.
+                //? if yarn {
                 while (openMenuKey.wasPressed()) {
-                    if (client.currentScreen == null) {
-                        client.setScreen(new EtmcScreen(null));
+                //?} else {
+                /*while (openMenuKey.consumeClick()) {*/
+                //?}
+                    if (McScreens.current() == null) {
+                        McScreens.goTo(new EtmcScreen(null));
                     }
                 }
-                //?} else if yarn {
-                /*while (openMenuKey.wasPressed()) {
-                    if (client.currentScreen == null) {
-                        client.openScreen(new EtmcScreen(null));
-                    }
-                }*/
-                //?} else {
-                /*while (openMenuKey.consumeClick()) {
-                    if (client.gui.screen() == null) {
-                        client.setScreenAndShow(new EtmcScreen(null));
-                    }
-                }*/
-                //?}
             }
         });
 
@@ -133,13 +121,4 @@ public final class EtmcClient implements ClientModInitializer {
         //?}
     }
 
-    //? if yarn {
-    public static MinecraftClient mc() {
-        return MinecraftClient.getInstance();
-    }
-    //?} else {
-    /*public static Minecraft mc() {
-        return Minecraft.getInstance();
-    }*/
-    //?}
 }

@@ -41,6 +41,9 @@ final class FakeEasyTier implements EasyTier {
     volatile RuntimeException runFailure;
     volatile RuntimeException bindFailure;
     volatile RuntimeException connectFailure;
+    /** How many upcoming accepts should throw, as a listener that has gone away does. */
+    final java.util.concurrent.atomic.AtomicInteger acceptFailures =
+            new java.util.concurrent.atomic.AtomicInteger();
     /** Invoked with the caller's end of each new outbound stream, so a test can script the reply. */
     volatile java.util.function.Consumer<Stream> onConnect;
 
@@ -96,6 +99,9 @@ final class FakeEasyTier implements EasyTier {
 
     @Override
     public Accept tcpAccept(long listener, long timeoutMs) {
+        if (acceptFailures.getAndUpdate(n -> n > 0 ? n - 1 : 0) > 0) {
+            throw new IllegalStateException("data_plane_tcp_accept failed: listener closed");
+        }
         Listener l = listeners.get(listener);
         if (l == null) return null;
         Stream serverSide;

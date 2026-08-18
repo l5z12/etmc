@@ -18,11 +18,9 @@ import lombok.Getter;
 import net.fabricmc.loader.api.FabricLoader;
 //?}
 //? if yarn {
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 //?} else {
-/*import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;*/
+/*import net.minecraft.client.gui.screens.Screen;*/
 //?}
 
 import java.nio.file.Path;
@@ -59,27 +57,8 @@ public final class EtmcManager {
         return INSTANCE;
     }
 
-    //? if yarn {
-    private static MinecraftClient mc() {
-        return MinecraftClient.getInstance();
-    }
-    //?} else {
-    /*private static net.minecraft.client.Minecraft mc() {
-        return net.minecraft.client.Minecraft.getInstance();
-    }*/
-    //?}
-
-    /** Navigate, honoring 26.x's {@code setScreen} -> {@code setScreenAndShow} rename and yarn's
-     * pre-1.17 {@code openScreen} name. */
-    private static void goTo(Screen screen) {
-        //? if >=26 {
-        /*mc().setScreenAndShow(screen);*/
-        //?} else if yarn && <1.17 {
-        /*mc().openScreen(screen);*/
-        //?} else {
-        mc().setScreen(screen);
-        //?}
-    }
+    // The client handle and screen navigation live in McScreens: one edit per new Minecraft version,
+    // rather than one in every class that opens a screen.
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "etmc-worker");
@@ -114,10 +93,10 @@ public final class EtmcManager {
         if (session == null) return;
         try {
             //? if yarn {
-            var s = mc().getSession();
+            var s = McScreens.mc().getSession();
             if (s != null) session.setPlayerName(s.getUsername());
             //?} else {
-            /*var u = mc().getUser();
+            /*var u = McScreens.mc().getUser();
             if (u != null) session.setPlayerName(u.getName());*/
             //?}
         } catch (Throwable ignored) {
@@ -131,7 +110,7 @@ public final class EtmcManager {
             //? if fabric {
             Path cacheRoot = FabricLoader.getInstance().getConfigDir().resolve("etmc");
             //?} else {
-            /*Path cacheRoot = mc().gameDirectory.toPath().resolve("config").resolve("etmc");*/
+            /*Path cacheRoot = McScreens.mc().gameDirectory.toPath().resolve("config").resolve("etmc");*/
             //?}
             NativeLoader.Native nat = NativeLoader.extract(cacheRoot);
             // FFM where the runtime has it (Java 19+), JNA on the Java 17 versions — EasyTier.load
@@ -190,7 +169,7 @@ public final class EtmcManager {
                 .thenApplyAsync(localPort -> {
                     McNet.presentJoin(code.displayLabel(), localPort);
                     return localPort;
-                }, mc());
+                }, McScreens.mc());
     }
 
     /**
@@ -219,7 +198,7 @@ public final class EtmcManager {
             JoinCode cc = session.currentCode();
             McNet.presentJoin(cc == null ? "etmc server" : cc.displayLabel(), localPort);
             return localPort;
-        }, mc());
+        }, McScreens.mc());
     }
 
     /**
@@ -247,10 +226,10 @@ public final class EtmcManager {
         this.linkAttempt = a;
         LOGGER.info("[etmc] etmc:// join: starting link instance for host {}:{} (network '{}')",
                 code.hostIp, code.hostPort, code.networkName);
-        goTo(new EtmcConnectingScreen(parent, a.label,
+        McScreens.goTo(new EtmcConnectingScreen(parent, a.label,
                 () -> linkProceed(a), () -> linkCancel(a)));
         CompletableFuture.supplyAsync(() -> session.startLinkInstance(code), worker)
-                .whenComplete((inst, err) -> mc().execute(() -> {
+                .whenComplete((inst, err) -> McScreens.mc().execute(() -> {
                     if (a != linkAttempt) {
                         // cancelled or superseded while starting — tear the instance back down
                         if (err == null) leaveAsync();
@@ -330,15 +309,16 @@ public final class EtmcManager {
         if (a.proceeded) return;
         a.proceeded = true;
         linkAttempt = null;
-        EtmcConnect.setPending(new EtmcConnect.Target(session.easyTier(), a.instName, a.code.hostIp, a.code.hostPort));
+        EtmcSession s = session;
+        EtmcConnect.Target target =
+                new EtmcConnect.Target(s.easyTier(), a.instName, a.code.hostIp, a.code.hostPort);
         if (!ViaHook.isPresent()) {
-            McNet.connectViaChannel(a.parent, a.label, -1);
+            armAndConnect(target, a.parent, a.label, -1);
             return;
         }
         // ViaFabricPlus is installed but can't auto-detect across an etmc:// join (it raw-sockets the
         // placeholder address). Detect the host's protocol ourselves over the mesh, then connect with it
         // pinned so VFP translates without probing. A failed probe (-1) just lets VFP fall back as before.
-        EtmcSession s = session;
         Screen parent = a.parent;
         String label = a.label;
         String inst = a.instName;
@@ -346,8 +326,22 @@ public final class EtmcManager {
         int hostPort = a.code.hostPort;
         CompletableFuture
                 .supplyAsync(() -> StatusPing.protocolVersion(s.easyTier(), inst, hostIp, hostPort), worker)
-                .whenComplete((proto, err) -> mc().execute(() ->
-                        McNet.connectViaChannel(parent, label, (err == null && proto != null) ? proto : -1)));
+                .whenComplete((proto, err) -> McScreens.mc().execute(() ->
+                        armAndConnect(target, parent, label, (err == null && proto != null) ? proto : -1)));
+    }
+
+    /**
+     * Arms the pending target and immediately starts the vanilla connect that consumes it.
+     *
+     * <p>Arming belongs here and nowhere earlier. The Connection mixin hands the pending target to the
+     * <em>next</em> connection Minecraft opens — whichever server that turns out to be. Arming it before
+     * the protocol probe (which blocks for up to {@link StatusPing}'s timeout) would leave it live for
+     * seconds, so a player who gave up waiting and joined an ordinary server would be silently routed
+     * onto the mesh instead.
+     */
+    private static void armAndConnect(EtmcConnect.Target target, Screen parent, String label, int protocolVersion) {
+        EtmcConnect.setPending(target);
+        McNet.connectViaChannel(parent, label, protocolVersion);
     }
 
     private void linkCancel(LinkAttempt a) {
@@ -357,7 +351,7 @@ public final class EtmcManager {
     }
 
     private static void showError(Screen parent, String title, String message) {
-        goTo(new EtmcNoticeScreen(parent, title, message));
+        McScreens.goTo(new EtmcNoticeScreen(parent, title, message));
     }
 
     /** State for one in-progress {@code etmc://} link join (mutated only on the client thread). */
