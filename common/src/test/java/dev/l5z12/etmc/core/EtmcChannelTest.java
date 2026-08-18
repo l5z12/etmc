@@ -3,6 +3,7 @@ package dev.l5z12.etmc.core;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.DefaultEventLoopGroup;
 import io.netty.channel.EventLoopGroup;
@@ -18,6 +19,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -87,6 +89,27 @@ class EtmcChannelTest {
         for (int i = 0; i < 50; i++) {
             assertEquals((byte) i, got[i], "packet " + i + " arrived out of order");
         }
+    }
+
+    @Test
+    void aNonByteBufWriteFailsAndTheFlushCarriesOn() throws Exception {
+        FakeEasyTier.Stream mesh = connect();
+        byte[] payload = "login start".getBytes(StandardCharsets.UTF_8);
+
+        ChannelFuture bad = channel.write(new Object());
+        ChannelFuture good = channel.write(Unpooled.copiedBuffer(payload));
+        channel.flush();
+
+        assertTrue(bad.await(5, TimeUnit.SECONDS), "the write must complete, not sit pending forever");
+        assertFalse(bad.isSuccess(), "an unwritable message must fail its promise rather than vanish");
+        assertInstanceOf(UnsupportedOperationException.class, bad.cause());
+
+        // The bad message is skipped, not taken for the end of the flush.
+        assertTrue(good.await(5, TimeUnit.SECONDS));
+        assertTrue(good.isSuccess(), "the ByteBuf queued behind it must still go out");
+        Await.until("the payload to reach the mesh", () -> mesh.written().length >= payload.length);
+        assertEquals("login start", new String(mesh.written(), StandardCharsets.UTF_8),
+                "only the ByteBuf may reach the mesh");
     }
 
     @Test

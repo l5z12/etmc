@@ -103,6 +103,28 @@ class StatusPingTest {
     }
 
     @Test
+    void aVarIntLongerThanFiveBytesReportsUnknown() {
+        // The packet id, padded out to six bytes. Uncapped, this still decodes to 0x00 — Java masks
+        // the shift distance, so the sixth byte folds back onto the low bits instead of overflowing —
+        // and the ping would go on to report 774 off a frame no honest server sends.
+        byte[] overlongZero = {(byte) 0x80, (byte) 0x80, (byte) 0x80, (byte) 0x80, (byte) 0x80, 0x00};
+        byte[] json = "{\"version\":{\"protocol\":774}}".getBytes(StandardCharsets.UTF_8);
+        host(s -> s.deliver(frame(concat(overlongZero, varInt(json.length), json))));
+
+        assertEquals(-1, ping());
+    }
+
+    @Test
+    void aVarIntRunningOffTheEndOfTheFrameReportsUnknown() {
+        // The frame's own length prefix is honest, but the JSON length inside it never terminates.
+        // The body cursor has to stop at the frame boundary rather than read past it.
+        host(s -> s.deliver(frame(concat(varInt(0x00), new byte[] {(byte) 0x80, (byte) 0x80}))));
+
+        assertEquals(-1, ping());
+        assertTrue(peer.get().isClosed(), "a malformed body must still release the data-plane stream");
+    }
+
+    @Test
     void aTruncatedFrameReportsUnknown() {
         // claims 64 bytes but only sends a few, then hangs up
         byte[] truncated = concat(varInt(64), varInt(0x00), varInt(60));
