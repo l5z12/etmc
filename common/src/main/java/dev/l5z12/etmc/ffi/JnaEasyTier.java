@@ -54,6 +54,16 @@ public final class JnaEasyTier implements EasyTier {
 
     private final Lib lib;
 
+    /**
+     * Scratch block for {@link #collectNetworkInfos}, reused across polls. A {@code Memory} is native
+     * memory that only the GC reclaims on the JNA a Java-17 game ships — it gained {@code Closeable}
+     * (so try-with-resources) in 5.12, and MC 1.17.1/1.18.x are on 5.8/5.10, where the only free is
+     * {@code protected} — so allocating one per poll, every ~1.5s, strands a block each time. A single
+     * block per backend has nothing to free. Guarded by {@code this}, along with the read out of it.
+     */
+    private Memory kvScratch;
+    private int kvScratchPairs;
+
     private JnaEasyTier(Lib lib) {
         this.lib = lib;
     }
@@ -85,27 +95,31 @@ public final class JnaEasyTier implements EasyTier {
     }
 
     @Override
-    public Map<String, String> collectNetworkInfos(int max) {
-        // try-with-resources: Memory is native memory freed only by close() (or, eventually, the GC),
-        // and this runs on every status poll — the FFM backend closes its arena the same way.
-        try (Memory mem = new Memory(max * KV_PAIR_BYTES)) {
-            mem.clear();
-            int count = lib.collect_network_infos(mem, max);
-            if (count < 0) throw new EasyTierException("collect_network_infos failed: " + lastError());
-
-            Map<String, String> out = new LinkedHashMap<>();
-            for (int i = 0; i < count; i++) {
-                long base = i * KV_PAIR_BYTES;
-                Pointer keyP = mem.getPointer(base);
-                Pointer valP = mem.getPointer(base + PTR_BYTES);
-                String key = keyP == null ? null : keyP.getString(0, "UTF-8");
-                String val = valP == null ? null : valP.getString(0, "UTF-8");
-                if (keyP != null) lib.free_string(keyP);
-                if (valP != null) lib.free_string(valP);
-                if (key != null) out.put(key, val == null ? "" : val);
-            }
-            return out;
+    public synchronized Map<String, String> collectNetworkInfos(int max) {
+        if (kvScratch == null || kvScratchPairs < max) {
+            kvScratch = new Memory(max * KV_PAIR_BYTES);
+            kvScratchPairs = max;
         }
+        Memory mem = kvScratch;
+        // Zeroed up front: the native call fills only the pairs it has, so a pointer left in the tail
+        // — stale, from an earlier poll, now that the block is reused — would be read as a real
+        // key/value (and then freed) if it over-reported. The FFM backend zeroes its array the same way.
+        mem.clear();
+        int count = lib.collect_network_infos(mem, max);
+        if (count < 0) throw new EasyTierException("collect_network_infos failed: " + lastError());
+
+        Map<String, String> out = new LinkedHashMap<>();
+        for (int i = 0; i < count; i++) {
+            long base = i * KV_PAIR_BYTES;
+            Pointer keyP = mem.getPointer(base);
+            Pointer valP = mem.getPointer(base + PTR_BYTES);
+            String key = keyP == null ? null : keyP.getString(0, "UTF-8");
+            String val = valP == null ? null : valP.getString(0, "UTF-8");
+            if (keyP != null) lib.free_string(keyP);
+            if (valP != null) lib.free_string(valP);
+            if (key != null) out.put(key, val == null ? "" : val);
+        }
+        return out;
     }
 
     @Override
