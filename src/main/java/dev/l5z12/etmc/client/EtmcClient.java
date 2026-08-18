@@ -105,7 +105,7 @@ public final class EtmcClient implements ClientModInitializer {
         //?} else if yarn && >=1.16 {
         /*HudRenderCallback.EVENT.register((ctx, tickDelta) -> EtmcHud.render(ctx));
         *///?} else if yarn && >=1.15 {
-        /*HudRenderCallback.EVENT.register(tickDelta -> EtmcHud.render(0));*/
+        /*HudRenderCallback.EVENT.register(tickDelta -> EtmcHud.render(null));*/
         //?} else if !yarn {
         /*HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));*/
         //?}

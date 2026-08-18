@@ -31,7 +31,6 @@ public final class JoinProxy {
     private final Set<TcpBridge> bridges = ConcurrentHashMap.newKeySet();
     private final AtomicLong connectionSeq = new AtomicLong();
     private volatile ServerSocket server;
-    private volatile int localPort;
     private volatile Thread acceptThread;
 
     /**
@@ -63,13 +62,8 @@ public final class JoinProxy {
             throw e;
         }
         server = ss;
-        localPort = ss.getLocalPort();
         acceptThread = Threads.start("etmc-join-accept", this::acceptLoop);
-        return localPort;
-    }
-
-    public int localPort() {
-        return localPort;
+        return ss.getLocalPort();
     }
 
     private void acceptLoop() {

@@ -29,110 +29,117 @@ import net.minecraft.client.gui.GuiComponent;*/
  * Forge ≤1.21): {@code GuiGraphics}. Unobfuscated 26.x: {@code GuiGraphicsExtractor} (its new
  * retained-render API — {@code centeredText}/{@code text}/{@code fill}). Screens pass whatever their
  * render hook receives.
+ *
+ * <p>That context is taken as {@code Object} deliberately. Its type is the one thing that changes on
+ * nearly every Minecraft generation (and does not exist at all before 1.16), so naming it in a
+ * caller's signature would spread the whole version ladder into every screen — which is exactly what
+ * these methods exist to prevent. The value always comes straight from the render hook of the build
+ * being compiled, so the cast below is the only one it can be, and this file stays the single place
+ * that learns a new Minecraft version.
  */
 public final class Gfx {
 
     private Gfx() {}
 
     //? if yarn && >=1.20 {
-    public static void centered(DrawContext g, TextRenderer tr, Text t, int x, int y, int color) {
-        g.drawCenteredTextWithShadow(tr, t, x, y, color);
+    public static void centered(Object g, TextRenderer tr, Text t, int x, int y, int color) {
+        ((DrawContext) g).drawCenteredTextWithShadow(tr, t, x, y, color);
     }
 
-    public static void text(DrawContext g, TextRenderer tr, Text t, int x, int y, int color) {
-        g.drawTextWithShadow(tr, t, x, y, color);
+    public static void text(Object g, TextRenderer tr, Text t, int x, int y, int color) {
+        ((DrawContext) g).drawTextWithShadow(tr, t, x, y, color);
     }
 
-    public static void fill(DrawContext g, int x1, int y1, int x2, int y2, int color) {
-        g.fill(x1, y1, x2, y2, color);
+    public static void fill(Object g, int x1, int y1, int x2, int y2, int color) {
+        ((DrawContext) g).fill(x1, y1, x2, y2, color);
     }
     //?} else if yarn && >=1.17 {
-    /*public static void centered(MatrixStack g, TextRenderer tr, Text t, int x, int y, int color) {
+    /*public static void centered(Object g, TextRenderer tr, Text t, int x, int y, int color) {
         // 1.17-1.19 only exposes the OrderedText overload of drawCenteredTextWithShadow.
-        DrawableHelper.drawCenteredTextWithShadow(g, tr, t.asOrderedText(), x, y, color);
+        DrawableHelper.drawCenteredTextWithShadow((MatrixStack) g, tr, t.asOrderedText(), x, y, color);
     }
 
-    public static void text(MatrixStack g, TextRenderer tr, Text t, int x, int y, int color) {
-        DrawableHelper.drawTextWithShadow(g, tr, t, x, y, color);
+    public static void text(Object g, TextRenderer tr, Text t, int x, int y, int color) {
+        DrawableHelper.drawTextWithShadow((MatrixStack) g, tr, t, x, y, color);
     }
 
-    public static void fill(MatrixStack g, int x1, int y1, int x2, int y2, int color) {
-        DrawableHelper.fill(g, x1, y1, x2, y2, color);
+    public static void fill(Object g, int x1, int y1, int x2, int y2, int color) {
+        DrawableHelper.fill((MatrixStack) g, x1, y1, x2, y2, color);
     }
     *///?} else if yarn && >=1.16.2 {
-    /*public static void centered(MatrixStack g, TextRenderer tr, Text t, int x, int y, int color) {
+    /*public static void centered(Object g, TextRenderer tr, Text t, int x, int y, int color) {
         // 1.16.2-1.16.5: drawCenteredText is static and takes Text (no WithShadow/OrderedText overload yet).
-        DrawableHelper.drawCenteredText(g, tr, t, x, y, color);
+        DrawableHelper.drawCenteredText((MatrixStack) g, tr, t, x, y, color);
     }
 
-    public static void text(MatrixStack g, TextRenderer tr, Text t, int x, int y, int color) {
-        DrawableHelper.drawTextWithShadow(g, tr, t, x, y, color);
+    public static void text(Object g, TextRenderer tr, Text t, int x, int y, int color) {
+        DrawableHelper.drawTextWithShadow((MatrixStack) g, tr, t, x, y, color);
     }
 
-    public static void fill(MatrixStack g, int x1, int y1, int x2, int y2, int color) {
-        DrawableHelper.fill(g, x1, y1, x2, y2, color);
+    public static void fill(Object g, int x1, int y1, int x2, int y2, int color) {
+        DrawableHelper.fill((MatrixStack) g, x1, y1, x2, y2, color);
     }
     *///?} else if yarn && >=1.16 {
-    /*public static void centered(MatrixStack g, TextRenderer tr, Text t, int x, int y, int color) {
+    /*public static void centered(Object g, TextRenderer tr, Text t, int x, int y, int color) {
         // 1.16/1.16.1: DrawableHelper's text draws are instance methods; draw via the TextRenderer instead.
-        tr.drawWithShadow(g, t, x - tr.getWidth(t) / 2f, y, color);
+        tr.drawWithShadow((MatrixStack) g, t, x - tr.getWidth(t) / 2f, y, color);
     }
 
-    public static void text(MatrixStack g, TextRenderer tr, Text t, int x, int y, int color) {
-        tr.drawWithShadow(g, t, x, y, color);
+    public static void text(Object g, TextRenderer tr, Text t, int x, int y, int color) {
+        tr.drawWithShadow((MatrixStack) g, t, x, y, color);
     }
 
-    public static void fill(MatrixStack g, int x1, int y1, int x2, int y2, int color) {
-        DrawableHelper.fill(g, x1, y1, x2, y2, color);
+    public static void fill(Object g, int x1, int y1, int x2, int y2, int color) {
+        DrawableHelper.fill((MatrixStack) g, x1, y1, x2, y2, color);
     }
     *///?} else if yarn {
-    /*public static void centered(int g, TextRenderer tr, Text t, int x, int y, int color) {
-        // Pre-1.16 has no MatrixStack; the int arg is an ignored placeholder, text draws take String.
+    /*public static void centered(Object g, TextRenderer tr, Text t, int x, int y, int color) {
+        // Pre-1.16 has no draw context at all (g is null and unused), and text draws take String.
         tr.drawWithShadow(t.getString(), x - tr.getStringWidth(t.getString()) / 2f, y, color);
     }
 
-    public static void text(int g, TextRenderer tr, Text t, int x, int y, int color) {
+    public static void text(Object g, TextRenderer tr, Text t, int x, int y, int color) {
         tr.drawWithShadow(t.getString(), x, y, color);
     }
 
-    public static void fill(int g, int x1, int y1, int x2, int y2, int color) {
+    public static void fill(Object g, int x1, int y1, int x2, int y2, int color) {
         DrawableHelper.fill(x1, y1, x2, y2, color);
     }
     *///?} else if <1.20 {
-    /*public static void centered(PoseStack g, Font font, Component t, int x, int y, int color) {
-        GuiComponent.drawCenteredString(g, font, t, x, y, color);
+    /*public static void centered(Object g, Font font, Component t, int x, int y, int color) {
+        GuiComponent.drawCenteredString((PoseStack) g, font, t, x, y, color);
     }
 
-    public static void text(PoseStack g, Font font, Component t, int x, int y, int color) {
-        GuiComponent.drawString(g, font, t, x, y, color);
+    public static void text(Object g, Font font, Component t, int x, int y, int color) {
+        GuiComponent.drawString((PoseStack) g, font, t, x, y, color);
     }
 
-    public static void fill(PoseStack g, int x1, int y1, int x2, int y2, int color) {
-        GuiComponent.fill(g, x1, y1, x2, y2, color);
+    public static void fill(Object g, int x1, int y1, int x2, int y2, int color) {
+        GuiComponent.fill((PoseStack) g, x1, y1, x2, y2, color);
     }
     *///?} else if <26 {
-    /*public static void centered(GuiGraphics g, Font font, Component t, int x, int y, int color) {
-        g.drawCenteredString(font, t, x, y, color);
+    /*public static void centered(Object g, Font font, Component t, int x, int y, int color) {
+        ((GuiGraphics) g).drawCenteredString(font, t, x, y, color);
     }
 
-    public static void text(GuiGraphics g, Font font, Component t, int x, int y, int color) {
-        g.drawString(font, t, x, y, color);
+    public static void text(Object g, Font font, Component t, int x, int y, int color) {
+        ((GuiGraphics) g).drawString(font, t, x, y, color);
     }
 
-    public static void fill(GuiGraphics g, int x1, int y1, int x2, int y2, int color) {
-        g.fill(x1, y1, x2, y2, color);
+    public static void fill(Object g, int x1, int y1, int x2, int y2, int color) {
+        ((GuiGraphics) g).fill(x1, y1, x2, y2, color);
     }
     *///?} else {
-    /*public static void centered(GuiGraphicsExtractor g, Font font, Component t, int x, int y, int color) {
-        g.centeredText(font, t, x, y, color);
+    /*public static void centered(Object g, Font font, Component t, int x, int y, int color) {
+        ((GuiGraphicsExtractor) g).centeredText(font, t, x, y, color);
     }
 
-    public static void text(GuiGraphicsExtractor g, Font font, Component t, int x, int y, int color) {
-        g.text(font, t, x, y, color);
+    public static void text(Object g, Font font, Component t, int x, int y, int color) {
+        ((GuiGraphicsExtractor) g).text(font, t, x, y, color);
     }
 
-    public static void fill(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color) {
-        g.fill(x1, y1, x2, y2, color);
+    public static void fill(Object g, int x1, int y1, int x2, int y2, int color) {
+        ((GuiGraphicsExtractor) g).fill(x1, y1, x2, y2, color);
     }
     *///?}
 }

@@ -14,18 +14,6 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;*/
 //?}
-//? if yarn && >=1.20 {
-import net.minecraft.client.gui.DrawContext;
-//?} else if yarn && >=1.16 {
-/*import net.minecraft.client.util.math.MatrixStack;
-*///?} else if yarn {
-//?} else if <1.20 {
-/*import com.mojang.blaze3d.vertex.PoseStack;*/
-//?} else if <26 {
-/*import net.minecraft.client.gui.GuiGraphics;*/
-//?} else {
-/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
-//?}
 
 /**
  * Connect to an EasyTier-networked Minecraft server from a hosted config: paste the HTTP(S) link to
@@ -107,24 +95,7 @@ public final class ConnectUrlScreen extends EtmcBaseScreen {
     }
 
     @Override
-    //? if yarn && >=1.20 {
-    public void render(DrawContext ctx, int mouseX, int mouseY, float delta)
-    //?} else if yarn && >=1.16 {
-    /*public void render(MatrixStack ctx, int mouseX, int mouseY, float delta)
-    *///?} else if yarn {
-    /*public void render(int mouseX, int mouseY, float delta)*/
-    //?} else if <1.20 {
-    /*public void render(PoseStack ctx, int mouseX, int mouseY, float delta)*/
-    //?} else if <26 {
-    /*public void render(GuiGraphics ctx, int mouseX, int mouseY, float delta)*/
-    //?} else {
-    /*public void extractRenderState(GuiGraphicsExtractor ctx, int mouseX, int mouseY, float delta)*/
-    //?}
-    {
-        //? if yarn && <1.16 {
-        /*int ctx = 0;*/
-        //?}
-        renderBackdrop(ctx, mouseX, mouseY, delta);
+    protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
         Gfx.centered(ctx, font(), this.title, this.width / 2, 22, COLOR_TEXT);
         int cx = this.width / 2;
         int w = 280;

@@ -183,7 +183,7 @@ public final class EtmcSession {
             JoinProxy jp = joinProxy;
             if (jp != null) jp.stop();
             String name = instName;
-            if (name != null && et != null) {
+            if (name != null) {
                 try {
                     et.deleteNetworkInstance(name);
                 } catch (Throwable ignored) {

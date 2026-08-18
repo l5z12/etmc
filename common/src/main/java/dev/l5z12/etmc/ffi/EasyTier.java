@@ -12,8 +12,8 @@ import java.util.Map;
  *   <li>{@code JnaEasyTier} — JNA, for Java 17 runtimes (MC 1.19.x and 1.20.1–1.20.4) where FFM is absent.</li>
  * </ul>
  *
- * <p>Obtain the process-wide instance via {@link #load(Path)} / {@link #get()}. The native library
- * keeps a single global instance manager, so this is a singleton.
+ * <p>Obtain the process-wide instance via {@link #load(Path)}. The native library keeps a single
+ * global instance manager, so this is a singleton.
  *
  * <p>Data-plane reads/writes use plain {@code byte[]} so callers never touch native memory; each
  * backend marshals into its own native buffers internally.

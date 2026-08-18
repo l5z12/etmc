@@ -9,18 +9,6 @@ import net.minecraft.client.font.TextRenderer;
 /*import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;*/
 //?}
-//? if !yarn && <1.20 {
-/*import com.mojang.blaze3d.vertex.PoseStack;*/
-//?} else if !yarn && <26 {
-/*import net.minecraft.client.gui.GuiGraphics;*/
-//?} else if !yarn {
-/*import net.minecraft.client.gui.GuiGraphicsExtractor;*/
-//?}
-//? if yarn && >=1.20 {
-import net.minecraft.client.gui.DrawContext;
-//?} else if yarn && >=1.16 {
-/*import net.minecraft.client.util.math.MatrixStack;
-*///?}
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,20 +43,12 @@ public final class EtmcHud {
 
     private EtmcHud() {}
 
-    //? if yarn && >=1.20 {
-    public static void render(DrawContext ctx)
-    //?} else if yarn && >=1.16 {
-    /*public static void render(MatrixStack ctx)
-    *///?} else if yarn {
-    /*public static void render(int ctx)*/
-    //?} else if <1.20 {
-    /*public static void render(PoseStack ctx)*/
-    //?} else if <26 {
-    /*public static void render(GuiGraphics ctx)*/
-    //?} else {
-    /*public static void render(GuiGraphicsExtractor ctx)*/
-    //?}
-    {
+    /**
+     * Draws the overlay. {@code ctx} is whatever draw context this Minecraft build hands its HUD
+     * callback (nothing at all before 1.16, hence {@code null} there); it is passed straight to
+     * {@link Gfx}, which is the one place that knows its real type.
+     */
+    public static void render(Object ctx) {
         EtmcManager m = EtmcManager.get();
         if (!m.isReady()) return;
         ModConfig cfg = m.config();

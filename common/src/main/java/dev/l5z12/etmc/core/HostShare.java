@@ -66,7 +66,7 @@ public final class HostShare {
             EasyTier.Accept acc;
             try {
                 acc = et.tcpAccept(listenerHandle, ACCEPT_TIMEOUT_MS);
-            } catch (Throwable t) {
+            } catch (Throwable ignored) {
                 // A failing accept usually means the listener is gone; back off so a permanent
                 // failure can't turn this loop into a busy spin.
                 if (stopped.get() || !sleep(ACCEPT_ERROR_BACKOFF_MS)) break;
@@ -75,7 +75,7 @@ public final class HostShare {
             if (acc == null) continue; // timeout
             try {
                 handlePeer(acc);
-            } catch (Throwable t) {
+            } catch (Throwable ignored) {
                 // One peer must never take the loop down with it: the world would keep running while
                 // silently refusing every later join.
                 Io.closeStream(et, acc.handle());

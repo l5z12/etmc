@@ -86,23 +86,26 @@ public final class JnaEasyTier implements EasyTier {
 
     @Override
     public Map<String, String> collectNetworkInfos(int max) {
-        Memory mem = new Memory(max * KV_PAIR_BYTES);
-        mem.clear();
-        int count = lib.collect_network_infos(mem, max);
-        if (count < 0) throw new EasyTierException("collect_network_infos failed: " + lastError());
+        // try-with-resources: Memory is native memory freed only by close() (or, eventually, the GC),
+        // and this runs on every status poll — the FFM backend closes its arena the same way.
+        try (Memory mem = new Memory(max * KV_PAIR_BYTES)) {
+            mem.clear();
+            int count = lib.collect_network_infos(mem, max);
+            if (count < 0) throw new EasyTierException("collect_network_infos failed: " + lastError());
 
-        Map<String, String> out = new LinkedHashMap<>();
-        for (int i = 0; i < count; i++) {
-            long base = i * KV_PAIR_BYTES;
-            Pointer keyP = mem.getPointer(base);
-            Pointer valP = mem.getPointer(base + PTR_BYTES);
-            String key = keyP == null ? null : keyP.getString(0, "UTF-8");
-            String val = valP == null ? null : valP.getString(0, "UTF-8");
-            if (keyP != null) lib.free_string(keyP);
-            if (valP != null) lib.free_string(valP);
-            if (key != null) out.put(key, val == null ? "" : val);
+            Map<String, String> out = new LinkedHashMap<>();
+            for (int i = 0; i < count; i++) {
+                long base = i * KV_PAIR_BYTES;
+                Pointer keyP = mem.getPointer(base);
+                Pointer valP = mem.getPointer(base + PTR_BYTES);
+                String key = keyP == null ? null : keyP.getString(0, "UTF-8");
+                String val = valP == null ? null : valP.getString(0, "UTF-8");
+                if (keyP != null) lib.free_string(keyP);
+                if (valP != null) lib.free_string(valP);
+                if (key != null) out.put(key, val == null ? "" : val);
+            }
+            return out;
         }
-        return out;
     }
 
     @Override

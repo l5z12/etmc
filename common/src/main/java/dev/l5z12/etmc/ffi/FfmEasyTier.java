@@ -66,12 +66,19 @@ public final class FfmEasyTier implements EasyTier {
         return Panama.isAvailable();
     }
 
-    /** Loads the native library at {@code dll} and binds an FFM backend. */
+    /**
+     * Loads the native library at {@code dll} and binds an FFM backend.
+     *
+     * <p>The path is absolutized first, as the JNA backend already does. A relative one does load —
+     * {@code libraryLookup} resolves it against the working directory — but the Paper plugin passes
+     * {@code getDataFolder()}, which Bukkit may well hand back relative, and a library found only
+     * from the right working directory is a footgun neither backend should carry.
+     */
     public static FfmEasyTier create(Path dll) {
         if (!Panama.isAvailable()) {
             throw new EasyTierException("FFM (java.lang.foreign) unavailable", Panama.initError());
         }
-        return new FfmEasyTier(Panama.loadLibrary(dll));
+        return new FfmEasyTier(Panama.loadLibrary(dll.toAbsolutePath()));
     }
 
     // ------------------------------------------------------------------ lifecycle
@@ -121,14 +128,15 @@ public final class FfmEasyTier implements EasyTier {
         Object arena = Panama.newArena();
         try {
             Object array = Panama.alloc(arena, (long) max * KV_PAIR_BYTES);
-            ByteBuffer zb = Panama.buffer(array);
-            for (int i = 0; i < zb.capacity(); i++) zb.put(i, (byte) 0);
+            ByteBuffer bb = Panama.buffer(array);
+            // Zeroed up front: the native call fills only the pairs it has, so a stale pointer left
+            // in the tail would be read as a real key/value (and then freed) if it over-reported.
+            for (int i = 0; i < bb.capacity(); i++) bb.put(i, (byte) 0);
 
             int count = (int) invoke(collectInfos, array, (long) max);
             if (count < 0) throw new EasyTierException("collect_network_infos failed: " + lastError());
 
             Map<String, String> out = new LinkedHashMap<>();
-            ByteBuffer bb = Panama.buffer(array);
             for (int i = 0; i < count; i++) {
                 long base = i * KV_PAIR_BYTES;
                 long keyPtr = bb.getLong((int) base);

@@ -149,8 +149,13 @@ public final class EtmcManager {
 
     // ------------------------------------------------------------------ operations
 
+    /** The failure every async entry point reports when the native library never loaded. */
+    private static <T> CompletableFuture<T> notLoaded() {
+        return CompletableFuture.failedFuture(new IllegalStateException("etmc native library not loaded"));
+    }
+
     public CompletableFuture<JoinCode> hostAsync(String networkName, String secret) {
-        if (!isReady()) return CompletableFuture.failedFuture(new IllegalStateException("etmc native library not loaded"));
+        if (!isReady()) return notLoaded();
         syncPlayerName();
         List<String> relays = config.relays;
         int vport = config.defaultVirtualPort;
@@ -162,7 +167,7 @@ public final class EtmcManager {
     }
 
     public CompletableFuture<Integer> joinAsync(JoinCode code) {
-        if (!isReady()) return CompletableFuture.failedFuture(new IllegalStateException("etmc native library not loaded"));
+        if (!isReady()) return notLoaded();
         syncPlayerName();
         session.setPreferredLocalPort(config.joinLocalPort);
         return CompletableFuture.supplyAsync(() -> session.join(code), worker)
@@ -178,7 +183,7 @@ public final class EtmcManager {
      * the config has no {@code [etmc] server} line.
      */
     public CompletableFuture<Integer> connectUrlAsync(String url, String overrideServer) {
-        if (!isReady()) return CompletableFuture.failedFuture(new IllegalStateException("etmc native library not loaded"));
+        if (!isReady()) return notLoaded();
         syncPlayerName();
         session.setPreferredLocalPort(config.joinLocalPort);
         return CompletableFuture.supplyAsync(() -> {
@@ -288,11 +293,11 @@ public final class EtmcManager {
     private static String peerSummary(NetworkStatus st) {
         StringBuilder sb = new StringBuilder();
         for (NetworkStatus.Peer p : st.peers()) {
-            if (sb.length() > 0) sb.append(", ");
+            if (!sb.isEmpty()) sb.append(", ");
             sb.append(p.ipv4() == null ? "?" : p.ipv4()).append('=').append(p.cost())
                     .append(p.relay() ? "(relay)" : "(p2p)");
         }
-        return sb.length() == 0 ? "(none yet)" : sb.toString();
+        return sb.isEmpty() ? "(none yet)" : sb.toString();
     }
 
     /** "Join now anyway" / auto-proceed. Queues if the instance is still starting. */
