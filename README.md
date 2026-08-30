@@ -159,6 +159,25 @@ cd /path/to/etmc
 Override the EasyTier checkout location with `-Peasytier_repo=/path/to/EasyTier`. The jar bundles
 whatever natives are present; at runtime the loader extracts the one matching the player's OS/arch.
 
+#### Windows `Packet.dll` shim
+
+`easytier_ffi.dll` (built with `easytier/full`) carries a **load-time import of Npcap's `Packet.dll`**.
+etmc always runs EasyTier in `no_tun` mode, so those pcap functions are never called — but the import
+must still *resolve*, or the Windows loader fails the whole library before any etmc code runs. That is
+the old "please provide a `Packet.dll`" failure. Rather than redistribute Npcap, we ship a tiny,
+self-authored shim that exports exactly the symbols the native imports (each a no-op returning `0`);
+`NativeLoader` stages it beside the native and pre-loads it so the import binds. A machine that does
+have Npcap keeps using the real one (it wins by base name). Regenerate the shim whenever you rebuild
+the Windows native (its import list can change):
+
+```bash
+uv run --with pefile python tools/gen_packet_shim.py \
+  common/src/main/resources/natives/windows-x86_64/easytier_ffi.dll \
+  common/src/main/resources/natives/windows-x86_64/Packet.dll
+```
+
+CI does this automatically for freshly built Windows natives.
+
 ### Tests
 
 `common/` (the FFI + networking core) has no Minecraft dependency, so its unit tests live in

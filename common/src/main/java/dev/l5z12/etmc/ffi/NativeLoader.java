@@ -15,8 +15,15 @@ import java.util.Locale;
  * <p>The library is shipped as a classpath resource under {@code /natives/<os>-<arch>/<lib>} and
  * extracted to a per-version cache directory. We extract (rather than load straight from the jar)
  * because {@code SymbolLookup.libraryLookup} needs a real filesystem path.
+ *
+ * <p>On platforms whose native statically imports a companion library (Windows: {@code Packet.dll},
+ * imported by {@code easytier_ffi.dll}), that companion is bundled the same way, staged beside the
+ * native, and pre-loaded here so the import resolves without a system install — see
+ * {@link #coLocatedDeps()}.
  */
 public final class NativeLoader {
+
+    private static final System.Logger LOG = System.getLogger("etmc.NativeLoader");
 
     private NativeLoader() {}
 
@@ -61,13 +68,10 @@ public final class NativeLoader {
         String file = libFileName();
         String resource = "/natives/" + tag + "/" + file;
 
-        byte[] data;
-        try (InputStream in = NativeLoader.class.getResourceAsStream(resource)) {
-            if (in == null) {
-                throw new IOException("bundled native library not found on classpath: " + resource
-                        + " (build the native lib and run :copyNatives)");
-            }
-            data = in.readAllBytes();
+        byte[] data = readResource(resource);
+        if (data == null) {
+            throw new IOException("bundled native library not found on classpath: " + resource
+                    + " (build the native lib and run :copyNatives)");
         }
 
         String digest = shortHash(data);
@@ -77,26 +81,102 @@ public final class NativeLoader {
         Path target = dir.resolve(digest + "-" + file);
 
         if (!Files.exists(target) || Files.size(target) != data.length) {
-            // Write beside the target and move into place, so a half-written library is never loaded.
-            Path tmp = Files.createTempFile(dir, "et-", ".tmp");
-            boolean moved = false;
+            writeAtomically(dir, target, data);
+        }
+
+        // Stage and pre-load any companion library the native statically imports (see
+        // stageAndPreloadDeps). Must happen before EasyTier.load() opens the native itself.
+        stageAndPreloadDeps(dir, tag);
+
+        return new Native(target, resource);
+    }
+
+    /**
+     * Companion libraries that {@link #libFileName()} <em>statically imports</em> and that we bundle
+     * beside it under the same {@code /natives/<os>-<arch>/} resource dir.
+     *
+     * <p>On Windows, {@code easytier_ffi.dll} (built with {@code --features easytier/full}) has a
+     * load-time import of Npcap's {@code Packet.dll}. etmc always runs EasyTier in {@code no_tun}
+     * mode, so those functions are never actually called — but the import must still resolve or the
+     * OS loader fails the whole library before any etmc code runs. That is the "please provide a
+     * Packet.dll" failure. We ship a tiny shim exporting exactly those symbols (see
+     * {@code tools/gen_packet_shim.py}) so no Npcap install is required.
+     */
+    private static String[] coLocatedDeps() {
+        return "windows".equals(osTag()) ? new String[] {"Packet.dll"} : new String[0];
+    }
+
+    /**
+     * Extracts each companion dependency next to the native and pre-loads it by full path, so the
+     * native's static import binds to the already-loaded module. Best-effort: a machine that already
+     * has the real library (e.g. an installed Npcap) keeps using it — the real module wins by base
+     * name — and a pre-load failure is logged rather than fatal, letting the native load surface the
+     * real error if the symbol is genuinely unresolved.
+     */
+    private static void stageAndPreloadDeps(Path dir, String tag) {
+        for (String dep : coLocatedDeps()) {
+            String resource = "/natives/" + tag + "/" + dep;
+            byte[] data;
             try {
-                try (OutputStream out = Files.newOutputStream(tmp)) {
-                    out.write(data);
+                data = readResource(resource);
+            } catch (IOException e) {
+                LOG.log(System.Logger.Level.WARNING, "could not read bundled dependency " + resource, e);
+                continue;
+            }
+            if (data == null) continue;  // not bundled for this platform — nothing to stage
+
+            // The file must keep its exact name: the loader binds the native's import by base name.
+            Path target = dir.resolve(dep);
+            try {
+                if (!Files.exists(target) || Files.size(target) != data.length) {
+                    writeAtomically(dir, target, data);
                 }
-                try {
-                    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-                } catch (IOException atomicUnsupported) {
-                    Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+            } catch (IOException e) {
+                // A locked existing copy (already loaded from a previous launch) is the same shim and
+                // still usable; only give up if there is genuinely no file to pre-load.
+                if (!Files.exists(target)) {
+                    LOG.log(System.Logger.Level.WARNING, "could not stage bundled dependency " + target, e);
+                    continue;
                 }
-                moved = true;
-            } finally {
-                // A failed move (e.g. Windows keeps the old copy locked while it is loaded) would
-                // otherwise leave the scratch file behind on every launch.
-                if (!moved) deleteQuietly(tmp);
+            }
+
+            try {
+                System.load(target.toAbsolutePath().toString());
+            } catch (UnsatisfiedLinkError alreadyLoaded) {
+                // Already present in the process (real Npcap, or a prior load) — the import resolves.
+            } catch (Throwable t) {
+                LOG.log(System.Logger.Level.WARNING, "could not pre-load bundled dependency " + target
+                        + "; the native may fail to load without a system-provided " + dep, t);
             }
         }
-        return new Native(target, resource);
+    }
+
+    private static byte[] readResource(String resource) throws IOException {
+        try (InputStream in = NativeLoader.class.getResourceAsStream(resource)) {
+            return in == null ? null : in.readAllBytes();
+        }
+    }
+
+    /** Writes {@code data} to {@code target} via a scratch file in {@code dir}, moved into place. */
+    private static void writeAtomically(Path dir, Path target, byte[] data) throws IOException {
+        // Write beside the target and move into place, so a half-written library is never loaded.
+        Path tmp = Files.createTempFile(dir, "et-", ".tmp");
+        boolean moved = false;
+        try {
+            try (OutputStream out = Files.newOutputStream(tmp)) {
+                out.write(data);
+            }
+            try {
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            } catch (IOException atomicUnsupported) {
+                Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+            moved = true;
+        } finally {
+            // A failed move (e.g. Windows keeps the old copy locked while it is loaded) would
+            // otherwise leave the scratch file behind on every launch.
+            if (!moved) deleteQuietly(tmp);
+        }
     }
 
     private static void deleteQuietly(Path p) {

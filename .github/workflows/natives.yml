@@ -129,11 +129,24 @@ jobs:
           cp "easytier/target/${{ matrix.target }}/release/${{ matrix.lib }}" \
              "common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}"
 
+      # easytier_ffi.dll (built with easytier/full) load-time-imports Npcap's Packet.dll. etmc runs
+      # no_tun, so those symbols are never called — we ship a tiny shim that exports exactly what the
+      # freshly built dll imports, so no Npcap install is ever needed. Regenerated here to stay in sync.
+      - name: Generate Packet.dll import shim (Windows)
+        if: steps.have.outputs.committed != 'true' && runner.os == 'Windows'
+        shell: bash
+        run: |
+          python -m pip install --quiet pefile
+          python tools/gen_packet_shim.py \
+            "common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}" \
+            "common/src/main/resources/natives/${{ matrix.tag }}/Packet.dll"
+
       # Only freshly-built natives are uploaded; committed ones are already in the repo for `assemble`.
+      # Uploads the whole tag dir so the Windows Packet.dll shim rides along with easytier_ffi.dll.
       - name: Upload native
         if: steps.have.outputs.committed != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.tag }}
-          path: common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}
+          path: common/src/main/resources/natives/${{ matrix.tag }}/
           if-no-files-found: error
