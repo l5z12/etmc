@@ -20,6 +20,15 @@ cargo build -p easytier-ffi --release --target aarch64-unknown-linux-gnu`;
   <p>Windows: <code>cargo build -p easytier-ffi --release</code> → <code>easytier_ffi.dll</code>.
     macOS must be built on a Mac (Apple SDK).</p>
 
+  <p><strong>Windows <code>Packet.dll</code> shim.</strong> <code>easytier_ffi.dll</code> load-time-imports
+    Npcap's <code>Packet.dll</code>. etmc runs <code>no_tun</code>, so it never calls those functions — but the
+    import must resolve or the loader fails the whole library (the old "provide a <code>Packet.dll</code>"
+    error). We ship a tiny shim exporting exactly those symbols and pre-load it, so no Npcap install is
+    needed. Regenerate it whenever you rebuild the Windows native:</p>
+  <pre><code>{`uv run --with pefile python tools/gen_packet_shim.py \\
+  common/src/main/resources/natives/windows-x86_64/easytier_ffi.dll \\
+  common/src/main/resources/natives/windows-x86_64/Packet.dll`}</code></pre>
+
   <h2>The jar</h2>
   <pre><code>{`./gradlew copyNatives   # copy the Windows dll into resources
 ./gradlew build         # -> build/libs/etmc-<version>.jar`}</code></pre>
