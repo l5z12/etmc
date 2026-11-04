@@ -1,33 +1,77 @@
 name: natives
 
-# Builds the EasyTier FFI native (easytier_ffi) for each platform whose library isn't already committed
-# under natives/<os>-<arch>/ — so committed platforms do no Rust work and only a genuinely missing one
-# (e.g. macOS) is built. Reusable (workflow_call) + manually runnable (workflow_dispatch). It is NOT
-# wired to push, so a routine commit never triggers a native build.
+# Builds the EasyTier FFI native (easytier_ffi) for each platform. The EasyTier commit the committed
+# natives were built from is pinned in common/src/main/resources/natives/easytier.commit, and that pin
+# is what gets built unless a caller asks for another ref:
+#   - a platform whose library is committed AND the requested ref resolves to the pinned commit does
+#     no Rust work (the committed file is reused);
+#   - any other platform (a missing one such as macOS, or every platform when the ref differs from the
+#     pin) is built from the requested ref and uploaded as native-<tag>.
+# Reusable (workflow_call) + manually runnable (workflow_dispatch). NOT wired to push, so a routine
+# commit never triggers a native build. easytier-update.yml uses it to move the pin.
 on:
   workflow_call:
     inputs:
       easytier_ref:
-        description: "EasyTier git ref to build missing natives from"
+        description: "EasyTier git ref to build from (empty = the pinned commit)"
         type: string
         required: false
-        default: "main"
+        default: ""
+      only_committed:
+        description: "Skip platforms that have no committed native (e.g. macOS) instead of building them"
+        type: boolean
+        required: false
+        default: false
+    outputs:
+      easytier_commit:
+        description: "The EasyTier commit the natives were resolved to"
+        value: ${{ jobs.resolve.outputs.commit }}
   workflow_dispatch:
     inputs:
       easytier_ref:
-        description: "EasyTier git ref (branch/tag/sha) to build missing natives from"
-        default: "main"
+        description: "EasyTier git ref (branch/tag/sha) to build from (empty = the pinned commit)"
+        default: ""
+      only_committed:
+        description: "Skip platforms that have no committed native"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
-env:
-  EASYTIER_REF: ${{ inputs.easytier_ref || 'main' }}
-
 jobs:
+  # Resolve the requested ref (or the pin) to a full commit once, so every platform builds the same
+  # EasyTier even if a branch moves mid-run.
+  resolve:
+    name: resolve EasyTier commit
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.r.outputs.commit }}
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v4
+      - name: Resolve ref
+        id: r
+        env:
+          REQ: ${{ inputs.easytier_ref }}
+        run: |
+          pin="$(tr -d '[:space:]' < common/src/main/resources/natives/easytier.commit)"
+          ref="${REQ:-$pin}"
+          if [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            commit="$ref"
+          else
+            commit="$(git ls-remote https://github.com/EasyTier/EasyTier.git "$ref" "refs/tags/$ref" "refs/heads/$ref" | head -1 | cut -f1)"
+          fi
+          [ -n "$commit" ] || { echo "::error::cannot resolve EasyTier ref '$ref'"; exit 1; }
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "EasyTier ref '$ref' -> $commit (pinned: $pin)"
+
   native:
     name: native (${{ matrix.tag }})
+    needs: resolve
     runs-on: ${{ matrix.os }}
+    env:
+      EASYTIER_REF: ${{ needs.resolve.outputs.commit }}
     strategy:
       fail-fast: false
       matrix:
@@ -41,16 +85,25 @@ jobs:
       - name: Checkout etmc
         uses: actions/checkout@v4
 
-      # If the native is already committed at this commit, use it and skip the (expensive) Rust build.
+      # Reuse the committed native when it was built from the commit we're asked for; skip a platform
+      # with no committed native when the caller only wants committed platforms refreshed.
       - name: Native already committed?
         id: have
         shell: bash
+        env:
+          ONLY_COMMITTED: ${{ inputs.only_committed }}
         run: |
-          if [ -s "common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}" ]; then
+          lib="common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}"
+          pin="$(tr -d '[:space:]' < common/src/main/resources/natives/easytier.commit)"
+          if [ -s "$lib" ] && [ "$pin" = "$EASYTIER_REF" ]; then
             echo "committed=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Using committed native for ${{ matrix.tag }} (skipping build)"
+            echo "::notice::Using committed native for ${{ matrix.tag }} (built from $pin)"
+          elif [ ! -s "$lib" ] && [ "$ONLY_COMMITTED" = "true" ]; then
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::No committed native for ${{ matrix.tag }}; skipped (only_committed)"
           else
             echo "committed=false" >> "$GITHUB_OUTPUT"
+            echo "Building ${{ matrix.tag }} from EasyTier $EASYTIER_REF (pinned: $pin)"
           fi
 
       - name: Checkout EasyTier (${{ env.EASYTIER_REF }})
