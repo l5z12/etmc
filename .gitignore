@@ -39,3 +39,7 @@ scratch/
 
 # Bundled EasyTier native library (large; build it locally, see README "Building")
 /src/main/resources/natives/
+
+# Python (tools/)
+__pycache__/
+*.pyc
