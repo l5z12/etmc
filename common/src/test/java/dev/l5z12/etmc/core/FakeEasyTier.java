@@ -1,6 +1,8 @@
 package dev.l5z12.etmc.core;
 
+import dev.l5z12.etmc.ffi.DataPlaneError;
 import dev.l5z12.etmc.ffi.EasyTier;
+import dev.l5z12.etmc.ffi.EasyTierException;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayDeque;
@@ -103,7 +105,7 @@ final class FakeEasyTier implements EasyTier {
             throw new IllegalStateException("data_plane_tcp_accept failed: listener closed");
         }
         Listener l = listeners.get(listener);
-        if (l == null) return null;
+        if (l == null) throw closed("listener");
         Stream serverSide;
         try {
             serverSide = l.pending.poll(Math.min(timeoutMs, 2_000L), TimeUnit.MILLISECONDS);
@@ -140,15 +142,20 @@ final class FakeEasyTier implements EasyTier {
     @Override
     public int tcpRead(long handle, byte[] buf, int len, long timeoutMs) {
         Stream s = streams.get(handle);
-        if (s == null) return -1;
+        if (s == null) throw closed("stream");
         return s.read(buf, len, timeoutMs);
     }
 
     @Override
     public int tcpWrite(long handle, byte[] data, int len, long timeoutMs) {
         Stream s = streams.get(handle);
-        if (s == null) return -1;
+        if (s == null) throw closed("stream");
         return s.write(data, len);
+    }
+
+    /** What the real data plane throws for a handle that has been closed. */
+    static EasyTierException closed(String what) {
+        return new EasyTierException("the " + what + " is closed", DataPlaneError.HANDLE_CLOSED);
     }
 
     @Override
@@ -256,7 +263,7 @@ final class FakeEasyTier implements EasyTier {
         private int write(byte[] data, int len) {
             Stream p;
             synchronized (this) {
-                if (closed) return -1;
+                if (closed) throw FakeEasyTier.closed("stream");
                 written.write(data, 0, len);
                 p = peer;
             }
@@ -283,12 +290,16 @@ final class FakeEasyTier implements EasyTier {
                     continue;
                 }
                 if (closed) return 0; // EOF, once everything buffered has been handed over
-                if (System.nanoTime() >= deadline) return -1; // timed out
+                if (System.nanoTime() >= deadline) {
+                    throw new EasyTierException("connection read failed: timed out",
+                            DataPlaneError.DEADLINE_EXCEEDED);
+                }
                 try {
                     wait(20);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    return -1;
+                    throw new EasyTierException("connection read failed: the operation was cancelled",
+                            DataPlaneError.CANCELLED);
                 }
             }
         }

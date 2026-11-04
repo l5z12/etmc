@@ -1,0 +1,133 @@
+name: easytier-update
+
+# Keeps the bundled EasyTier native current. Weekly (or on demand) it checks EasyTier's main branch;
+# when it has moved past the pinned commit (common/src/main/resources/natives/easytier.commit) it:
+#   1. rebuilds every committed native from the new commit (natives.yml),
+#   2. runs the whole build against them — every loader jar, the Paper jars, the unit tests, and
+#      NativeSmokeTest, which drives a real host + joiner through the new library on JNA and FFM,
+#   3. and only if all of that passes, opens (or refreshes) a PR committing the new natives and pin.
+# A breaking upstream change (like the data-plane ABI v3 rewrite) therefore fails here, in CI, and
+# never reaches a release. macOS natives aren't committed; releases build them from the pin.
+#
+# PRs opened with the default GITHUB_TOKEN don't trigger other workflows, so the PR shows no checks
+# of its own — this run is its check (linked in the PR body). Set an ETMC_BOT_TOKEN secret (a PAT or
+# app token with contents + pull-requests write) to have the PR's own CI run as well.
+on:
+  schedule:
+    - cron: '17 3 * * 1'   # Mondays, 03:17 UTC
+  workflow_dispatch:
+    inputs:
+      easytier_ref:
+        description: "EasyTier ref (branch/tag/sha) to update to"
+        default: "main"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: easytier-update
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check for a new EasyTier commit
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.c.outputs.commit }}
+      pinned: ${{ steps.c.outputs.pinned }}
+      changed: ${{ steps.c.outputs.changed }}
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v4
+      - name: Compare upstream with the pin
+        id: c
+        env:
+          REF: ${{ inputs.easytier_ref || 'main' }}
+        run: |
+          pin="$(tr -d '[:space:]' < common/src/main/resources/natives/easytier.commit)"
+          if [[ "$REF" =~ ^[0-9a-f]{40}$ ]]; then
+            commit="$REF"
+          else
+            commit="$(git ls-remote https://github.com/EasyTier/EasyTier.git "refs/heads/$REF" "refs/tags/$REF" "$REF" | head -1 | cut -f1)"
+          fi
+          [ -n "$commit" ] || { echo "::error::cannot resolve EasyTier ref '$REF'"; exit 1; }
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "pinned=$pin" >> "$GITHUB_OUTPUT"
+          if [ "$commit" = "$pin" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::EasyTier $REF is still the pinned commit ${pin:0:7}; nothing to do."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::EasyTier $REF moved: ${pin:0:7} -> ${commit:0:7}"
+          fi
+
+  natives:
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    uses: ./.github/workflows/natives.yml
+    with:
+      easytier_ref: ${{ needs.check.outputs.commit }}
+      only_committed: true
+
+  # The full build, against the fresh natives (build.yml picks up this run's native-* artifacts).
+  build:
+    needs: natives
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
+  pr:
+    name: open update PR
+    needs: [check, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      COMMIT: ${{ needs.check.outputs.commit }}
+      PINNED: ${{ needs.check.outputs.pinned }}
+      GH_TOKEN: ${{ secrets.ETMC_BOT_TOKEN || github.token }}
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ETMC_BOT_TOKEN || github.token }}
+
+      - name: Download the rebuilt natives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: staging
+
+      - name: Commit natives + pin to deps/easytier
+        run: |
+          for d in staging/native-*; do
+            [ -e "$d" ] || continue
+            tag="$(basename "$d" | sed 's/^native-//')"
+            cp "$d"/* "common/src/main/resources/natives/$tag/"
+          done
+          echo "$COMMIT" > common/src/main/resources/natives/easytier.commit
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c deps/easytier
+          git add common/src/main/resources/natives
+          git commit -m "deps: update EasyTier to ${COMMIT:0:7}" \
+            -m "https://github.com/EasyTier/EasyTier/compare/${PINNED}...${COMMIT}"
+          git push --force origin deps/easytier
+
+      - name: Open or refresh the PR
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          title="deps: update EasyTier to ${COMMIT:0:7}"
+          body="Rebuilds the bundled EasyTier natives from [\`${COMMIT:0:7}\`](https://github.com/EasyTier/EasyTier/commit/${COMMIT}) (was \`${PINNED:0:7}\`).
+
+          - Upstream changes: https://github.com/EasyTier/EasyTier/compare/${PINNED}...${COMMIT}
+          - Built and tested in ${RUN_URL}: every loader jar, the Paper jars, the unit tests, and \`NativeSmokeTest\` (a real host + joiner over the new library, on both the JNA and FFM backends).
+
+          macOS natives aren't committed; the next release builds them from the new pin."
+          if [ "$(gh pr view deps/easytier --json state --jq .state 2>/dev/null)" = "OPEN" ]; then
+            gh pr edit deps/easytier --title "$title" --body "$body"
+          else
+            gh pr create --base "${{ github.event.repository.default_branch }}" --head deps/easytier \
+              --title "$title" --body "$body"
+          fi

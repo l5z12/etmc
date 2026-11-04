@@ -312,6 +312,17 @@ jobs:
           # default branch by default, so PR reruns would otherwise start cold every time.
           cache-read-only: false
 
+      # A host and a joiner over the real bundled EasyTier library (linux-x86_64), once per backend:
+      # JNA on Java 17, FFM on Java 21. This is what catches a library whose ABI or behaviour no
+      # longer matches etmc — see NativeSmokeTest and easytier-update.yml.
+      - name: Native smoke test (real EasyTier, JNA + FFM)
+        run: |
+          chmod +x ./gradlew
+          installs="-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64"
+          for j in 17 21; do
+            ./gradlew $installs -p paper test --tests '*NativeSmokeTest' -Ppaper_java=$j -Petmc.nativeSmoke=true --stacktrace
+          done
+
       - name: Build every Paper jar
         run: |
           chmod +x ./gradlew

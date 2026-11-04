@@ -32,6 +32,7 @@ jobs:
   jars:
     needs: natives
     uses: ./.github/workflows/build.yml
+    secrets: inherit   # the R2 decompile-cache secrets; without them every shard builds cold
 
   publish:
     name: publish release

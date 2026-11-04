@@ -27,8 +27,15 @@ import java.util.Optional;
  */
 public final class Panama {
 
-    /** Scalar kinds we map onto FFM value layouts. */
-    public enum Kind { INT, SHORT, LONG, BYTE, PTR, VOID }
+    /**
+     * Argument/return kinds we map onto FFM layouts. {@code SOCKADDR} is EasyTier's 20-byte
+     * {@code DataPlaneSocketAddr} struct passed <em>by value</em> (u16 family, u16 port, u8[16]); its
+     * argument is a segment of {@link #SOCKADDR_BYTES} bytes.
+     */
+    public enum Kind { INT, SHORT, LONG, BYTE, PTR, VOID, SOCKADDR }
+
+    /** {@code sizeof(DataPlaneSocketAddr)}. */
+    public static final int SOCKADDR_BYTES = 20;
 
     private static final boolean AVAILABLE;
     private static final Throwable INIT_ERROR;
@@ -69,6 +76,7 @@ public final class Panama {
     private static Object lLong;
     private static Object lByte;
     private static Object lAddress;
+    private static Object lSockAddr;   // struct { u16 family; u16 port; u8 address[16]; }
 
     static {
         boolean ok = false;
@@ -112,6 +120,19 @@ public final class Panama {
             lLong = field(cValueLayout, "JAVA_LONG");
             lByte = field(cValueLayout, "JAVA_BYTE");
             lAddress = field(cValueLayout, "ADDRESS");
+
+            // MemoryLayout.structLayout(JAVA_SHORT, JAVA_SHORT, sequenceLayout(16, JAVA_BYTE)): the
+            // shorts are 2-byte aligned and the bytes 1, so the struct is 20 bytes with no padding,
+            // matching #[repr(C)] DataPlaneSocketAddr.
+            Object layouts = Array.newInstance(cMemoryLayout, 0);
+            Method structLayout = cMemoryLayout.getMethod("structLayout", layouts.getClass());
+            Method sequenceLayout = cMemoryLayout.getMethod("sequenceLayout", long.class, cMemoryLayout);
+            Object addressBytes = sequenceLayout.invoke(null, 16L, lByte);
+            Object[] members = (Object[]) Array.newInstance(cMemoryLayout, 3);
+            members[0] = lShort;
+            members[1] = lShort;
+            members[2] = addressBytes;
+            lSockAddr = structLayout.invoke(null, (Object) members);
 
             ok = true;
         } catch (Throwable t) {
@@ -190,6 +211,7 @@ public final class Panama {
             case LONG -> lLong;
             case BYTE -> lByte;
             case PTR -> lAddress;
+            case SOCKADDR -> lSockAddr;
             case VOID -> throw new IllegalArgumentException("VOID is not a value layout");
         };
     }

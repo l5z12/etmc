@@ -80,7 +80,7 @@ jobs:
           - { os: ubuntu-latest,  tag: linux-x86_64,   target: x86_64-unknown-linux-gnu,  lib: libeasytier_ffi.so }
           - { os: ubuntu-latest,  tag: linux-aarch64,  target: aarch64-unknown-linux-gnu, lib: libeasytier_ffi.so, cross: aarch64 }
           - { os: macos-14,       tag: macos-aarch64,  target: aarch64-apple-darwin,      lib: libeasytier_ffi.dylib }
-          - { os: macos-13,       tag: macos-x86_64,   target: x86_64-apple-darwin,       lib: libeasytier_ffi.dylib }
+          - { os: macos-15-intel, tag: macos-x86_64,   target: x86_64-apple-darwin,       lib: libeasytier_ffi.dylib }
     steps:
       - name: Checkout etmc
         uses: actions/checkout@v4

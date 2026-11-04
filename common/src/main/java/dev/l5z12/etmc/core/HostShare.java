@@ -1,6 +1,8 @@
 package dev.l5z12.etmc.core;
 
+import dev.l5z12.etmc.ffi.DataPlaneError;
 import dev.l5z12.etmc.ffi.EasyTier;
+import dev.l5z12.etmc.ffi.EasyTierException;
 
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -16,9 +18,14 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class HostShare {
 
     private static final long ACCEPT_TIMEOUT_MS = 1000L;
-    /** Retries for the initial bind: the instance isn't ready the instant run_network_instance returns. */
-    private static final int BIND_ATTEMPTS = 12;
-    private static final long BIND_RETRY_MS = 300L;
+    /**
+     * Retries for the initial bind, for the one failure that fixes itself: the instance not being
+     * ready the instant run_network_instance returns. Anything else (port in use, ...) fails at once,
+     * so "Starting..." never sits for minutes before reporting.
+     */
+    private static final int BIND_ATTEMPTS = 5;
+    private static final long BIND_RETRY_MS = 500L;
+    private static final long BIND_TIMEOUT_MS = 5_000L;
     /** Pause after a failed accept, so a persistently erroring listener can't spin a core. */
     private static final long ACCEPT_ERROR_BACKOFF_MS = 250L;
     private static final int LAN_CONNECT_TIMEOUT_MS = 5000;
@@ -33,6 +40,8 @@ public final class HostShare {
     private final AtomicLong totalConnections = new AtomicLong();
     private volatile long listenerHandle = 0;
     private volatile Thread acceptThread;
+    /** Why the host stopped accepting joiners while still running; {@code null} while healthy. */
+    private volatile String failure;
 
     public HostShare(EasyTier et, String instName, int virtualPort, int lanPort) {
         this.et = et;
@@ -52,13 +61,18 @@ public final class HostShare {
         RuntimeException last = null;
         for (int i = 0; i < BIND_ATTEMPTS; i++) {
             try {
-                return et.tcpBind(instName, virtualPort, 10_000L);
+                return et.tcpBind(instName, virtualPort, BIND_TIMEOUT_MS);
             } catch (RuntimeException e) {
                 last = e;
-                if (!sleep(BIND_RETRY_MS)) break; // interrupted
+                if (!notReadyYet(e) || !sleep(BIND_RETRY_MS)) break;
             }
         }
         throw last != null ? last : new IllegalStateException("tcp bind failed");
+    }
+
+    private static boolean notReadyYet(RuntimeException e) {
+        return e instanceof EasyTierException ete && (ete.is(DataPlaneError.HANDLE_CLOSED)
+                || ete.is(DataPlaneError.INSTANCE_STOPPED) || ete.is(DataPlaneError.PATH_NOT_READY));
     }
 
     private void acceptLoop() {
@@ -66,13 +80,20 @@ public final class HostShare {
             EasyTier.Accept acc;
             try {
                 acc = et.tcpAccept(listenerHandle, ACCEPT_TIMEOUT_MS);
-            } catch (Throwable ignored) {
-                // A failing accept usually means the listener is gone; back off so a permanent
-                // failure can't turn this loop into a busy spin.
-                if (stopped.get() || !sleep(ACCEPT_ERROR_BACKOFF_MS)) break;
+            } catch (Throwable t) {
+                if (stopped.get()) break;
+                if (t instanceof EasyTierException e && (e.is(DataPlaneError.HANDLE_CLOSED)
+                        || e.is(DataPlaneError.INSTANCE_STOPPED))) {
+                    // The listener (or the whole network) is gone and won't come back: stop, and say
+                    // so, rather than keep the world "hosting" while nobody can join.
+                    failure = Errors.message(t);
+                    break;
+                }
+                // Anything else may be transient; back off so it can't turn into a busy spin.
+                if (!sleep(ACCEPT_ERROR_BACKOFF_MS)) break;
                 continue;
             }
-            if (acc == null) continue; // timeout
+            if (acc == null) continue; // nobody connected within the timeout
             try {
                 handlePeer(acc);
             } catch (Throwable ignored) {
@@ -107,6 +128,11 @@ public final class HostShare {
 
     public int activeConnections() {
         return bridges.size();
+    }
+
+    /** Why this host stopped accepting joiners, or {@code null} while it is healthy. */
+    public String failure() {
+        return failure;
     }
 
     /** Total peer connections accepted since {@link #start()} (bridged or not). */

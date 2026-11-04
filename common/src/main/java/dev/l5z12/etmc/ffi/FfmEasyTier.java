@@ -12,15 +12,17 @@ import java.util.function.Function;
 
 /**
  * {@link EasyTier} backend built on {@code java.lang.foreign} (FFM) via the {@link Panama} reflection
- * facade. Used on Java 19+ runtimes (MC 1.20.5+, 1.21.x, 26.x).
+ * facade. Used on Java 21+ runtimes (MC 1.20.5+, 1.21.x, 26.x).
  *
- * <p>Data-plane reads/writes accept {@code byte[]} and marshal through a per-thread, growable native
- * scratch buffer so the hot path avoids per-call arena churn while keeping the public API allocation-free
- * of native types.
+ * <p>The data plane is EasyTier's ABI v3 ({@link DataPlaneAbi}); {@link DataPlane} turns it into the
+ * blocking stream API. Read/write payloads go through a per-thread, growable native scratch buffer so
+ * the hot path avoids per-call arena churn.
  */
-public final class FfmEasyTier implements EasyTier {
+public final class FfmEasyTier extends NativeEasyTier {
 
     private static final long KV_PAIR_BYTES = 16;
+    /** {@code sizeof(DataPlaneCompletion)}: u64 + u16 + u16, padded to 8-byte alignment. */
+    private static final int COMPLETION_BYTES = 16;
     private static final long PTR_BYTES = 8;
     private static final int CSTR_CAP = 4 * 1024 * 1024;
 
@@ -32,14 +34,24 @@ public final class FfmEasyTier implements EasyTier {
     private final MethodHandle getErrorMsg;
     private final MethodHandle freeString;
 
-    // data plane (TCP)
-    private final MethodHandle tcpConnect;
-    private final MethodHandle tcpBind;
-    private final MethodHandle tcpAccept;
-    private final MethodHandle tcpRead;
-    private final MethodHandle tcpWrite;
-    private final MethodHandle tcpCloseH;
-    private final MethodHandle tcpListenerCloseH;
+    // data plane (ABI v3)
+    private final MethodHandle sessionOpen;
+    private final MethodHandle sessionClose;
+    private final MethodHandle tcpConnectSubmit;
+    private final MethodHandle tcpBindSubmit;
+    private final MethodHandle tcpAcceptSubmit;
+    private final MethodHandle tcpReadSubmit;
+    private final MethodHandle tcpWriteSubmit;
+    private final MethodHandle completionWait;
+    private final MethodHandle completionDrain;
+    private final MethodHandle tcpConnectTake;
+    private final MethodHandle tcpBindTake;
+    private final MethodHandle tcpAcceptTake;
+    private final MethodHandle tcpReadTake;
+    private final MethodHandle tcpWriteTake;
+    private final MethodHandle operationCancel;
+    private final MethodHandle operationFree;
+    private final MethodHandle resourceClose;
 
     private FfmEasyTier(Object lookup) {
         parseConfig = Panama.downcall(lookup, "parse_config", Kind.INT, Kind.PTR);
@@ -49,18 +61,36 @@ public final class FfmEasyTier implements EasyTier {
         getErrorMsg = Panama.downcall(lookup, "get_error_msg", Kind.VOID, Kind.PTR);
         freeString = Panama.downcall(lookup, "free_string", Kind.VOID, Kind.PTR);
 
-        tcpConnect = Panama.downcall(lookup, "data_plane_tcp_connect",
-                Kind.LONG, Kind.PTR, Kind.PTR, Kind.SHORT, Kind.LONG, Kind.PTR, Kind.PTR);
-        tcpBind = Panama.downcall(lookup, "data_plane_tcp_bind",
-                Kind.LONG, Kind.PTR, Kind.SHORT, Kind.LONG, Kind.PTR, Kind.PTR);
-        tcpAccept = Panama.downcall(lookup, "data_plane_tcp_accept",
-                Kind.LONG, Kind.LONG, Kind.LONG, Kind.PTR, Kind.PTR, Kind.PTR, Kind.PTR);
-        tcpRead = Panama.downcall(lookup, "data_plane_tcp_read",
-                Kind.INT, Kind.LONG, Kind.PTR, Kind.INT, Kind.LONG);
-        tcpWrite = Panama.downcall(lookup, "data_plane_tcp_write",
-                Kind.INT, Kind.LONG, Kind.PTR, Kind.INT, Kind.LONG);
-        tcpCloseH = Panama.downcall(lookup, "data_plane_tcp_close", Kind.INT, Kind.LONG);
-        tcpListenerCloseH = Panama.downcall(lookup, "data_plane_tcp_listener_close", Kind.INT, Kind.LONG);
+        // Binding every symbol up front doubles as the ABI check: a library from before ABI v3 (or one
+        // that dropped a function) fails here, at load, naming the missing symbol.
+        sessionOpen = Panama.downcall(lookup, "data_plane_session_open", Kind.INT, Kind.PTR, Kind.PTR);
+        sessionClose = Panama.downcall(lookup, "data_plane_session_close", Kind.INT, Kind.LONG);
+        tcpConnectSubmit = Panama.downcall(lookup, "data_plane_tcp_connect_submit",
+                Kind.INT, Kind.LONG, Kind.SOCKADDR, Kind.LONG, Kind.PTR);
+        tcpBindSubmit = Panama.downcall(lookup, "data_plane_tcp_bind_submit",
+                Kind.INT, Kind.LONG, Kind.SHORT, Kind.LONG, Kind.PTR);
+        tcpAcceptSubmit = Panama.downcall(lookup, "data_plane_tcp_accept_submit",
+                Kind.INT, Kind.LONG, Kind.LONG, Kind.LONG, Kind.PTR);
+        tcpReadSubmit = Panama.downcall(lookup, "data_plane_tcp_read_submit",
+                Kind.INT, Kind.LONG, Kind.LONG, Kind.INT, Kind.PTR);
+        tcpWriteSubmit = Panama.downcall(lookup, "data_plane_tcp_write_submit",
+                Kind.INT, Kind.LONG, Kind.LONG, Kind.PTR, Kind.INT, Kind.PTR);
+        completionWait = Panama.downcall(lookup, "data_plane_completion_wait", Kind.INT, Kind.LONG, Kind.LONG);
+        completionDrain = Panama.downcall(lookup, "data_plane_completion_drain",
+                Kind.INT, Kind.LONG, Kind.PTR, Kind.INT);
+        tcpConnectTake = Panama.downcall(lookup, "data_plane_tcp_connect_result_take",
+                Kind.INT, Kind.LONG, Kind.LONG, Kind.PTR, Kind.PTR, Kind.PTR);
+        tcpBindTake = Panama.downcall(lookup, "data_plane_tcp_bind_result_take",
+                Kind.INT, Kind.LONG, Kind.LONG, Kind.PTR, Kind.PTR);
+        tcpAcceptTake = Panama.downcall(lookup, "data_plane_tcp_accept_result_take",
+                Kind.INT, Kind.LONG, Kind.LONG, Kind.PTR, Kind.PTR, Kind.PTR);
+        tcpReadTake = Panama.downcall(lookup, "data_plane_tcp_read_result_take",
+                Kind.INT, Kind.LONG, Kind.LONG, Kind.PTR, Kind.INT, Kind.PTR, Kind.PTR);
+        tcpWriteTake = Panama.downcall(lookup, "data_plane_tcp_write_result_take",
+                Kind.INT, Kind.LONG, Kind.LONG, Kind.PTR);
+        operationCancel = Panama.downcall(lookup, "data_plane_operation_cancel", Kind.INT, Kind.LONG, Kind.LONG);
+        operationFree = Panama.downcall(lookup, "data_plane_operation_free", Kind.INT, Kind.LONG, Kind.LONG);
+        resourceClose = Panama.downcall(lookup, "data_plane_resource_close", Kind.INT, Kind.LONG, Kind.LONG);
     }
 
     /** Whether the FFM backend can be used on this JVM (java.lang.foreign present). */
@@ -104,8 +134,7 @@ public final class FfmEasyTier implements EasyTier {
     }
 
     @Override
-    public void deleteNetworkInstance(String... names) {
-        if (names == null || names.length == 0) return;
+    protected void deleteInstances(String... names) {
         useArena(arena -> {
             Object array = Panama.alloc(arena, (long) names.length * PTR_BYTES);
             ByteBuffer arr = Panama.buffer(array);
@@ -165,69 +194,172 @@ public final class FfmEasyTier implements EasyTier {
         }
     }
 
-    // ------------------------------------------------------------------ data plane (TCP)
+    // ------------------------------------------------------------------ data plane (ABI v3)
 
     @Override
-    public Bind tcpBind(String inst, int localPort, long timeoutMs) {
+    public long sessionOpen(String instName) {
         return inArena(arena -> {
-            Object outIp = ptrSlot(arena);
-            Object outPort = shortSlot(arena);
-            long h = (long) invoke(tcpBind, Panama.cString(arena, inst),
-                    (short) localPort, timeoutMs, outIp, outPort);
-            if (h == 0) throw new EasyTierException("data_plane_tcp_bind failed: " + lastError());
-            return new Bind(h, takeString(outIp), readUShort(outPort));
+            Object out = ptrSlot(arena);
+            rc("data_plane_session_open", invoke(sessionOpen, Panama.cString(arena, instName), out));
+            return Panama.buffer(out).getLong(0);
         });
     }
 
     @Override
-    public Accept tcpAccept(long listener, long timeoutMs) {
+    public void sessionClose(long session) {
+        rc("data_plane_session_close", invoke(sessionClose, session));
+    }
+
+    @Override
+    public long tcpConnectSubmit(long session, byte[] ipv4, int port, long timeoutMs) {
         return inArena(arena -> {
-            Object outLip = ptrSlot(arena);
-            Object outLport = shortSlot(arena);
-            Object outPip = ptrSlot(arena);
-            Object outPport = shortSlot(arena);
-            long h = (long) invoke(tcpAccept, listener, timeoutMs, outLip, outLport, outPip, outPport);
-            if (h == 0) return null;
-            return new Accept(h, takeString(outLip), readUShort(outLport),
-                    takeString(outPip), readUShort(outPport));
+            Object addr = Panama.alloc(arena, Panama.SOCKADDR_BYTES);
+            DataPlaneAbi.putSockAddr(Panama.buffer(addr), ipv4, port);
+            Object out = ptrSlot(arena);
+            rc("data_plane_tcp_connect_submit", invoke(tcpConnectSubmit, session, addr, timeoutMs, out));
+            return Panama.buffer(out).getLong(0);
         });
     }
 
     @Override
-    public Bind tcpConnect(String inst, String dstIp, int dstPort, long timeoutMs) {
+    public long tcpBindSubmit(long session, int port, long timeoutMs) {
         return inArena(arena -> {
-            Object outIp = ptrSlot(arena);
-            Object outPort = shortSlot(arena);
-            long h = (long) invoke(tcpConnect, Panama.cString(arena, inst), Panama.cString(arena, dstIp),
-                    (short) dstPort, timeoutMs, outIp, outPort);
-            if (h == 0) throw new EasyTierException("data_plane_tcp_connect failed: " + lastError());
-            return new Bind(h, takeString(outIp), readUShort(outPort));
+            Object out = ptrSlot(arena);
+            rc("data_plane_tcp_bind_submit", invoke(tcpBindSubmit, session, (short) port, timeoutMs, out));
+            return Panama.buffer(out).getLong(0);
         });
     }
 
     @Override
-    public int tcpRead(long handle, byte[] buf, int len, long timeoutMs) {
-        Scratch s = scratch(len);
-        int n = (int) invoke(tcpRead, handle, s.seg, len, timeoutMs);
-        if (n > 0) s.bb.get(0, buf, 0, n);
-        return n;
+    public long tcpAcceptSubmit(long session, long listener, long timeoutMs) {
+        return inArena(arena -> {
+            Object out = ptrSlot(arena);
+            rc("data_plane_tcp_accept_submit", invoke(tcpAcceptSubmit, session, listener, timeoutMs, out));
+            return Panama.buffer(out).getLong(0);
+        });
     }
 
     @Override
-    public int tcpWrite(long handle, byte[] data, int len, long timeoutMs) {
+    public long tcpReadSubmit(long session, long stream, int maxLen) {
+        return inArena(arena -> {
+            Object out = ptrSlot(arena);
+            rc("data_plane_tcp_read_submit", invoke(tcpReadSubmit, session, stream, maxLen, out));
+            return Panama.buffer(out).getLong(0);
+        });
+    }
+
+    @Override
+    public long tcpWriteSubmit(long session, long stream, byte[] data, int len) {
+        // The library copies the bytes before the submit returns, so the scratch buffer is reusable.
         Scratch s = scratch(len);
         s.bb.put(0, data, 0, len);
-        return (int) invoke(tcpWrite, handle, s.seg, len, timeoutMs);
+        return inArena(arena -> {
+            Object out = ptrSlot(arena);
+            rc("data_plane_tcp_write_submit", invoke(tcpWriteSubmit, session, stream, s.seg, len, out));
+            return Panama.buffer(out).getLong(0);
+        });
     }
 
     @Override
-    public void tcpClose(long handle) {
-        if (handle != 0) invoke(tcpCloseH, handle);
+    public int completionWait(long session, long timeoutMs) {
+        return rc("data_plane_completion_wait", invoke(completionWait, session, timeoutMs));
     }
 
     @Override
-    public void tcpListenerClose(long handle) {
-        if (handle != 0) invoke(tcpListenerCloseH, handle);
+    public int completionDrain(long session, long[] ops, int[] statuses) {
+        return inArena(arena -> {
+            // DataPlaneCompletion { u64 operation_id; u16 operation_kind; u16 status; }
+            Object arr = Panama.alloc(arena, (long) ops.length * COMPLETION_BYTES);
+            int n = rc("data_plane_completion_drain", invoke(completionDrain, session, arr, ops.length));
+            ByteBuffer bb = Panama.buffer(arr);
+            for (int i = 0; i < n; i++) {
+                int base = i * COMPLETION_BYTES;
+                ops[i] = bb.getLong(base);
+                statuses[i] = bb.getShort(base + 10) & 0xFFFF;
+            }
+            return n;
+        });
+    }
+
+    @Override
+    public Opened tcpConnectResultTake(long session, long op) {
+        return takeStream(tcpConnectTake, "data_plane_tcp_connect_result_take", session, op);
+    }
+
+    @Override
+    public Opened tcpAcceptResultTake(long session, long op) {
+        return takeStream(tcpAcceptTake, "data_plane_tcp_accept_result_take", session, op);
+    }
+
+    private Opened takeStream(MethodHandle fn, String name, long session, long op) {
+        return inArena(arena -> {
+            Object stream = ptrSlot(arena);
+            Object local = Panama.alloc(arena, Panama.SOCKADDR_BYTES);
+            Object peer = Panama.alloc(arena, Panama.SOCKADDR_BYTES);
+            rc(name, invoke(fn, session, op, stream, local, peer));
+            ByteBuffer l = Panama.buffer(local);
+            ByteBuffer p = Panama.buffer(peer);
+            return new Opened(Panama.buffer(stream).getLong(0),
+                    DataPlaneAbi.sockAddrIp(l), DataPlaneAbi.sockAddrPort(l),
+                    DataPlaneAbi.sockAddrIp(p), DataPlaneAbi.sockAddrPort(p));
+        });
+    }
+
+    @Override
+    public Opened tcpBindResultTake(long session, long op) {
+        return inArena(arena -> {
+            Object listener = ptrSlot(arena);
+            Object local = Panama.alloc(arena, Panama.SOCKADDR_BYTES);
+            rc("data_plane_tcp_bind_result_take", invoke(tcpBindTake, session, op, listener, local));
+            ByteBuffer l = Panama.buffer(local);
+            return new Opened(Panama.buffer(listener).getLong(0),
+                    DataPlaneAbi.sockAddrIp(l), DataPlaneAbi.sockAddrPort(l), null, 0);
+        });
+    }
+
+    @Override
+    public int tcpReadResultTake(long session, long op, byte[] buf, int capacity) {
+        Scratch s = scratch(capacity);
+        return inArena(arena -> {
+            Object outLen = Panama.alloc(arena, 4);
+            Object outEof = Panama.alloc(arena, 1);
+            rc("data_plane_tcp_read_result_take",
+                    invoke(tcpReadTake, session, op, s.seg, capacity, outLen, outEof));
+            int n = Panama.buffer(outLen).getInt(0);
+            if (n > 0) s.bb.get(0, buf, 0, n);
+            return n;
+        });
+    }
+
+    @Override
+    public int tcpWriteResultTake(long session, long op) {
+        return inArena(arena -> {
+            Object outLen = Panama.alloc(arena, 4);
+            rc("data_plane_tcp_write_result_take", invoke(tcpWriteTake, session, op, outLen));
+            return Panama.buffer(outLen).getInt(0);
+        });
+    }
+
+    @Override
+    public void operationCancel(long session, long op) {
+        rc("data_plane_operation_cancel", invoke(operationCancel, session, op));
+    }
+
+    @Override
+    public void operationFree(long session, long op) {
+        rc("data_plane_operation_free", invoke(operationFree, session, op));
+    }
+
+    @Override
+    public void resourceClose(long session, long resource) {
+        rc("data_plane_resource_close", invoke(resourceClose, session, resource));
+    }
+
+    /** Returns a non-negative ABI result, or throws the kind a negative one encodes. */
+    private int rc(String fn, Object result) {
+        int rc = (int) result;
+        if (rc < 0) throw abiFailure(fn, rc);
+        return rc;
     }
 
     // ------------------------------------------------------------------ per-thread native scratch
@@ -269,7 +401,7 @@ public final class FfmEasyTier implements EasyTier {
     /**
      * Runs {@code body} against a fresh confined arena and releases it afterwards. Every call that
      * marshals arguments into native memory the callee must not outlive goes through here, so arena
-     * lifetime is stated once rather than in eight try/finally blocks.
+     * lifetime is stated once rather than in a try/finally per call.
      */
     private static <T> T inArena(Function<Object, T> body) {
         Object arena = Panama.newArena();
@@ -288,28 +420,11 @@ public final class FfmEasyTier implements EasyTier {
         });
     }
 
+    /** A zeroed pointer-sized out-parameter (also used for {@code u64} outputs). */
     private static Object ptrSlot(Object arena) {
         Object slot = Panama.alloc(arena, PTR_BYTES);
         Panama.buffer(slot).putLong(0, 0L);
         return slot;
-    }
-
-    private static Object shortSlot(Object arena) {
-        Object slot = Panama.alloc(arena, 2);
-        Panama.buffer(slot).putShort(0, (short) 0);
-        return slot;
-    }
-
-    private static int readUShort(Object slot) {
-        return Panama.buffer(slot).getShort(0) & 0xFFFF;
-    }
-
-    private String takeString(Object slot) {
-        long ptr = Panama.buffer(slot).getLong(0);
-        if (ptr == 0) return null;
-        String s = Panama.readCString(ptr, CSTR_CAP);
-        freeNative(ptr);
-        return s;
     }
 
     private static Object invoke(MethodHandle h, Object... args) {

@@ -46,11 +46,15 @@ dependencies {
     testImplementation "org.junit.jupiter:junit-jupiter"
     testImplementation "com.google.code.gson:gson:${project.gson_version}"
     testImplementation "io.netty:netty-transport:${project.netty_version}"
+    // NativeSmokeTest drives the real native through JNA when the test JVM is Java 17.
+    testImplementation "net.java.dev.jna:jna:${project.jna_version}"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    // -Petmc.nativeSmoke=true runs NativeSmokeTest against the bundled EasyTier library (CI does).
+    systemProperty 'etmc.nativeSmoke', (project.findProperty('etmc.nativeSmoke') ?: 'false').toString()
     testLogging {
         events 'failed'
         exceptionFormat 'full'
