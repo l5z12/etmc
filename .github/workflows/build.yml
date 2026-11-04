@@ -35,9 +35,29 @@ concurrency:
 jobs:
   # Build every loader jar. Uses the committed natives, plus any freshly-built native-* artifacts that
   # exist in this run (release.yml builds those first and they're shared run-wide); a plain push has none.
+  #
+  # Sharded by loader/era: one job building all 79 nodes took ~23 min, mostly serial work — restoring a
+  # ~22 GB decompile tarball (~5 min), configuring every node (~6 min, the Forge Mavenizer runs per
+  # node there) and then compiling on 4 cores. Each shard registers only its own nodes (-Petmc.nodes,
+  # see settings.gradle.kts), so it configures and compiles a fraction of the tree and restores only its
+  # own decompiles. The shards run side by side; keep the node lists covering every node in settings.
   assemble:
-    name: assemble jars
+    name: assemble jars (${{ matrix.shard }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false   # a break in one era shouldn't hide the state of the others
+      matrix:
+        include:
+          - shard: fabric-legacy   # 1.14.4 – 1.20.4
+            nodes: '1\.1[4-9](\..*)?-fabric,1\.20(\.[0-4])?-fabric'
+          - shard: fabric-modern   # 1.20.5 – 26.2
+            nodes: '1\.20\.[5-9]-fabric,1\.21(\..*)?-fabric,2[6-9]\..*-fabric'
+          - shard: forge-legacy    # 1.17.1 – 1.20.6
+            nodes: '1\.1[7-9](\..*)?-forge,1\.20(\..*)?-forge'
+          - shard: forge-modern    # 1.21 – 1.21.11
+            nodes: '1\.21(\..*)?-forge,2[6-9]\..*-forge'
+          - shard: neoforge
+            nodes: '.*-neoforge'
     steps:
       - name: Checkout etmc
         uses: actions/checkout@v4
@@ -122,6 +142,7 @@ jobs:
           BUCKET: ${{ secrets.R2_BUCKET }}
           # Decompiles are a pure function of the loader/MC versions + buildscripts — rekey only when
           # one of those changes, so ordinary src/ edits still hit the cache.
+          SHARD: ${{ matrix.shard }}
           CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
         run: |
           set +e   # a cache problem must never fail the build — fall back to a cold decompile instead
@@ -129,7 +150,7 @@ jobs:
             echo "R2 secrets not set — skipping decompile restore."
             echo "hit=skip" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          obj="s3://$BUCKET/decompiles/${CACHE_KEY}.tar.zst"
+          obj="s3://$BUCKET/decompiles/${SHARD}-${CACHE_KEY}.tar.zst"
           echo "Looking for $obj"
           if aws s3 cp "$obj" /tmp/decompiles.tar.zst --endpoint-url "$ENDPOINT" --only-show-errors \
              && mkdir -p ~/.gradle/caches \
@@ -143,14 +164,14 @@ jobs:
           rm -f /tmp/decompiles.tar.zst
           exit 0
 
-      - name: Build every Fabric version node + all loader jars
+      - name: Build this shard's version nodes
         run: |
           chmod +x ./gradlew
           # Hand Gradle's toolchain locator every JDK we set up (no GitHub auto-download).
           export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64,$JAVA_HOME_17_X64,$JAVA_HOME_21_X64,$JAVA_HOME_25_X64"
-          # chiseledBuild = every Stonecutter node: Fabric 1.17.1…1.21.10 + 26.2 + NeoForge
-          # 1.20.6/1.21.10 + Forge 1.21.10, all from the one shared src/ tree. Paper: matrix job below.
-          ./gradlew chiseledBuild --no-daemon --stacktrace
+          # chiseledBuild with -Petmc.nodes builds only this shard's nodes (all from the one shared src/
+          # tree); the filter also keeps every other node from being configured at all.
+          ./gradlew chiseledBuild "-Petmc.nodes=${{ matrix.nodes }}" --no-daemon --stacktrace
 
       # Runs only on a successful build (a step's implicit condition). Inside, it no-ops unless R2 is
       # configured AND the restore was a cold miss — so we never re-push what we just restored, nor
@@ -164,6 +185,7 @@ jobs:
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
           BUCKET: ${{ secrets.R2_BUCKET }}
+          SHARD: ${{ matrix.shard }}
           CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
           HIT: ${{ steps.r2_restore.outputs.hit }}
         run: |
@@ -178,14 +200,14 @@ jobs:
           echo "Packing decompiles:$dirs"
           tar -C ~/.gradle/caches -I 'zstd -3 -T0' -cf /tmp/decompiles.tar.zst $dirs \
             && ls -lh /tmp/decompiles.tar.zst \
-            && aws s3 cp /tmp/decompiles.tar.zst "s3://$BUCKET/decompiles/${CACHE_KEY}.tar.zst" --endpoint-url "$ENDPOINT" --only-show-errors \
-            && echo "Uploaded decompiles to R2 (key ${CACHE_KEY})." || echo "Decompile upload failed (non-fatal)."
+            && aws s3 cp /tmp/decompiles.tar.zst "s3://$BUCKET/decompiles/${SHARD}-${CACHE_KEY}.tar.zst" --endpoint-url "$ENDPOINT" --only-show-errors \
+            && echo "Uploaded decompiles to R2 (key ${SHARD}-${CACHE_KEY})." || echo "Decompile upload failed (non-fatal)."
           exit 0
 
       - name: Upload mod jars
         uses: actions/upload-artifact@v4
         with:
-          name: etmc-jars
+          name: etmc-jars-${{ matrix.shard }}
           path: |
             versions/*/build/libs/*.jar
           if-no-files-found: error
