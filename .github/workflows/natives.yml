@@ -171,6 +171,11 @@ jobs:
             export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
             export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar   # vendored OpenSSL cross build
           fi
+          # Vendored OpenSSL's Configure needs a full Perl. Git-Bash's MSYS perl on the Windows image
+          # lacks Locale::Maketext::Simple, so point openssl-src at the preinstalled Strawberry Perl.
+          if [ "$RUNNER_OS" = "Windows" ] && [ -x /c/Strawberry/perl/bin/perl.exe ]; then
+            export OPENSSL_SRC_PERL='C:\Strawberry\perl\bin\perl.exe'
+          fi
           # --features easytier/full = all transports/connectors + crypto backends (aes-gcm, vendored openssl).
           cargo build -p easytier-ffi --release --features easytier/full --target ${{ matrix.target }}
 
