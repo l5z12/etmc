@@ -108,10 +108,19 @@ public final class NativeLoader {
 
     /**
      * Extracts each companion dependency next to the native and pre-loads it by full path, so the
-     * native's static import binds to the already-loaded module. Best-effort: a machine that already
-     * has the real library (e.g. an installed Npcap) keeps using it — the real module wins by base
-     * name — and a pre-load failure is logged rather than fatal, letting the native load surface the
-     * real error if the symbol is genuinely unresolved.
+     * native's static import binds to the already-loaded module.
+     *
+     * <p>The bundled copy deliberately takes precedence over any system one, including an installed
+     * Npcap: pre-loading it by full path registers it under the base name the import is resolved by,
+     * so the native binds to the shim whether or not Npcap exists. That is the intended choice —
+     * {@code no_tun} never calls these functions, so the real driver library would contribute nothing
+     * except its {@code DllMain} and a dependency on whichever {@code Packet.dll} sits on the search
+     * path (no {@code System.loadLibrary("Packet")} probe for that reason). Only if some other
+     * component already loaded a {@code Packet.dll} into the process may the import bind to that one,
+     * which is equally fine since it exports the same symbols.
+     *
+     * <p>Best-effort: a pre-load failure is logged rather than fatal, letting the native load surface
+     * the real error if the symbol is genuinely unresolved.
      */
     private static void stageAndPreloadDeps(Path dir, String tag) {
         for (String dep : coLocatedDeps()) {
@@ -142,8 +151,11 @@ public final class NativeLoader {
 
             try {
                 System.load(target.toAbsolutePath().toString());
-            } catch (UnsatisfiedLinkError alreadyLoaded) {
-                // Already present in the process (real Npcap, or a prior load) — the import resolves.
+            } catch (UnsatisfiedLinkError e) {
+                // Typically "already loaded in another classloader" (a prior etmc load, e.g. a reloaded
+                // mod classloader): the module is still mapped in the process, so the import resolves.
+                // Anything else surfaces as the native's own load error, so this stays at DEBUG.
+                LOG.log(System.Logger.Level.DEBUG, "bundled dependency " + target + " not pre-loaded", e);
             } catch (Throwable t) {
                 LOG.log(System.Logger.Level.WARNING, "could not pre-load bundled dependency " + target
                         + "; the native may fail to load without a system-provided " + dep, t);

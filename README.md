@@ -166,8 +166,10 @@ etmc always runs EasyTier in `no_tun` mode, so those pcap functions are never ca
 must still *resolve*, or the Windows loader fails the whole library before any etmc code runs. That is
 the old "please provide a `Packet.dll`" failure. Rather than redistribute Npcap, we ship a tiny,
 self-authored shim that exports exactly the symbols the native imports (each a no-op returning `0`);
-`NativeLoader` stages it beside the native and pre-loads it so the import binds. A machine that does
-have Npcap keeps using the real one (it wins by base name). Regenerate the shim whenever you rebuild
+`NativeLoader` stages it beside the native and pre-loads it by full path so the import binds to it.
+The shim takes precedence even when Npcap is installed — on purpose: the functions are never called,
+so the real driver library would add nothing but its `DllMain` and a dependency on whichever
+`Packet.dll` happens to be on the search path. Regenerate the shim whenever you rebuild
 the Windows native (its import list can change):
 
 ```bash

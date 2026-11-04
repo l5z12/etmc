@@ -15,9 +15,10 @@ So instead of redistributing Npcap's proprietary DLL, we ship a minimal, self-au
 shim that exports exactly the symbols ``easytier_ffi.dll`` imports, each a no-op that
 returns 0 (a safe "failed"/NULL for every one of them). The loader is satisfied; nothing
 is ever invoked. ``NativeLoader`` pre-loads this shim by full path before opening
-``easytier_ffi.dll``, so its static import binds to the already-loaded module. On a
-machine that *does* have Npcap, that real module wins (same base name) and the shim is a
-harmless no-op.
+``easytier_ffi.dll``, so its static import binds to the already-loaded module. The shim
+deliberately takes precedence even where Npcap is installed: the functions are never
+called, so binding to the real driver library buys nothing and would only run its DllMain
+(and depend on whichever ``Packet.dll`` happens to be on the search path).
 
 The exported name list is derived from the real DLL's import table, so a rebuilt
 ``easytier_ffi.dll`` that pulls in different ``Packet.dll`` functions is handled
@@ -28,8 +29,8 @@ Usage:
 
 The output is a valid PE32+ DLL with no compiler involved: one r-x section holds a shared
 return-0 stub plus a hand-built export directory. Entry point is 0 (no DllMain), and it is
-marked relocatable with zero fixups (all content is base-independent), so ASLR can map it
-anywhere. The shim's machine (and stub instructions) are taken from the native it sits beside,
+marked relocatable with an explicit, fixup-free ``.reloc`` directory (all content is
+base-independent), so ASLR can map it anywhere. The shim's machine (and stub instructions) are taken from the native it sits beside,
 so it is correct for x86-64 today and for arm64 the moment a ``windows-aarch64`` native exists.
 """
 from __future__ import annotations
@@ -168,6 +169,18 @@ def build_dll(exports: list[str], machine: int = IMAGE_FILE_MACHINE_AMD64,
     body[export_dir_rva - SECT_RVA: export_dir_rva - SECT_RVA + 40] = export_dir
 
     export_size = len(body) - (export_dir_rva - SECT_RVA)
+
+    # Explicit base-relocation directory: one header-only block (no entries), i.e.
+    # "relocatable, zero fixups". Everything above is RVA-based, so nothing needs
+    # patching, but advertising DYNAMIC_BASE with a real (empty) .reloc directory keeps the image
+    # conventionally relocatable instead of leaning on the loader tolerating a missing directory
+    # when the preferred base is already taken.
+    while len(body) % 4:
+        body += b"\x00"
+    reloc_rva = cur_rva()
+    body += struct.pack("<II", SECT_RVA, 8)  # VirtualAddress, SizeOfBlock (header only)
+    reloc_size = cur_rva() - reloc_rva
+
     section_vsize = len(body)
     raw_body = bytes(body) + b"\x00" * (_align(section_vsize, FILE_ALIGN) - section_vsize)
 
@@ -192,6 +205,7 @@ def build_dll(exports: list[str], machine: int = IMAGE_FILE_MACHINE_AMD64,
 
     data_dirs = [(0, 0)] * 16
     data_dirs[0] = (export_dir_rva, export_size)  # IMAGE_DIRECTORY_ENTRY_EXPORT
+    data_dirs[5] = (reloc_rva, reloc_size)        # IMAGE_DIRECTORY_ENTRY_BASERELOC
     data_dir_bytes = b"".join(struct.pack("<II", rva, sz) for rva, sz in data_dirs)
 
     opt = struct.pack(
