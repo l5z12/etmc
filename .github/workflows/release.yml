@@ -42,7 +42,9 @@ jobs:
       - name: Download built jars
         uses: actions/download-artifact@v4
         with:
-          name: etmc-jars
+          # build.yml uploads one etmc-jars-<shard> artifact per build shard.
+          pattern: etmc-jars-*
+          merge-multiple: true
           path: jars
 
       - name: Publish to GitHub Release

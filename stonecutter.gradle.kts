@@ -21,12 +21,21 @@ stonecutter.parameters {
     constants.put("yarn", loader == "fabric" && mcMajor < 26)
 }
 
-// Aggregate task that builds every Fabric version node (used by CI to "build all"):
+// Aggregate task that builds every registered version node (used by CI to "build all"):
 //   ./gradlew chiseledBuild
+// With -Petmc.nodes=<regexes> (see settings.gradle.kts) only the matching nodes are registered, and this
+// builds only those — not the always-registered active node, unless the filter matches it too.
+val nodeFilter: List<Regex>? = providers.gradleProperty("etmc.nodes").orNull
+    ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }?.map(::Regex)
+
 tasks.register("chiseledBuild") {
     group = "project"
-    description = "Builds every Stonecutter Fabric version node."
-    dependsOn(stonecutter.tasks.named("build").map { it.values })
+    description = "Builds every registered Stonecutter version node (or those matching -Petmc.nodes)."
+    if (nodeFilter == null) {
+        dependsOn(stonecutter.tasks.named("build").map { it.values })
+    } else {
+        dependsOn(subprojects.filter { p -> nodeFilter.any { it.matches(p.name) } }.map { "${it.path}:build" })
+    }
 }
 
 allprojects {
