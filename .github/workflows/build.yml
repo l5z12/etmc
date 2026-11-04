@@ -50,14 +50,19 @@ jobs:
         include:
           - shard: fabric-legacy   # 1.14.4 – 1.20.4
             nodes: '1\.1[4-9](\..*)?-fabric,1\.20(\.[0-4])?-fabric'
+            caches: fabric-loom
           - shard: fabric-modern   # 1.20.5 – 26.2
             nodes: '1\.20\.[5-9]-fabric,1\.21(\..*)?-fabric,2[6-9]\..*-fabric'
+            caches: fabric-loom
           - shard: forge-legacy    # 1.17.1 – 1.20.6
             nodes: '1\.1[7-9](\..*)?-forge,1\.20(\..*)?-forge'
+            caches: minecraftforge
           - shard: forge-modern    # 1.21 – 1.21.11
             nodes: '1\.21(\..*)?-forge,2[6-9]\..*-forge'
+            caches: minecraftforge
           - shard: neoforge
             nodes: '.*-neoforge'
+            caches: neoformruntime
     steps:
       - name: Checkout etmc
         uses: actions/checkout@v4
@@ -143,6 +148,7 @@ jobs:
           # Decompiles are a pure function of the loader/MC versions + buildscripts — rekey only when
           # one of those changes, so ordinary src/ edits still hit the cache.
           SHARD: ${{ matrix.shard }}
+          CACHES: ${{ matrix.caches }}
           CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
         run: |
           set +e   # a cache problem must never fail the build — fall back to a cold decompile instead
@@ -150,18 +156,41 @@ jobs:
             echo "R2 secrets not set — skipping decompile restore."
             echo "hit=skip" >> "$GITHUB_OUTPUT"; exit 0
           fi
-          obj="s3://$BUCKET/decompiles/${SHARD}-${CACHE_KEY}.tar.zst"
-          echo "Looking for $obj"
-          if aws s3 cp "$obj" /tmp/decompiles.tar.zst --endpoint-url "$ENDPOINT" --only-show-errors \
-             && mkdir -p ~/.gradle/caches \
-             && tar -C ~/.gradle/caches -I 'zstd -d' -xf /tmp/decompiles.tar.zst; then
+          # Only this shard's loader dirs are unpacked (a fallback tarball may hold every loader's).
+          restore() {
+            echo "Trying $1"
+            aws s3 cp "s3://$BUCKET/$1" /tmp/decompiles.tar.zst --endpoint-url "$ENDPOINT" --only-show-errors \
+              && mkdir -p ~/.gradle/caches \
+              && tar -C ~/.gradle/caches -I 'zstd -d' -xf /tmp/decompiles.tar.zst $CACHES
+            local rc=$?
+            rm -f /tmp/decompiles.tar.zst
+            return $rc
+          }
+          # Newest object under a prefix; the JMESPath filter is applied to its keys.
+          newest() {
+            aws s3api list-objects-v2 --bucket "$BUCKET" --prefix "$1" --endpoint-url "$ENDPOINT" \
+              --query "sort_by(Contents[?$2] || \`[]\`, &LastModified)[-1].Key" --output text 2>/dev/null
+          }
+          exact="decompiles/${SHARD}-${CACHE_KEY}.tar.zst"
+          if restore "$exact"; then
             echo "hit=true" >> "$GITHUB_OUTPUT"
-            echo "Restored Loom/NeoForm/ForgeGradle decompiles from R2."
-          else
-            echo "hit=false" >> "$GITHUB_OUTPUT"
-            echo "Decompile cache miss — building cold, will upload after the build."
+            echo "Restored decompiles ($CACHES) from R2."
+            exit 0
           fi
-          rm -f /tmp/decompiles.tar.zst
+          # Missed the exact key (buildscripts or the node list changed). Seed from the newest cache this
+          # shard saved before, else from the newest pre-sharding full cache (keys with no shard prefix).
+          # The decompiles are keyed per MC/loader version internally, so stale entries are harmless and
+          # only the versions that actually changed are rebuilt — a cold Forge setup is ~3.5 min/node.
+          for key in "$(newest "decompiles/${SHARD}-" 'true')" "$(newest "decompiles/" "!contains(Key, '-')")"; do
+            [ -n "$key" ] && [ "$key" != "None" ] || continue
+            if restore "$key"; then
+              echo "hit=partial" >> "$GITHUB_OUTPUT"
+              echo "Seeded decompiles ($CACHES) from $key; will save under $exact after the build."
+              exit 0
+            fi
+          done
+          echo "hit=false" >> "$GITHUB_OUTPUT"
+          echo "Decompile cache miss — building cold, will upload after the build."
           exit 0
 
       - name: Build this shard's version nodes
@@ -171,7 +200,16 @@ jobs:
           export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64,$JAVA_HOME_17_X64,$JAVA_HOME_21_X64,$JAVA_HOME_25_X64"
           # chiseledBuild with -Petmc.nodes builds only this shard's nodes (all from the one shared src/
           # tree); the filter also keeps every other node from being configured at all.
-          ./gradlew chiseledBuild "-Petmc.nodes=${{ matrix.nodes }}" --no-daemon --stacktrace
+          build() { ./gradlew chiseledBuild "-Petmc.nodes=${{ matrix.nodes }}" --no-daemon --stacktrace 2>&1 | tee /tmp/gradle.log; return "${PIPESTATUS[0]}"; }
+          build && exit 0
+          # Setting up Forge downloads from Mojang/Forge mavens, which time out now and then. Retry once
+          # for network failures only; finished setup work is cached on disk, so the retry resumes.
+          if grep -Eq 'HttpConnectTimeoutException|connect timed out|Read timed out|UnknownHostException|Connection reset|Failed to download' /tmp/gradle.log; then
+            echo "::warning::Network failure during the build — retrying once."
+            build
+          else
+            exit 1
+          fi
 
       # Runs only on a successful build (a step's implicit condition). Inside, it no-ops unless R2 is
       # configured AND the restore was a cold miss — so we never re-push what we just restored, nor
@@ -186,14 +224,15 @@ jobs:
           ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
           BUCKET: ${{ secrets.R2_BUCKET }}
           SHARD: ${{ matrix.shard }}
+          CACHES: ${{ matrix.caches }}
           CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
           HIT: ${{ steps.r2_restore.outputs.hit }}
         run: |
           set +e   # uploading the cache is best-effort — never fail the build over it
           if [ -z "$AWS_ACCESS_KEY_ID" ]; then echo "R2 secrets not set — skipping save."; exit 0; fi
-          if [ "$HIT" = "true" ]; then echo "Restored from R2 — nothing to upload."; exit 0; fi
+          if [ "$HIT" = "true" ]; then echo "Restored from R2 — nothing to upload."; exit 0; fi   # partial/false: save
           dirs=""
-          for d in fabric-loom neoformruntime minecraftforge; do
+          for d in $CACHES; do   # only this shard's loader dirs
             [ -d "$HOME/.gradle/caches/$d" ] && dirs="$dirs $d"
           done
           if [ -z "$dirs" ]; then echo "No decompile dirs present — nothing to cache."; exit 0; fi
