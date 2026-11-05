@@ -63,7 +63,9 @@ jobs:
           - shard: forge-legacy    # 1.17.1 – 1.20.6
             nodes: '1\.1[7-9](\..*)?-forge,1\.20(\..*)?-forge'
             caches: minecraftforge
-            launch: '1.17.1-forge 1.20.1-forge'
+            # 1.17.1 isn't launchable in a ForgeGradle 7 dev run (its BootstrapLauncher isn't accessible to
+            # FG7's launcher), so 1.18.2 stands in as the oldest Forge.
+            launch: '1.18.2-forge 1.20.1-forge'
           - shard: forge-modern    # 1.21 – 1.21.11
             nodes: '1\.21(\..*)?-forge,2[6-9]\..*-forge'
             caches: minecraftforge
@@ -284,9 +286,10 @@ jobs:
           tasks=""; nodes=""
           for n in $LAUNCH; do tasks="$tasks :$n:runClient"; nodes="$nodes,$n"; done
           for n in $GAMETEST; do tasks="$tasks :$n:runClientGameTest"; nodes="$nodes,$n"; done
-          # --continue: one node failing to launch shouldn't hide whether the others do.
+          # --continue: one node failing to launch shouldn't hide whether the others do. --no-parallel:
+          # concurrent games race on the shared asset store (and starve each other on software GL).
           xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew $tasks "-Petmc.nodes=${nodes#,}" \
-            -Petmc.launchProbe=true --continue --no-daemon --stacktrace
+            -Petmc.launchProbe=true --continue --no-parallel --no-daemon --stacktrace
 
       - name: Upload client logs and screenshots
         if: always() && matrix.launch != ''

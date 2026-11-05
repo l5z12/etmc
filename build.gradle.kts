@@ -111,9 +111,12 @@ tasks.processResources {
     inputs.property("minecraft_dependency", minecraftDependency)
     inputs.property("compatibility_level", mixinCompat)
     inputs.property("fabric_api_id", fabricApiId)
+    // The Java this node targets (17 below MC 1.20.5): a hardcoded ">=21" made Fabric refuse every
+    // 1.14.4-1.20.4 jar on the Java 17 those versions run on.
+    inputs.property("java_version", javaVersion)
     filesMatching("fabric.mod.json") {
         expand("version" to project.version, "minecraft_dependency" to minecraftDependency,
-                "fabric_api_id" to fabricApiId)
+                "fabric_api_id" to fabricApiId, "java_version" to javaVersion)
     }
     filesMatching("etmc.mixins.json") {
         expand("compatibility_level" to mixinCompat)

@@ -73,9 +73,14 @@ tasks.processResources {
     inputs.property("compatibility_level", mixinCompat)
     inputs.property("minecraft_range", minecraftRange)
     inputs.property("neoforge_range", neoforgeRange)
+    // NeoForge read META-INF/mods.toml until 20.5 renamed it to neoforge.mods.toml; under the new name
+    // the 1.20.4 loader never saw etmc at all (CI's launch test caught it). The contents are the same.
+    val tomlName = if ((property("deps.neoforge") as String).startsWith("20.4.")) "mods.toml" else "neoforge.mods.toml"
+    inputs.property("toml_name", tomlName)
     filesMatching("META-INF/neoforge.mods.toml") {
         expand("version" to project.version, "minecraft_range" to minecraftRange,
                 "neoforge_range" to neoforgeRange)
+        name = tomlName
     }
     filesMatching("etmc.mixins.json") {
         expand("compatibility_level" to mixinCompat)

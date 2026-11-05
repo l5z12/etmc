@@ -63,8 +63,10 @@ processResources {
     inputs.property 'minecraft_dependency', minecraftDependency
     inputs.property 'compatibility_level', mixinCompat
     inputs.property 'fabric_api_id', fabricApiId
+    inputs.property 'java_version', javaVersion
     filesMatching('fabric.mod.json') {
-        expand 'version': project.version, 'minecraft_dependency': minecraftDependency, 'fabric_api_id': fabricApiId
+        expand 'version': project.version, 'minecraft_dependency': minecraftDependency, 'fabric_api_id': fabricApiId,
+                'java_version': javaVersion
     }
     filesMatching('etmc.mixins.json') {
         expand 'compatibility_level': mixinCompat
