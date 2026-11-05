@@ -76,6 +76,9 @@ jobs:
     name: open update PR
     needs: [check, build]
     runs-on: ubuntu-latest
+    # ETMC_BOT_TOKEN and ETMC_BOT_GPG_KEY live in this environment, which only main may use, so a
+    # workflow pushed to some other branch can't read them.
+    environment: etmc-bot
     permissions:
       contents: write
       pull-requests: write
