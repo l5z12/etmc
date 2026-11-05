@@ -12,7 +12,8 @@ name: easytier-update
 # PRs opened with the default GITHUB_TOKEN don't trigger other workflows, so the PR shows no checks
 # of its own — this run is its check (linked in the PR body). An ETMC_BOT_TOKEN secret (a classic
 # PAT with public_repo from the etmc-bot collaborator account) makes etmc-bot push and open the PR
-# instead, so the PR's own CI runs as well.
+# instead, so the PR's own CI runs as well. An ETMC_BOT_GPG_KEY secret (etmc-bot's signing key) makes
+# that commit signed, which main's ruleset requires before the PR can be merged.
 on:
   schedule:
     - cron: '17 3 * * 1'   # Mondays, 03:17 UTC
@@ -94,9 +95,14 @@ jobs:
           pattern: native-*
           path: staging
 
+      # main requires signed commits (PROTECT ruleset). GitHub only signs API-made commits through
+      # GraphQL createCommitOnBranch, which rejects files the size of our natives, so etmc-bot signs
+      # the commit itself with ETMC_BOT_GPG_KEY: an ASCII-armored, passphrase-less private key whose
+      # public half is added to the etmc-bot GitHub account, with a UID for the noreply email below.
       - name: Commit natives + pin to deps/easytier
         env:
           AS_BOT: ${{ secrets.ETMC_BOT_TOKEN != '' }}
+          GPG_KEY: ${{ secrets.ETMC_BOT_GPG_KEY }}
         run: |
           for d in staging/native-*; do
             [ -e "$d" ] || continue
@@ -111,6 +117,14 @@ jobs:
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          fi
+          if [ "$AS_BOT" = "true" ] && [ -n "$GPG_KEY" ]; then
+            printf '%s\n' "$GPG_KEY" | gpg --batch --quiet --import
+            fpr="$(gpg --batch --list-secret-keys --with-colons | awk -F: '$1 == "fpr" { print $10; exit }')"
+            git config user.signingkey "$fpr"
+            git config commit.gpgsign true
+          else
+            echo "::warning::Committing unsigned (needs ETMC_BOT_TOKEN and ETMC_BOT_GPG_KEY); main requires signed commits, so the PR will be blocked until it is re-signed."
           fi
           git switch -c deps/easytier
           git add common/src/main/resources/natives
