@@ -57,12 +57,7 @@ jobs:
         run: |
           pin="$(tr -d '[:space:]' < common/src/main/resources/natives/easytier.commit)"
           ref="${REQ:-$pin}"
-          if [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
-            commit="$ref"
-          else
-            commit="$(git ls-remote https://github.com/EasyTier/EasyTier.git "$ref" "refs/tags/$ref" "refs/heads/$ref" | head -1 | cut -f1)"
-          fi
-          [ -n "$commit" ] || { echo "::error::cannot resolve EasyTier ref '$ref'"; exit 1; }
+          commit="$(bash tools/resolve_easytier_ref.sh "$ref")"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
           echo "EasyTier ref '$ref' -> $commit (pinned: $pin)"
 
