@@ -63,9 +63,9 @@ jobs:
           - shard: forge-legacy    # 1.17.1 – 1.20.6
             nodes: '1\.1[7-9](\..*)?-forge,1\.20(\..*)?-forge'
             caches: minecraftforge
-            # 1.17.1 isn't launchable in a ForgeGradle 7 dev run (its BootstrapLauncher isn't accessible to
-            # FG7's launcher), so 1.18.2 stands in as the oldest Forge.
-            launch: '1.18.2-forge 1.20.1-forge'
+            # 1.17.1 and 1.18.x aren't launchable in a ForgeGradle 7 dev run (their BootstrapLauncher isn't
+            # accessible to FG7's launcher), so 1.19.2 stands in as the oldest Forge.
+            launch: '1.19.2-forge 1.20.1-forge'
           - shard: forge-modern    # 1.21 – 1.21.11
             nodes: '1\.21(\..*)?-forge,2[6-9]\..*-forge'
             caches: minecraftforge

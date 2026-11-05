@@ -21,10 +21,12 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
+import org.spongepowered.asm.mixin.transformer.meta.MixinMerged;
 
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -262,10 +264,23 @@ public final class LaunchProbe {
             List<String> targets = mixinTargets(loader, mixin);
             if (targets.isEmpty()) throw new IllegalStateException(mixin + " names no target");
             for (String target : targets) {
+                Class<?> c;
                 try {
-                    Class.forName(target, false, loader);
+                    c = Class.forName(target, false, loader);
                 } catch (Throwable t) {
                     throw new IllegalStateException("applying " + mixin + " to " + target + " failed", t);
+                }
+                // Loading the target proves nothing if the mixin config was never registered (then
+                // nothing is applied at all). Mixin marks every method it merges into a class with
+                // @MixinMerged(mixin = ...), so look for this mixin's.
+                List<String> merged = new ArrayList<>();
+                for (Method m : c.getDeclaredMethods()) {
+                    MixinMerged mm = m.getAnnotation(MixinMerged.class);
+                    if (mm != null) merged.add(mm.mixin());
+                }
+                if (!merged.contains(mixin)) {
+                    throw new IllegalStateException(mixin + " was not applied to " + target
+                            + " (is etmc.mixins.json registered with this loader?); merged there: " + merged);
                 }
             }
             loaded.add(mixin.substring(mixin.lastIndexOf('.') + 1));

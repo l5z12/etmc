@@ -16,6 +16,14 @@ sourceSets.main.resources.srcDir("$rootDir/common/src/main/resources")
 sourceSets.main.resources.srcDir("$rootDir/forge/src/main/resources")
 // This is the Forge node: drop the Fabric (EtmcClient) + NeoForge entry points.
 sourceSets.main.java.exclude('**/EtmcClient.java', '**/neoforge/**')
+// Classes and resources in one directory, as the ForgeGradle 7 MDK does: in a dev run (runClient)
+// FML treats each classpath directory as its own mod file, and with the two apart it finds
+// mods.toml without the classes ("constructed 0 mods") and refuses to load etmc. Jars are unaffected.
+sourceSets.each {
+    def dir = layout.buildDirectory.dir("sourcesSets/$it.name")
+    it.output.resourcesDir = dir
+    it.java.destinationDirectory = dir
+}
 
 // CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
 apply from: "$rootDir/gradle/launch-probe.gradle"
@@ -24,6 +32,9 @@ minecraft {
     mappings channel: 'official', version: project.property('deps.minecraft')
     runs {
         register('client') {
+            // Forge takes mixin configs from the jar manifest (MixinConfigs, below); a dev run has
+            // no jar, so name the config here or no etmc mixin is applied in runClient.
+            args '-mixin.config=etmc.mixins.json'
             if (launchProbeResult != null) systemProperty 'etmc.launchProbe', launchProbeResult
         }
     }
