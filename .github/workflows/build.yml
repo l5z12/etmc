@@ -286,10 +286,40 @@ jobs:
           tasks=""; nodes=""
           for n in $LAUNCH; do tasks="$tasks :$n:runClient"; nodes="$nodes,$n"; done
           for n in $GAMETEST; do tasks="$tasks :$n:runClientGameTest"; nodes="$nodes,$n"; done
+          nodes="${nodes#,}"
+          # Same network failures the build step retries on (timeouts, resets, truncated downloads).
+          netfail='ConnectTimeoutException|SocketTimeoutException|connect timed out|read timed out|UnknownHostException|connection reset|failed to download|Unexpected file length|status code (408|429|5[0-9]{2})'
+
+          # Fabric (Loom) nodes fetch Minecraft's assets in a downloadAssets task before the game starts.
+          # Fetch them up front, one node per Gradle run: nodes share most asset files, and Loom's
+          # downloads overlap across tasks even with --no-parallel, so two nodes fetching the same file
+          # at once left it truncated ("Unexpected file length"). Mojang's CDN also cuts a download
+          # short now and then, hence the retries.
+          for n in $(echo "$nodes" | tr ',' ' '); do
+            case "$n" in *-fabric) ;; *) continue ;; esac
+            for attempt in 1 2 3; do
+              ./gradlew ":$n:downloadAssets" "-Petmc.nodes=$n" --no-daemon -q && break
+              [ "$attempt" = 3 ] && { echo "::error::Couldn't download $n's assets."; exit 1; }
+              echo "::warning::Downloading $n's assets failed (attempt $attempt) — retrying."
+            done
+          done
+
           # --continue: one node failing to launch shouldn't hide whether the others do. --no-parallel:
           # concurrent games race on the shared asset store (and starve each other on software GL).
-          xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew $tasks "-Petmc.nodes=${nodes#,}" \
-            -Petmc.launchProbe=true --continue --no-parallel --no-daemon --stacktrace
+          launch() {
+            xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew $tasks "-Petmc.nodes=$nodes" \
+              -Petmc.launchProbe=true --continue --no-parallel --no-daemon --stacktrace 2>&1 | tee /tmp/launch.log
+            return "${PIPESTATUS[0]}"
+          }
+          launch && exit 0
+          # A game that failed is a real failure; a download that failed (Forge/NeoForge fetch their
+          # assets as the game starts) gets one more go, which resumes from what's already on disk.
+          if grep -Eiq "$netfail" /tmp/launch.log; then
+            echo "::warning::Network failure while launching clients — retrying once."
+            launch
+          else
+            exit 1
+          fi
 
       - name: Upload client logs and screenshots
         if: always() && matrix.launch != ''
