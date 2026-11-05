@@ -12,9 +12,11 @@ import net.minecraft.resources.ResourceLocation;
 //? if >=1.21.8 {
 import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;
 //?} else if >=1.21.6 {
+/*import net.minecraftforge.client.event.CustomizeGuiOverlayEvent;*/
 //?} else if >=1.21.1 {
 /*import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;*/
 //?} else if >=1.21 {
+/*import net.minecraftforge.client.event.CustomizeGuiOverlayEvent;*/
 //?} else if >=1.20.5 {
 /*import net.minecraftforge.client.event.AddGuiOverlayLayersEvent;*/
 //?} else if >=1.19 {
@@ -53,8 +55,8 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
  * {@code .getBus()}/{@code .BUS}, {@code ClientTickEvent.Post}); <b>1.21–1.21.5</b> uses EventBus 6
  * ({@code IEventBus} from {@code getModEventBus()}, {@code MinecraftForge.EVENT_BUS}, {@code TickEvent}
  * with a {@code phase}). The HUD-layer event ({@code AddGuiOverlayLayersEvent}) exists EventBus-6-style
- * pre-1.21.6 and EventBus-7-style from 1.21.8; the short 1.21.6/1.21.7 window has no HUD-layer
- * registration API, so the overlay is skipped there (everything else still works).
+ * pre-1.21.6 and EventBus-7-style from 1.21.8. 1.21 and the short 1.21.6/1.21.7 window have no HUD-layer
+ * registration API; there the overlay draws from the chat-overlay event instead.
  */
 @Mod("etmc")
 public final class EtmcForge {
@@ -73,7 +75,9 @@ public final class EtmcForge {
         //?}
 
         // HUD overlay: AddGuiOverlayLayersEvent (1.21.1+), the classic RegisterGuiOverlaysEvent (1.20.x).
-        // Skipped on 1.21 and 1.21.6/1.21.7 (no HUD-layer registration API in those transitional windows).
+        // 1.21 and 1.21.6/1.21.7 have no HUD-layer registration API, but Forge fires its chat-overlay
+        // event with the frame's GuiGraphics every frame the HUD draws (F1 skips it, as it does the
+        // layers); the overlay draws from that, so it only hides while the chat box is open.
         //? if >=1.21.11 {
         /*AddGuiOverlayLayersEvent.getBus(modBus).addListener(e ->
                 e.getLayeredDraw().add(Identifier.fromNamespaceAndPath("etmc", "status"),
@@ -83,13 +87,13 @@ public final class EtmcForge {
                 e.getLayeredDraw().add(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));
         //?} else if >=1.21.6 {
-        /*EtmcHud.markUnavailable(); // no HUD-layer registration API in this window*/
+        /*CustomizeGuiOverlayEvent.Chat.BUS.addListener(e -> EtmcHud.render(e.getGuiGraphics()));*/
         //?} else if >=1.21.1 {
         /*modBus.addListener((AddGuiOverlayLayersEvent e) ->
                 e.getLayeredDraw().add(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));*/
         //?} else if >=1.21 {
-        /*EtmcHud.markUnavailable(); // no HUD-layer registration API in this window*/
+        /*MinecraftForge.EVENT_BUS.addListener((CustomizeGuiOverlayEvent.Chat e) -> EtmcHud.render(e.getGuiGraphics()));*/
         //?} else if >=1.20.5 {
         /*modBus.addListener((AddGuiOverlayLayersEvent e) ->
                 e.getLayeredDraw().add(new ResourceLocation("etmc", "status"),

@@ -54,6 +54,8 @@ public final class EtmcManager {
      * produces EasyTier's opaque "data plane net is not ready" after another 15s.
      */
     private static final long HOST_FIND_TIMEOUT_MS = 45_000;
+    /** How long the host's world gets to answer the ping before the join reports it isn't open. */
+    private static final long WORLD_CHECK_TIMEOUT_MS = 8_000;
     /** Status refresh cadence while a session is up. */
     private static final long STATUS_POLL_INTERVAL_MS = 1500;
     /** Faster cadence while an {@code etmc://} join waits for a route, so it reacts promptly. */
@@ -453,29 +455,44 @@ public final class EtmcManager {
         linkDoProceed(a);
     }
 
+    /**
+     * Pings the host's world over the mesh, then hands over to Minecraft. The ping comes first because
+     * EasyTier reports a connect to a virtual port nobody listens on as done and then stays silent, so
+     * without it a host who has closed their world would leave the joiner on "Connecting…" until
+     * Minecraft's own 30s timeout. A silent port gets a clear error instead. Any other outcome still
+     * connects: a server with status turned off hangs up on the ping but lets players in, and an
+     * unreachable host ("Join now anyway") gets the connection's own error, as before.
+     *
+     * <p>The answer also carries the host's protocol, for ViaFabricPlus: it can't auto-detect across
+     * an etmc:// join (it raw-sockets the placeholder address), so it gets the version pinned instead.
+     */
     private void linkDoProceed(LinkAttempt a) {
         if (a.proceeded) return;
         a.proceeded = true;
-        linkAttempt = null;
+        a.progress = Msg.tr("etmc.join.progress.world", "Host found — checking that their world is open…");
         EtmcSession s = session;
         EtmcConnect.Target target =
                 new EtmcConnect.Target(s.easyTier(), a.instName, a.code.hostIp, a.code.hostPort);
-        if (!ViaHook.isPresent()) {
-            armAndConnect(target, a.parent, a.label, -1);
-            return;
-        }
-        // ViaFabricPlus is installed but can't auto-detect across an etmc:// join (it raw-sockets the
-        // placeholder address). Detect the host's protocol ourselves over the mesh, then connect with it
-        // pinned so VFP translates without probing. A failed probe (-1) just lets VFP fall back as before.
-        // Pulled out of the attempt so the callback captures only what it needs, not the whole
-        // LinkAttempt (which holds the parent screen); the destination comes off `target` itself.
-        Screen parent = a.parent;
-        String label = a.label;
         CompletableFuture
-                .supplyAsync(() -> StatusPing.protocolVersion(
-                        s.easyTier(), target.instanceName(), target.hostIp(), target.hostPort()), worker)
-                .whenComplete((proto, err) -> McScreens.mc().execute(() ->
-                        armAndConnect(target, parent, label, (err == null && proto != null) ? proto : -1)));
+                .supplyAsync(() -> StatusPing.probe(s.easyTier(), target.instanceName(), target.hostIp(),
+                        target.hostPort(), WORLD_CHECK_TIMEOUT_MS), worker)
+                .whenComplete((ping, err) -> McScreens.mc().execute(() -> {
+                    if (a != linkAttempt) return; // cancelled while checking; linkCancel left the network
+                    linkAttempt = null;
+                    StatusPing.Outcome outcome = err == null ? ping.outcome() : StatusPing.Outcome.UNREACHABLE;
+                    LOGGER.info("[etmc] host world check: {}{}", outcome,
+                            outcome == StatusPing.Outcome.ANSWERED ? " (protocol " + ping.protocol() + ")" : "");
+                    if (outcome == StatusPing.Outcome.SILENT) {
+                        leaveAsync();
+                        showError(a.parent, Msg.tr("etmc.join.no_world.title", "The host's world isn't open"),
+                                Msg.tr("etmc.join.no_world", "etmc reached the host, but no world answered on "
+                                        + "port %s. They may have closed it or stopped hosting: ask them to host "
+                                        + "again and send you the new link.", a.code.hostPort));
+                        return;
+                    }
+                    armAndConnect(target, a.parent, a.label,
+                            outcome == StatusPing.Outcome.ANSWERED ? ping.protocol() : -1);
+                }));
     }
 
     /**

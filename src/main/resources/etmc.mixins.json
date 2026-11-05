@@ -9,7 +9,8 @@
     "ConnectScreenMixin",
     "DirectConnectScreenMixin",
     "MultiplayerScreenMixin",
-    "ServerAddressMixin"
+    "ServerAddressMixin",
+    "ServerListPingerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
