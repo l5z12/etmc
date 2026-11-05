@@ -98,7 +98,7 @@ jobs:
       # main requires signed commits (PROTECT ruleset). GitHub only signs API-made commits through
       # GraphQL createCommitOnBranch, which rejects files the size of our natives, so etmc-bot signs
       # the commit itself with ETMC_BOT_GPG_KEY: an ASCII-armored, passphrase-less private key whose
-      # public half is added to the etmc-bot GitHub account, with a UID for the noreply email below.
+      # public half is added to the etmc-bot GitHub account, with a UID for etmc@l5z12.dev (verified on etmc-bot).
       - name: Commit natives + pin to deps/easytier
         env:
           AS_BOT: ${{ secrets.ETMC_BOT_TOKEN != '' }}
@@ -113,7 +113,7 @@ jobs:
           # Authored as whoever pushes it: the etmc-bot account when its token is set.
           if [ "$AS_BOT" = "true" ]; then
             git config user.name "etmc-bot"
-            git config user.email "352687227+etmc-bot@users.noreply.github.com"
+            git config user.email "etmc@l5z12.dev"
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
