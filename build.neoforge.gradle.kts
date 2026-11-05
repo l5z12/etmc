@@ -17,8 +17,8 @@ sourceSets {
     named("main") {
         java {
             srcDir(rootProject.file("common/src/main/java"))
-            // This is the NeoForge node: drop the Fabric (EtmcClient) + Forge entry points.
-            exclude("**/EtmcClient.java", "**/forge/**")
+            // This is the NeoForge node: drop the Fabric (EtmcClient, EtmcModMenu) + Forge entry points.
+            exclude("**/EtmcClient.java", "**/EtmcModMenu.java", "**/forge/**")
         }
         resources {
             srcDir(rootProject.file("common/src/main/resources"))

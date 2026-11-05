@@ -14,8 +14,8 @@ int javaVersion = (project.property('java_version') as String).toInteger()
 sourceSets.main.java.srcDir("$rootDir/common/src/main/java")
 sourceSets.main.resources.srcDir("$rootDir/common/src/main/resources")
 sourceSets.main.resources.srcDir("$rootDir/forge/src/main/resources")
-// This is the Forge node: drop the Fabric (EtmcClient) + NeoForge entry points.
-sourceSets.main.java.exclude('**/EtmcClient.java', '**/neoforge/**')
+// This is the Forge node: drop the Fabric (EtmcClient, EtmcModMenu) + NeoForge entry points.
+sourceSets.main.java.exclude('**/EtmcClient.java', '**/EtmcModMenu.java', '**/neoforge/**')
 // Classes and resources in one directory, as the ForgeGradle 7 MDK does: in a dev run (runClient)
 // FML treats each classpath directory as its own mod file, and with the two apart it finds
 // mods.toml without the classes ("constructed 0 mods") and refuses to load etmc. Jars are unaffected.

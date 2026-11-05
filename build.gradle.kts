@@ -39,6 +39,16 @@ sourceSets {
     }
 }
 
+// Mod Menu's API, as compile-only stubs (stubs/README.md): EtmcModMenu implements it, the real Mod
+// Menu provides it at runtime. A separate source set that only main's compile classpath sees, so none
+// of it is in the jar or on the dev runtime classpath.
+val modmenuStubs = sourceSets.create("modmenuStubs") {
+    java.setSrcDirs(listOf(rootProject.file("stubs/modmenu/yarn/java")))
+    resources.setSrcDirs(emptyList<File>())
+}
+configurations.named("modmenuStubsCompileClasspath") { extendsFrom(configurations["compileClasspath"]) }
+sourceSets.named("main") { compileClasspath += modmenuStubs.output }
+
 // CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
 apply(from = rootProject.file("gradle/launch-probe.gradle"))
 val launchProbeResult = extra["launchProbeResult"] as String?
@@ -71,6 +81,12 @@ if (mcVersion == "1.21.10") {
         java.setSrcDirs(listOf(rootProject.file("src/gametest/java")))
         resources.setSrcDirs(listOf(rootProject.file("src/gametest/resources")))
     }
+    // The real Mod Menu on the dev runtime (never in the jar), so the gametest can check that it
+    // finds etmc's config screen through EtmcModMenu and the stubbed API.
+    repositories {
+        maven("https://maven.terraformersmc.com/releases/") { content { includeGroup("com.terraformersmc") } }
+    }
+    dependencies { "modLocalRuntime"("com.terraformersmc:modmenu:16.0.1") }
     loom.runs.named("clientGameTest") {
         // etmc hooks the Netty pipeline itself (EtmcChannel), which the gametest packet sync can't follow.
         property("fabric.client.gametest.disableNetworkSynchronizer", "true")

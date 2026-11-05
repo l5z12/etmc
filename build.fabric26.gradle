@@ -22,6 +22,14 @@ if (launchProbeResult != null) {
     loom.runs.matching { it.name == 'client' }.configureEach { property 'etmc.launchProbe', launchProbeResult }
 }
 
+// Mod Menu's API as compile-only stubs in official names (stubs/README.md); never in the jar.
+sourceSets.create('modmenuStubs') {
+    java.srcDirs = [file("$rootDir/stubs/modmenu/official/java")]
+    resources.srcDirs = []
+}
+configurations.modmenuStubsCompileClasspath.extendsFrom(configurations.compileClasspath)
+sourceSets.main.compileClasspath += sourceSets.modmenuStubs.output
+
 sourceSets.main.java.srcDir("$rootDir/common/src/main/java")
 sourceSets.main.resources.srcDir("$rootDir/common/src/main/resources")
 // Loader entry points compile only on their own loader; EtmcKey is mojmap-only.

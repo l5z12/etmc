@@ -64,6 +64,19 @@ public class EtmcClientGameTest implements FabricClientGameTest {
         ctx.waitForScreen(SettingsScreen.class);
         ctx.takeScreenshot("etmc-settings");
         ctx.setScreen(() -> null);
+
+        // Mod Menu (on this node's dev runtime) finds etmc's config screen through EtmcModMenu.
+        Screen fromModMenu = ctx.computeOnClient(c -> modMenuConfigScreen("etmc"));
+        check(fromModMenu instanceof SettingsScreen, "Mod Menu's config screen for etmc is " + fromModMenu);
+    }
+
+    private static Screen modMenuConfigScreen(String modId) {
+        try {
+            return (Screen) Class.forName("com.terraformersmc.modmenu.ModMenu")
+                    .getMethod("getConfigScreen", String.class, Screen.class).invoke(null, modId, new TitleScreen());
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("couldn't ask Mod Menu for " + modId + "'s config screen", e);
+        }
     }
 
     /** The game's language picks etmc's text (zh_cn.json), through Msg's translator. */
@@ -120,8 +133,8 @@ public class EtmcClientGameTest implements FabricClientGameTest {
             ctx.runOnClient(c -> hosting.set(etmc.hostAsync(network, secret, "gametest", null, false)));
             ctx.waitFor(c -> hosting.get().isDone(), 60 * SECONDS);
             JoinCode code = hosting.get().join();
-            check(network.equals(code.networkName), "the join code names another network: " + code.networkName);
-            check(code.relays.contains(relay), "the join code lacks the relay: " + code.relays);
+            check(network.equals(code.networkName), "the invite link names another network: " + code.networkName);
+            check(code.relays.contains(relay), "the invite link lacks the relay: " + code.relays);
 
             EtmcSession session = etmc.session();
             check(session.mode() == EtmcSession.Mode.HOST, "not hosting: " + session.mode());

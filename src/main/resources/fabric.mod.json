@@ -16,6 +16,9 @@
   "entrypoints": {
     "client": [
       "dev.l5z12.etmc.client.EtmcClient"
+    ],
+    "modmenu": [
+      "dev.l5z12.etmc.client.EtmcModMenu"
     ]
   },
   "mixins": [
