@@ -66,6 +66,41 @@ public final class McScreens {
         //?}
     }
 
+    /** Whether a world is loaded (singleplayer or a server). */
+    public static boolean inWorld() {
+        //? if yarn {
+        return mc().world != null;
+        //?} else {
+        /*return mc().level != null;*/
+        //?}
+    }
+
+    /** Whether this client is running its own (singleplayer) world, i.e. has something to host. */
+    public static boolean singleplayer() {
+        //? if yarn {
+        return mc().getServer() != null;
+        //?} else {
+        /*return mc().getSingleplayerServer() != null;*/
+        //?}
+    }
+
+    /** Posts an {@code [etmc]} line to the player's chat; dropped when no world is loaded. */
+    public static void chat(String msg) {
+        var client = mc();
+        client.execute(() -> {
+            if (client.player == null) return;
+            //? if yarn && >=1.16 {
+            client.player.sendMessage(Txt.literal("[etmc] " + msg), false);
+            //?} else if yarn {
+            /*client.player.sendMessage(Txt.literal("[etmc] " + msg));*/
+            //?} else if <26 {
+            /*client.player.displayClientMessage(Txt.literal("[etmc] " + msg), false);*/
+            //?} else {
+            /*client.player.sendSystemMessage(Txt.literal("[etmc] " + msg));*/
+            //?}
+        });
+    }
+
     /** The screen currently open, or {@code null} when the player is in the world. */
     public static Screen current() {
         //? if yarn {

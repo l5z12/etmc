@@ -8,6 +8,7 @@ import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.ImportedConfig;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
+import dev.l5z12.etmc.core.Relays;
 import dev.l5z12.etmc.core.RemoteConfig;
 import dev.l5z12.etmc.core.StatusPing;
 import dev.l5z12.etmc.ffi.EasyTier;
@@ -44,8 +45,14 @@ public final class EtmcManager {
     public static final org.apache.logging.log4j.Logger LOGGER =
             org.apache.logging.log4j.LogManager.getLogger("etmc");
 
-    /** How long to wait for a direct (p2p) route before auto-joining over the available path (relay). */
+    /** Once the host is reachable over a relay, how long to wait for a direct (P2P) link before joining anyway. */
     private static final long P2P_WAIT_TIMEOUT_MS = 8000;
+    /**
+     * How long an {@code etmc://} join waits for the host to show up at all (this node addressed, and
+     * the host in the route table) before giving up with a diagnosis. Connecting before that only
+     * produces EasyTier's opaque "data plane net is not ready" after another 15s.
+     */
+    private static final long HOST_FIND_TIMEOUT_MS = 45_000;
     /** Status refresh cadence while a session is up. */
     private static final long STATUS_POLL_INTERVAL_MS = 1500;
     /** Faster cadence while an {@code etmc://} join waits for a route, so it reacts promptly. */
@@ -82,13 +89,23 @@ public final class EtmcManager {
     /** In-progress {@code etmc://} link join (null when none). Client thread only. */
     private LinkAttempt linkAttempt;
 
+    // Session-lifetime bookkeeping for tick(); client thread only.
+    /** The hosted world has been seen running, so its disappearing means the player left it. */
+    private boolean hostWorldSeen;
+    /** A proxy join has carried the player into a world, so leaving the world ends the join. */
+    private boolean proxyJoinPlayed;
+    /** The host-failure chat notice has been posted for this session. */
+    private boolean hostFailureNotified;
+    /** Stale "etmc: ..." server-list entries from an earlier run have been swept. */
+    private boolean serverListSwept;
+
     private EtmcManager() {}
 
     private static String shortId() {
         return UUID.randomUUID().toString().substring(0, 8);
     }
 
-    /** Pushes the local player's name to the session so EasyTier device names read {@code etmc-host[-<username>]}. */
+    /** Pushes the local player's name to the session, which derives the device name peers see. */
     private void syncPlayerName() {
         if (session == null) return;
         try {
@@ -103,6 +120,21 @@ public final class EtmcManager {
         }
     }
 
+    /** The local player's name, or {@code "Player"} when it can't be read. */
+    public String playerName() {
+        try {
+            //? if yarn {
+            var s = McScreens.mc().getSession();
+            if (s != null) return s.getUsername();
+            //?} else {
+            /*var u = McScreens.mc().getUser();
+            if (u != null) return u.getName();*/
+            //?}
+        } catch (Throwable ignored) {
+        }
+        return "Player";
+    }
+
     /** Loads config and the EasyTier native library. Call once on client init. */
     public void init() {
         this.config = ModConfig.load();
@@ -113,7 +145,7 @@ public final class EtmcManager {
             /*Path cacheRoot = McScreens.mc().gameDirectory.toPath().resolve("config").resolve("etmc");*/
             //?}
             NativeLoader.Native nat = NativeLoader.extract(cacheRoot);
-            // FFM where the runtime has it (Java 19+), JNA on the Java 17 versions — EasyTier.load
+            // FFM where the runtime has it (Java 21+), JNA on the Java 17 versions — EasyTier.load
             // picks the backend, so this must NOT pre-check for java.lang.foreign.
             EasyTier et = EasyTier.load(nat.path());
             LOGGER.info("[etmc] EasyTier backend: {} ({})",
@@ -150,28 +182,62 @@ public final class EtmcManager {
     // ------------------------------------------------------------------ operations
 
     /** The failure every async entry point reports when the native library never loaded. */
-    private static <T> CompletableFuture<T> notLoaded() {
-        return CompletableFuture.failedFuture(new IllegalStateException("etmc native library not loaded"));
+    private <T> CompletableFuture<T> notLoaded() {
+        return CompletableFuture.failedFuture(new IllegalStateException(nativeError != null
+                ? "etmc couldn't load its EasyTier library: " + nativeError
+                : "etmc couldn't load its EasyTier library (see the game log)"));
     }
 
-    public CompletableFuture<JoinCode> hostAsync(String networkName, String secret) {
-        if (!isReady()) return notLoaded();
+    /** Why hosting can't start right now, or {@code null} if it can. */
+    public String hostBlocker() {
+        if (!isReady()) return "etmc couldn't load its EasyTier library (see the game log).";
+        if (!McScreens.singleplayer()) return "Open a singleplayer world first: etmc hosts the world you're playing.";
+        if (!config.hasRelay()) return "Add a relay in Settings first: joiners reach you through it.";
+        String bad = Relays.firstProblem(config.relays);
+        if (bad != null) return "Fix the relay in Settings: " + bad;
+        return null;
+    }
+
+    /**
+     * Hosts the current singleplayer world.
+     *
+     * @param gameMode joiners' game mode name ({@code SURVIVAL}, ...), or {@code null} for the host's own
+     * @param cheats   whether cheats are allowed (for everyone, the host included — as in vanilla)
+     */
+    public CompletableFuture<JoinCode> hostAsync(String networkName, String secret, String label,
+                                                 String gameMode, boolean cheats) {
+        String blocker = hostBlocker();
+        if (blocker != null) return CompletableFuture.failedFuture(new IllegalStateException(blocker));
         syncPlayerName();
         List<String> relays = config.relays;
         int vport = config.defaultVirtualPort;
         config.lastNetworkName = networkName;
         config.lastSecret = secret;
+        config.lastLabel = label;
         config.save();
-        return McNet.ensureOpenToLan()
-                .thenApplyAsync(lanPort -> session.host(lanPort, networkName, secret, relays, vport), worker);
+        return McNet.ensureOpenToLan(gameMode, cheats)
+                .thenApplyAsync(lanPort -> session.host(lanPort, networkName, secret, relays, vport, label), worker)
+                .whenComplete((code, err) -> McScreens.mc().execute(() -> {
+                    hostWorldSeen = err == null;
+                    hostFailureNotified = false;
+                }));
     }
 
+    /**
+     * Joins over the loopback proxy (the way to join from inside a world: it adds a server-list entry
+     * to click once the player has left it). Outside a world, {@link #connectViaLink} is the better path.
+     */
     public CompletableFuture<Integer> joinAsync(JoinCode code) {
         if (!isReady()) return notLoaded();
+        String bad = Relays.firstProblem(code.relays);
+        if (bad != null) {
+            return CompletableFuture.failedFuture(new IllegalArgumentException("This link's relay is wrong: " + bad));
+        }
         syncPlayerName();
         session.setPreferredLocalPort(config.joinLocalPort);
         return CompletableFuture.supplyAsync(() -> session.join(code), worker)
                 .thenApplyAsync(localPort -> {
+                    proxyJoinPlayed = false;
                     McNet.presentJoin(code.displayLabel(), localPort);
                     return localPort;
                 }, McScreens.mc());
@@ -200,6 +266,7 @@ public final class EtmcManager {
             ImportedConfig cfg = ImportedConfig.parse(body, "etmc-cfg-" + shortId(), overrideServer);
             return session.joinWithConfig(cfg);
         }, worker).thenApplyAsync(localPort -> {
+            proxyJoinPlayed = false;
             JoinCode cc = session.currentCode();
             McNet.presentJoin(cc == null ? "etmc server" : cc.displayLabel(), localPort);
             return localPort;
@@ -207,15 +274,16 @@ public final class EtmcManager {
     }
 
     /**
-     * Handles an {@code etmc://} link from Add Server / Direct Connect: starts the EasyTier instance
-     * (no proxy/port) then triggers a vanilla connect that the ClientConnection mixin reroutes through
-     * an {@link dev.l5z12.etmc.core.EtmcChannel} riding the data plane. Called on the client thread.
+     * Handles an {@code etmc://} link (or {@code ETMC1:} code) from Add Server / Direct Connect / the
+     * Join screen: starts the EasyTier instance (no proxy/port), waits until the host is actually
+     * reachable, then triggers a vanilla connect that the ClientConnection mixin reroutes through an
+     * {@link dev.l5z12.etmc.core.EtmcChannel} riding the data plane. Client thread, no world loaded.
      */
     public void connectViaLink(Screen parent, String link) {
         if (!isReady()) {
             showError(parent, "Can't join", nativeError != null
-                    ? "etmc native library failed to load: " + nativeError
-                    : "etmc native library not loaded");
+                    ? "etmc couldn't load its EasyTier library: " + nativeError
+                    : "etmc couldn't load its EasyTier library (see the game log).");
             return;
         }
         JoinCode code;
@@ -223,7 +291,20 @@ public final class EtmcManager {
             code = JoinCode.decode(link);
         } catch (IllegalArgumentException e) {
             LOGGER.warn("[etmc] bad etmc:// link: {}", e.getMessage());
-            showError(parent, "Invalid etmc:// link", e.getMessage());
+            showError(parent, "That etmc link doesn't work",
+                    "It couldn't be read (" + e.getMessage() + "). Ask the host to copy it again.");
+            return;
+        }
+        String badRelay = code.relays.isEmpty()
+                ? "It has no relay, so there's no way to reach the host. Ask the host to add a relay in etmc Settings and copy the link again."
+                : Relays.firstProblem(code.relays);
+        if (badRelay != null) {
+            showError(parent, "That etmc link can't reach the host", badRelay);
+            return;
+        }
+        if (session.isActive()) {
+            showError(parent, "Already in an etmc network",
+                    "Leave the current etmc network first (etmc menu → Session status → Leave network).");
             return;
         }
         syncPlayerName();
@@ -232,7 +313,7 @@ public final class EtmcManager {
         LOGGER.info("[etmc] etmc:// join: starting link instance for host {}:{} (network '{}')",
                 code.hostIp, code.hostPort, code.networkName);
         McScreens.goTo(new EtmcConnectingScreen(parent, a.label,
-                () -> linkProceed(a), () -> linkCancel(a)));
+                () -> linkProceed(a), () -> linkCancel(a), () -> a.progress));
         CompletableFuture.supplyAsync(() -> session.startLinkInstance(code), worker)
                 .whenComplete((inst, err) -> McScreens.mc().execute(() -> {
                     if (a != linkAttempt) {
@@ -242,23 +323,26 @@ public final class EtmcManager {
                     }
                     if (err != null) {
                         LOGGER.warn("[etmc] etmc:// join failed: {}", Errors.message(err), Errors.root(err));
-                        showError(a.parent, "Couldn't start etmc network", Errors.message(err));
+                        showError(a.parent, "Couldn't start the etmc network", Errors.message(err));
                         linkAttempt = null;
                         return;
                     }
                     a.instName = inst;
                     a.startedAt = System.currentTimeMillis();
                     a.instanceReady = true;
-                    LOGGER.info("[etmc] link instance '{}' up — waiting up to {}s for a direct P2P route to {}",
-                            inst, P2P_WAIT_TIMEOUT_MS / 1000, code.hostIp);
+                    a.progress = "Contacting the relay…";
+                    LOGGER.info("[etmc] link instance '{}' up — waiting for host {} (P2P up to {}s once found)",
+                            inst, code.hostIp, P2P_WAIT_TIMEOUT_MS / 1000);
                     if (a.proceedRequested) linkDoProceed(a); // user already hit "Join now anyway"
                 }));
     }
 
     /**
-     * Drives the in-progress link join each tick: connects as soon as a direct (p2p) route to the host
-     * appears, or falls back to whatever path exists once {@link #P2P_WAIT_TIMEOUT_MS} elapses (so it
-     * never hangs when hole-punching can't establish a direct link). Logs progress for debugging.
+     * Drives the in-progress link join each tick. It connects only once the connection can actually
+     * work — this node has its virtual IP and the host is in the route table — taking a direct (P2P)
+     * route as soon as one appears, else the relayed one after {@link #P2P_WAIT_TIMEOUT_MS}. If the
+     * host never shows up it gives up after {@link #HOST_FIND_TIMEOUT_MS} with a reason, instead of
+     * connecting into EasyTier's "data plane net is not ready".
      */
     private void driveLinkAttempt(long now) {
         LinkAttempt a = linkAttempt;
@@ -266,31 +350,68 @@ public final class EtmcManager {
         // One read of the volatile snapshot: the decision below and the line that logs it have to
         // describe the same set of peers.
         NetworkStatus st = cachedStatus();
-        boolean direct = false;
-        boolean found = false;
-        int hostCost = -1;
-        for (NetworkStatus.Peer p : st.peers()) {
-            if (p.ipv4() != null && p.ipv4().equals(a.code.hostIp)) {
-                found = true;
-                hostCost = p.cost();
-                if (!p.relay()) direct = true;
-            }
-        }
+        NetworkStatus.Peer host = st.peerAt(a.code.hostIp);
+        boolean addressed = st.virtualIp() != null;
+        long waited = now - a.startedAt;
+
         if (now - a.lastLog > LINK_LOG_INTERVAL_MS) {
             a.lastLog = now;
-            LOGGER.info("[etmc] P2P wait {}s: host {} {} | peers: {}",
-                    (now - a.startedAt) / 1000, a.code.hostIp,
-                    found ? "cost=" + hostCost + (direct ? " (p2p)" : " (relay)") : "not in route table yet",
-                    peerSummary(st));
+            LOGGER.info("[etmc] link wait {}s: own ip {}, host {} {} | relays {} | peers: {}{}",
+                    waited / 1000, addressed ? st.virtualIp() : "(none yet)", a.code.hostIp,
+                    host == null ? "not in route table yet"
+                            : "cost=" + host.cost() + (host.relay() ? " (relay)" : " (p2p)"),
+                    st.relayNodes(), peerSummary(st),
+                    st.errorMsg() == null ? "" : " | EasyTier: " + st.errorMsg());
         }
-        if (direct) {
-            LOGGER.info("[etmc] direct P2P route to host ready — connecting");
-            linkDoProceed(a);
-        } else if (now - a.startedAt > P2P_WAIT_TIMEOUT_MS) {
-            LOGGER.info("[etmc] no direct route after {}s — connecting over the available path (relay)",
-                    P2P_WAIT_TIMEOUT_MS / 1000);
-            linkDoProceed(a);
+
+        if (addressed && host != null) {
+            if (!host.relay()) {
+                LOGGER.info("[etmc] direct P2P route to host ready — connecting");
+                linkDoProceed(a);
+                return;
+            }
+            if (a.hostFoundAt == 0) a.hostFoundAt = now;
+            long left = P2P_WAIT_TIMEOUT_MS - (now - a.hostFoundAt);
+            if (left <= 0) {
+                LOGGER.info("[etmc] no direct route after {}s — connecting over the relay", P2P_WAIT_TIMEOUT_MS / 1000);
+                linkDoProceed(a);
+                return;
+            }
+            a.progress = "Host found via the relay — trying for a direct link (" + (left / 1000 + 1) + "s)…";
+            return;
         }
+
+        a.progress = waitingReason(st, addressed);
+        if (waited > HOST_FIND_TIMEOUT_MS) {
+            String why = diagnose(st, addressed, a.code);
+            LOGGER.warn("[etmc] etmc:// join gave up after {}s: {}", waited / 1000, why);
+            linkAttempt = null;
+            leaveAsync();
+            showError(a.parent, "Couldn't reach the host", why);
+        }
+    }
+
+    /** What the join is waiting for, for the connecting screen. */
+    private static String waitingReason(NetworkStatus st, boolean addressed) {
+        if (!st.running()) return "Starting the EasyTier network…";
+        if (st.relayNodes() == 0 && st.peers().isEmpty()) return "Contacting the relay…";
+        if (!addressed) return "Connected to the relay — waiting for the host to answer…";
+        return "Looking for the host on the network…";
+    }
+
+    /** Why the host was never reached, in terms the player can act on. */
+    private static String diagnose(NetworkStatus st, boolean addressed, JoinCode code) {
+        String easytier = st.errorMsg() == null ? "" : " EasyTier says: " + st.errorMsg();
+        if (!st.running()) return "The EasyTier network didn't start." + easytier;
+        if (st.relayNodes() == 0 && st.peers().isEmpty()) {
+            return "The relay (" + String.join(", ", code.relays) + ") couldn't be reached. Check your internet"
+                    + " connection, and ask the host whether the relay is online." + easytier;
+        }
+        if (!addressed) {
+            return "The relay answered, but the host didn't. Make sure they are hosting right now and that the"
+                    + " link is from their current session (the network name and secret must match)." + easytier;
+        }
+        return "The host isn't on the network (" + code.hostIp + "). They may have stopped hosting." + easytier;
     }
 
     private static String peerSummary(NetworkStatus st) {
@@ -303,7 +424,7 @@ public final class EtmcManager {
         return sb.isEmpty() ? "(none yet)" : sb.toString();
     }
 
-    /** "Join now anyway" / auto-proceed. Queues if the instance is still starting. */
+    /** "Join now anyway": proceeds over whatever path exists. Queues if the instance is still starting. */
     private void linkProceed(LinkAttempt a) {
         if (a != linkAttempt || a.proceeded) return;
         if (!a.instanceReady) {
@@ -372,7 +493,10 @@ public final class EtmcManager {
         volatile boolean proceeded;
         volatile boolean proceedRequested;
         volatile long startedAt;
+        volatile long hostFoundAt;
         volatile long lastLog;
+        /** What the connecting screen shows under the title. */
+        volatile String progress = "Starting the EasyTier network…";
 
         LinkAttempt(Screen parent, JoinCode code, String label) {
             this.parent = parent;
@@ -383,15 +507,35 @@ public final class EtmcManager {
 
     public CompletableFuture<Void> leaveAsync() {
         if (session == null) return CompletableFuture.completedFuture(null);
+        boolean hadProxy = session.mode() == EtmcSession.Mode.JOIN && !session.linkJoin();
         return CompletableFuture.runAsync(() -> session.leave(), worker)
-                .thenRun(() -> cachedStatus = NetworkStatus.empty());
+                .thenRun(() -> {
+                    cachedStatus = NetworkStatus.empty();
+                    McScreens.mc().execute(() -> {
+                        hostWorldSeen = false;
+                        proxyJoinPlayed = false;
+                        hostFailureNotified = false;
+                        // The proxy's server-list entry points at a port that just closed.
+                        if (hadProxy) McNet.removeJoinEntries();
+                    });
+                });
     }
 
     // ------------------------------------------------------------------ periodic tick
 
     /** Called every client tick. Refreshes the cached status and drives a pending link join. */
     public void tick() {
-        if (!isReady() || !session.isActive()) return;
+        if (!isReady()) return;
+        if (!serverListSwept) {
+            // Entries a crashed/killed game left behind point at proxy ports that no longer exist.
+            serverListSwept = true;
+            try {
+                McNet.removeJoinEntries();
+            } catch (Throwable t) {
+                LOGGER.debug("[etmc] couldn't sweep stale server-list entries", t);
+            }
+        }
+        if (!session.isActive()) return;
         long now = System.currentTimeMillis();
         // Poll faster while waiting on a link join so a direct route is noticed (and the timeout fires) promptly.
         long interval = linkAttempt != null ? LINK_POLL_INTERVAL_MS : STATUS_POLL_INTERVAL_MS;
@@ -400,6 +544,46 @@ public final class EtmcManager {
             pollStatus();
         }
         driveLinkAttempt(now);
+        endWithTheWorld();
+        reportHostFailure();
+    }
+
+    /**
+     * Ends a session whose world is gone: hosting outlives nothing once the hosted world closes (joiners
+     * would be dropped silently while the menu still said "Hosting"), and a proxy join ends once the
+     * player leaves the server it carried them to. Link joins end on their own when their channel closes.
+     */
+    private void endWithTheWorld() {
+        EtmcSession s = session;
+        if (s.mode() == EtmcSession.Mode.HOST) {
+            if (McScreens.singleplayer()) {
+                hostWorldSeen = true;
+            } else if (hostWorldSeen) {
+                LOGGER.info("[etmc] hosted world closed — leaving the etmc network");
+                hostWorldSeen = false;
+                leaveAsync();
+            }
+        } else if (s.mode() == EtmcSession.Mode.JOIN && !s.linkJoin()) {
+            boolean inWorld = McScreens.inWorld();
+            if (inWorld && s.activeConnections() > 0) {
+                proxyJoinPlayed = true;
+            } else if (!inWorld && proxyJoinPlayed && s.activeConnections() == 0) {
+                LOGGER.info("[etmc] left the etmc server — leaving the etmc network");
+                proxyJoinPlayed = false;
+                leaveAsync();
+            }
+        }
+    }
+
+    /** Tells the host, once, when joiners can no longer get in although the world is still "hosted". */
+    private void reportHostFailure() {
+        if (hostFailureNotified) return;
+        String failure = session.hostFailure();
+        if (failure == null) return;
+        hostFailureNotified = true;
+        LOGGER.warn("[etmc] host stopped accepting joiners: {}", failure);
+        McScreens.chat("Joiners can't connect any more (" + failure + "). Stop and start hosting again"
+                + " from the etmc menu.");
     }
 
     /**

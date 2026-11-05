@@ -4,10 +4,11 @@ import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
+import dev.l5z12.etmc.client.Wrap;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.JoinCode;
+import dev.l5z12.etmc.core.Relays;
 
-import java.util.ArrayList;
 import java.util.List;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
@@ -142,7 +143,16 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
             return null;
         }
         String secret = Ui.getText(secretField);
-        List<String> relays = splitRelays(Ui.getText(relayField));
+        List<String> relays = Relays.parse(Ui.getText(relayField));
+        if (relays.isEmpty()) {
+            setMessage("Add the host's relay: without one, joiners have no way to reach the host.", COLOR_BAD);
+            return null;
+        }
+        String bad = Relays.firstProblem(relays);
+        if (bad != null) {
+            setMessage(bad, COLOR_BAD);
+            return null;
+        }
         String ip = Ui.getText(hostIpField).trim();
         if (ip.isEmpty()) ip = EtmcConfig.HOST_VIRTUAL_IP;
         int port = EtmcConfig.DEFAULT_VIRTUAL_PORT;
@@ -168,17 +178,8 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         if (code == null) return;
         String s = link ? code.encodeLink() : code.encode();
         McScreens.setClipboard(s);
-        setMessage(link ? "Copied etmc:// link" : "Copied ETMC1 code", COLOR_GOOD);
-    }
-
-    private static List<String> splitRelays(String text) {
-        List<String> out = new ArrayList<>();
-        if (text == null) return out;
-        for (String piece : text.split("[,\\s]+")) {
-            String t = piece.trim();
-            if (!t.isEmpty()) out.add(t);
-        }
-        return out;
+        setMessage((link ? "Copied etmc:// link" : "Copied ETMC1 code")
+                + ". It contains the secret: share it only with people you want in.", COLOR_GOOD);
     }
 
     private static String safe(String s) {
@@ -195,7 +196,7 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         int labelColor = COLOR_MUTED;
         Gfx.text(ctx, font(), Txt.literal("Network name"),   cx - w / 2, y, labelColor); y += 34;
         Gfx.text(ctx, font(), Txt.literal("Network secret"), cx - w / 2, y, labelColor); y += 34;
-        Gfx.text(ctx, font(), Txt.literal("Relay URI (comma-separated for multiple)"),
+        Gfx.text(ctx, font(), Txt.literal("Relay (several: commas or spaces between them)"),
                 cx - w / 2, y, labelColor); y += 34;
         Gfx.text(ctx, font(), Txt.literal("Host virtual IP"), cx - w / 2, y, labelColor);
         Gfx.text(ctx, font(), Txt.literal("Port"),            cx - w / 2 + (w - 68) + 4, y, labelColor);
@@ -203,7 +204,12 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         Gfx.text(ctx, font(), Txt.literal("Label (optional)"), cx - w / 2, y, labelColor);
 
         if (!message.isEmpty()) {
-            Gfx.centered(ctx, font(), Txt.literal(message), cx, this.height - 14, messageColor);
+            List<String> lines = Wrap.lines(font(), message, Math.min(340, this.width - 20));
+            int my = this.height - 4 - lines.size() * 11;
+            for (String l : lines) {
+                Gfx.centered(ctx, font(), Txt.literal(l), cx, my, messageColor);
+                my += 11;
+            }
         }
     }
 }

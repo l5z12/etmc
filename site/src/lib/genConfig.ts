@@ -37,10 +37,54 @@ function tstr(s: string): string {
   return `"${escaped}"`;
 }
 
+const RELAY_SCHEMES = ['tcp', 'udp', 'ws', 'wss', 'wg', 'quic', 'faketcp', 'txt', 'srv', 'http', 'https'];
+const RELAY_NEEDS_PORT = ['tcp', 'udp', 'wg', 'quic', 'faketcp'];
+
+/**
+ * What is wrong with `uri` as a relay address, or `null` if it looks dialable. Mirrors the mod's
+ * `Relays.problem`: the classic mistake is pasting an etmc:// join link where a relay goes, which
+ * EasyTier can't dial, so joiners never reach the host.
+ */
+export function relayProblem(uri: string): string | null {
+  const u = (uri || '').trim();
+  if (!u) return 'Empty relay address.';
+  if (/^etmc:\/\//i.test(u) || u.startsWith('ETMC1:')) {
+    return `"${u.slice(0, 40)}…" is an etmc join link, not a relay. A relay looks like tcp://relay.example.com:11010.`;
+  }
+  const sep = u.indexOf('://');
+  if (sep <= 0) return `"${u}" has no protocol. Write it like tcp://${u}${u.includes(':') ? '' : ':11010'}.`;
+  const scheme = u.slice(0, sep).toLowerCase();
+  if (!RELAY_SCHEMES.includes(scheme)) {
+    return `"${scheme}://" isn't a relay protocol EasyTier knows (use tcp://, udp://, ws://, wss://, quic:// or wg://).`;
+  }
+  let url: URL;
+  try {
+    url = new URL(u.replace(/^[a-z]+:/i, 'http:'));
+  } catch {
+    return `"${u}" isn't a valid address.`;
+  }
+  if (!url.hostname) return `"${u}" has no host name.`;
+  const explicitPort = /:\d+(\/|$)/.test(u.slice(sep + 3).replace(/^\[[^\]]*\]/, ''));
+  if (!explicitPort && RELAY_NEEDS_PORT.includes(scheme)) {
+    return `"${u}" has no port (EasyTier relays usually listen on 11010).`;
+  }
+  return null;
+}
+
+function relayErrors(relays: string[]): string[] {
+  const out: string[] = [];
+  for (const r of relays) {
+    const p = relayProblem(r);
+    if (p) out.push(p);
+  }
+  return out;
+}
+
 export function validate(i: GenInput): string[] {
   const errs: string[] = [];
   if (!i.network.trim()) errs.push('Network name is required.');
   if (i.relays.length === 0) errs.push('Add at least one relay (EasyTier public node).');
+  errs.push(...relayErrors(i.relays));
   if (!i.serverIp.trim()) errs.push('Server mesh IP is required.');
   if (!(i.serverPort > 0 && i.serverPort <= 65535)) errs.push('Server port must be 1–65535.');
   if (!i.dhcp && !i.ipv4.trim()) errs.push('Static mode needs a client IPv4 (or switch to DHCP).');
@@ -90,6 +134,7 @@ export function validatePaper(i: GenInput): string[] {
   const errs: string[] = [];
   if (!i.network.trim()) errs.push('Network name is required.');
   if (i.relays.length === 0) errs.push('Add at least one relay (EasyTier public node).');
+  errs.push(...relayErrors(i.relays));
   if (!(i.virtualPort > 0 && i.virtualPort <= 65535)) errs.push('Virtual port must be 1–65535.');
   return errs;
 }
@@ -152,6 +197,9 @@ function b64urlUtf8(json: string): string {
 export function validateJoinLink(i: GenInput): string[] {
   const errs: string[] = [];
   if (!i.network.trim()) errs.push('Network name is required.');
+  // A link without a relay gives joiners no way to reach the host.
+  if (i.relays.length === 0) errs.push('Add the host\'s relay: without one, joiners have no way to reach the host.');
+  errs.push(...relayErrors(i.relays));
   if (!i.serverIp.trim()) errs.push('Host mesh IP is required.');
   if (!(i.serverPort > 0 && i.serverPort <= 65535)) errs.push('Host port must be 1–65535.');
   return errs;
@@ -181,10 +229,10 @@ export function buildJoinCode(i: GenInput): string {
   return CODE_PREFIX + joinPayload(i);
 }
 
-/** Splits a comma/newline separated list into trimmed non-empty entries. */
+/** Splits a list on commas, semicolons, spaces or newlines (as the mod does) into trimmed entries. */
 export function splitList(text: string): string[] {
   return (text || '')
-    .split(/[\r\n,]+/)
+    .split(/[\s,;]+/)
     .map((s) => s.trim())
     .filter(Boolean);
 }

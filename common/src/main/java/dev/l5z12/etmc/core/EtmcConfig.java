@@ -24,18 +24,30 @@ public final class EtmcConfig {
     private EtmcConfig() {}
 
     public static String hostToml(String instName, String networkName, String secret, List<String> relays) {
-        return build(instName, networkName, secret, relays, HOST_VIRTUAL_IP, false);
+        return hostToml(instName, instName, networkName, secret, relays);
+    }
+
+    /** @param hostname the device name peers see (the instance name is internal and unique per session) */
+    public static String hostToml(String instName, String hostname, String networkName, String secret,
+                                  List<String> relays) {
+        return build(instName, hostname, networkName, secret, relays, HOST_VIRTUAL_IP, false);
     }
 
     public static String joinToml(String instName, String networkName, String secret, List<String> relays) {
-        return build(instName, networkName, secret, relays, null, true);
+        return joinToml(instName, instName, networkName, secret, relays);
     }
 
-    private static String build(String instName, String networkName, String secret,
+    public static String joinToml(String instName, String hostname, String networkName, String secret,
+                                  List<String> relays) {
+        return build(instName, hostname, networkName, secret, relays, null, true);
+    }
+
+    private static String build(String instName, String hostname, String networkName, String secret,
                                 List<String> relays, String staticIpv4, boolean dhcp) {
         StringBuilder sb = new StringBuilder();
         sb.append("instance_name = ").append(Toml.quote(instName)).append('\n');
-        sb.append("hostname = ").append(Toml.quote(instName)).append('\n');
+        String device = hostname == null || hostname.isBlank() ? instName : hostname;
+        sb.append("hostname = ").append(Toml.quote(device)).append('\n');
         if (dhcp) {
             sb.append("dhcp = true\n");
         } else {

@@ -87,6 +87,10 @@ public final class EtmcPlugin extends JavaPlugin {
             if (relays.isEmpty()) {
                 throw new IllegalStateException("No relays configured. Set 'relays' in plugins/etmc/config.yml.");
             }
+            String relayProblem = dev.l5z12.etmc.core.Relays.firstProblem(relays);
+            if (relayProblem != null) {
+                throw new IllegalStateException("Bad relay in plugins/etmc/config.yml: " + relayProblem);
+            }
 
             Path cacheRoot = getDataFolder().toPath();
             NativeLoader.Native nat = NativeLoader.extract(cacheRoot);

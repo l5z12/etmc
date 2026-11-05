@@ -31,11 +31,39 @@ public final class Errors {
         return c;
     }
 
-    /** A short, user-facing description of {@code t}: its root cause's message, else its type. */
+    /**
+     * A short, user-facing description of {@code t}: its root cause's message (else its type), with the
+     * library's function-name prefixes turned into what they mean for the player.
+     */
     public static String message(Throwable t) {
         if (t == null) return "unknown error";
         Throwable c = root(t);
         String msg = c.getMessage();
-        return msg == null || msg.isBlank() ? c.toString() : msg;
+        if (msg == null || msg.isBlank()) return c.toString();
+        return friendly(msg);
     }
+
+    /** Rewrites raw EasyTier lifecycle errors ("run_network_instance failed: ...") for players. */
+    static String friendly(String msg) {
+        String m = msg.trim();
+        String lower = m.toLowerCase(java.util.Locale.ROOT);
+        if (lower.contains("data plane net is not ready")) {
+            return "the EasyTier network isn't ready yet (no route to the host so far)";
+        }
+        for (String[] prefix : PREFIXES) {
+            if (m.startsWith(prefix[0])) {
+                String detail = m.substring(prefix[0].length()).trim();
+                if (detail.startsWith("anyhow error:")) detail = detail.substring("anyhow error:".length()).trim();
+                return detail.isEmpty() ? prefix[1] : prefix[1] + ": " + detail;
+            }
+        }
+        return m;
+    }
+
+    private static final String[][] PREFIXES = {
+            {"run_network_instance failed:", "couldn't start the EasyTier network"},
+            {"parse_config failed:", "EasyTier rejected the network settings"},
+            {"delete_network_instance failed:", "couldn't stop the EasyTier network"},
+            {"collect_network_infos failed:", "couldn't read the EasyTier network status"},
+    };
 }

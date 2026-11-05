@@ -5,6 +5,7 @@ import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
+import dev.l5z12.etmc.client.Wrap;
 import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.JoinCode;
 //? if yarn {
@@ -17,7 +18,14 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;*/
 //?}
 
-/** Join a hosted world by pasting an {@code ETMC1:} join code. */
+/**
+ * Join a hosted world from the {@code etmc://} link (or {@code ETMC1:} code — the same thing) the
+ * host shared.
+ *
+ * <p>Outside a world this takes the same path as pasting the link into Direct Connect: it waits for
+ * the host to be reachable and connects by itself. Inside a world Minecraft can't switch servers
+ * directly, so it starts the network and adds an "etmc: ..." entry to the server list instead.
+ */
 public final class JoinScreen extends EtmcBaseScreen {
 
     //? if yarn {
@@ -38,7 +46,7 @@ public final class JoinScreen extends EtmcBaseScreen {
         int w = 260;
         int y = this.height / 4 + 12;
 
-        codeField = Ui.textField(font(), cx - w / 2, y, w, 20, Txt.literal("Join code"));
+        codeField = Ui.textField(font(), cx - w / 2, y, w, 20, Txt.literal("etmc:// link or code"));
         codeField.setMaxLength(4096);
         add(codeField);
         //? if >=1.17 {
@@ -51,7 +59,7 @@ public final class JoinScreen extends EtmcBaseScreen {
                 .dimensions(cx - w / 2, y, w, 20).build());
         y += 28;
 
-        joinButton = Ui.button(Txt.literal("Join"), b -> startJoining())
+        joinButton = Ui.button(Txt.literal(McScreens.inWorld() ? "Add to server list" : "Join"), b -> startJoining())
                 .dimensions(cx - w / 2, y, w, 20).build();
         joinButton.active = EtmcManager.get().isReady();
         add(joinButton);
@@ -63,32 +71,49 @@ public final class JoinScreen extends EtmcBaseScreen {
 
     private void startJoining() {
         EtmcManager m = EtmcManager.get();
+        String text = Ui.getText(codeField).trim();
         JoinCode jc;
         try {
-            jc = JoinCode.decode(Ui.getText(codeField));
+            jc = JoinCode.decode(text);
         } catch (IllegalArgumentException e) {
-            setMessage("Bad code: " + e.getMessage(), COLOR_BAD);
+            setMessage("That isn't an etmc link or code (" + e.getMessage() + "). Copy it from the host again.",
+                    COLOR_BAD);
+            return;
+        }
+        if (!McScreens.inWorld()) {
+            // Same path as Direct Connect: waits for the host, then connects by itself.
+            m.connectViaLink(this, text);
             return;
         }
         joinButton.active = false;
-        setMessage("Joining '" + jc.networkName + "'…", COLOR_BUSY);
+        setMessage("Starting the network for '" + jc.displayLabel() + "'…", COLOR_BUSY);
         m.joinAsync(jc).whenComplete((port, err) ->
                 mc().execute(() -> {
                     if (err != null) {
-                        setMessage("Failed: " + Errors.message(err), COLOR_BAD);
+                        setMessage("Couldn't join: " + Errors.message(err), COLOR_BAD);
                         joinButton.active = true;
                     }
-                    // on success, McNet has already switched to the connect screen
+                    // on success, McNet has already closed this screen and posted where the entry went
                 }));
     }
 
     @Override
     protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
-        Gfx.centered(ctx, font(), this.title, this.width / 2, 24, COLOR_TEXT);
-        Gfx.centered(ctx, font(),
-                Txt.literal("Paste the ETMC1:… code your host shared"), this.width / 2, this.height / 4 - 4, COLOR_MUTED);
+        int cx = this.width / 2;
+        Gfx.centered(ctx, font(), this.title, cx, 24, COLOR_TEXT);
+        Gfx.centered(ctx, font(), Txt.literal("Paste the etmc:// link (or ETMC1: code) your host shared"),
+                cx, this.height / 4 - 4, COLOR_MUTED);
+        if (McScreens.inWorld()) {
+            Gfx.centered(ctx, font(),
+                    Txt.literal("You're in a world: this adds the host to your server list, to join after you leave."),
+                    cx, this.height / 4 + 120, 0xFF777777);
+        }
         if (!message.isEmpty()) {
-            Gfx.centered(ctx, font(), Txt.literal(message), this.width / 2, this.height - 40, messageColor);
+            int y = this.height - 40;
+            for (String l : Wrap.lines(font(), message, Math.min(320, this.width - 20))) {
+                Gfx.centered(ctx, font(), Txt.literal(l), cx, y, messageColor);
+                y += 11;
+            }
         }
     }
 }

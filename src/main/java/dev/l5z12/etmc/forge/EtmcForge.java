@@ -82,11 +82,13 @@ public final class EtmcForge {
                 e.getLayeredDraw().add(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));
         //?} else if >=1.21.6 {
+        /*EtmcHud.markUnavailable(); // no HUD-layer registration API in this window*/
         //?} else if >=1.21.1 {
         /*modBus.addListener((AddGuiOverlayLayersEvent e) ->
                 e.getLayeredDraw().add(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));*/
         //?} else if >=1.21 {
+        /*EtmcHud.markUnavailable(); // no HUD-layer registration API in this window*/
         //?} else if >=1.20.5 {
         /*modBus.addListener((AddGuiOverlayLayersEvent e) ->
                 e.getLayeredDraw().add(new ResourceLocation("etmc", "status"),

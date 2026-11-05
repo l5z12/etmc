@@ -15,6 +15,7 @@ import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
+import dev.l5z12.etmc.core.Relays;
 //? if fabric && >=26 {
 /*import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;*/
@@ -91,16 +92,42 @@ public final class EtmcCommands {
     }
 
     private static int host(Src src, String network, String secret) {
-        if (!checkReady(src) || !checkRelay(src)) return 0;
+        EtmcManager m = EtmcManager.get();
+        String blocker = m.hostBlocker();
+        if (blocker != null) {
+            src.error(blocker);
+            return 0;
+        }
         if (network == null || network.isBlank()) {
             src.error("Usage: /etmc host <network> [secret]");
             return 0;
         }
+        // No secret given: make one up rather than host an open network anyone can stumble into.
+        String sec = secret == null || secret.isBlank() ? randomSecret() : secret;
+        ModConfig cfg = m.config();
+        String label = cfg.lastLabel == null || cfg.lastLabel.isBlank() ? m.playerName() + "'s world" : cfg.lastLabel;
+        String mode = cfg.lanGameMode == null || cfg.lanGameMode.isBlank() ? null : cfg.lanGameMode;
         src.feedback("Hosting on network '" + network + "'…");
-        EtmcManager.get().hostAsync(network, secret).whenComplete((code, err) -> reply(err == null
-                ? "Hosting! Share: " + (code != null ? code.encode() : "?")
-                : "Host failed: " + Errors.message(err)));
+        m.hostAsync(network, sec, label, mode, cfg.lanCheats).whenComplete((code, err) -> {
+            if (err != null) {
+                reply("Couldn't start hosting: " + Errors.message(err));
+                return;
+            }
+            // The link carries the secret, so it goes to the clipboard, not into chat (where it would
+            // sit in the chat log and on any stream or screenshot).
+            McScreens.mc().execute(() -> McScreens.setClipboard(code.encodeLink()));
+            reply("Hosting! Invite link copied to your clipboard: send it to the friends you want in"
+                    + " (it contains the secret). /etmc invite copies it again.");
+        });
         return 1;
+    }
+
+    private static String randomSecret() {
+        String alphabet = "abcdefghijkmnpqrstuvwxyz23456789";
+        java.security.SecureRandom r = new java.security.SecureRandom();
+        StringBuilder b = new StringBuilder(12);
+        for (int i = 0; i < 12; i++) b.append(alphabet.charAt(r.nextInt(alphabet.length())));
+        return b.toString();
     }
 
     private static int join(Src src, String code) {
@@ -112,9 +139,9 @@ public final class EtmcCommands {
             src.error("Bad join code: " + e.getMessage());
             return 0;
         }
-        src.feedback("Joining '" + jc.networkName + "'…");
+        src.feedback("Starting the network for '" + jc.displayLabel() + "'…");
         EtmcManager.get().joinAsync(jc).whenComplete((port, err) -> {
-            if (err != null) reply("Join failed: " + Errors.message(err));
+            if (err != null) reply("Couldn't join: " + Errors.message(err));
         });
         return 1;
     }
@@ -151,13 +178,22 @@ public final class EtmcCommands {
         }
         NetworkStatus st = m.cachedStatus();
         src.feedback("etmc " + (s.mode() == EtmcSession.Mode.HOST ? "hosting" : "joined")
-                + " — ip " + (st.virtualIp() == null ? "?" : st.virtualIp())
-                + ", peers " + st.peerCount() + " (P2P " + st.directPeerCount() + ")"
-                + ", connections " + s.activeConnections());
+                + " — your address " + (st.virtualIp() == null ? "(none yet)" : st.virtualIp())
+                + ", players " + st.peerCount() + " (direct " + st.directPeerCount() + ")"
+                + ", game connections " + s.activeConnections());
+        if (!st.running()) src.error("The EasyTier network isn't running.");
+        else if (st.peers().isEmpty() && st.relayNodes() == 0) src.error("The relay hasn't been reached yet.");
+        if (st.errorMsg() != null) src.error("EasyTier: " + st.errorMsg());
+        if (s.hostFailure() != null) src.error("Joiners can't connect any more: " + s.hostFailure());
+        int shown = 0;
         for (NetworkStatus.Peer p : st.peers()) {
+            if (++shown > 10) {
+                src.feedback("  … and " + (st.peerCount() - 10) + " more (etmc menu → Session status)");
+                break;
+            }
             src.feedback("  • " + p.hostname() + " " + (p.ipv4() == null ? "" : p.ipv4())
                     + " " + (p.latencyMs() >= 0 ? p.latencyMs() + "ms" : "")
-                    + (p.relay() ? " (relay)" : ""));
+                    + (p.relay() ? " (via relay)" : " (direct)"));
         }
         return 1;
     }
@@ -169,11 +205,9 @@ public final class EtmcCommands {
             src.error("No active host session to invite to. Use /etmc host first.");
             return 0;
         }
-        String link = jc.encodeLink();
-        McScreens.setClipboard(link);
-        src.feedback("etmc:// link copied to clipboard (paste into Add Server / Direct Connect):");
-        src.feedback(link);
-        src.feedback("Join code: " + jc.encode());
+        McScreens.setClipboard(jc.encodeLink());
+        src.feedback("Invite link copied to your clipboard. Friends paste it into Direct Connect (or"
+                + " etmc → Join). It contains the secret: send it only to people you want in.");
         return 1;
     }
 
@@ -181,7 +215,7 @@ public final class EtmcCommands {
         ModConfig cfg = EtmcManager.get().config();
         cfg.hudEnabled = !cfg.hudEnabled;
         cfg.save();
-        src.feedback("HUD " + (cfg.hudEnabled ? "enabled" : "disabled") + ".");
+        src.feedback("Top-left status overlay " + (cfg.hudEnabled ? "shown" : "hidden") + ".");
         return 1;
     }
 
@@ -198,18 +232,25 @@ public final class EtmcCommands {
 
     private static int relayAdd(Src src, String uri) {
         ModConfig cfg = EtmcManager.get().config();
-        String relay = uri.trim();
-        if (relay.isEmpty()) {
-            src.error("Usage: /etmc relay add <uri>   (e.g. tcp://my.relay:11010)");
+        java.util.List<String> add = Relays.parse(uri);
+        if (add.isEmpty()) {
+            src.error("Usage: /etmc relay add <uri>   (e.g. tcp://relay.example.com:11010)");
             return 0;
         }
-        if (cfg.relays.contains(relay)) {
-            src.feedback("Relay already configured: " + relay);
-            return 1;
+        String bad = Relays.firstProblem(add);
+        if (bad != null) {
+            src.error(bad);
+            return 0;
         }
-        cfg.relays.add(relay);
+        for (String relay : add) {
+            if (cfg.relays.contains(relay)) {
+                src.feedback("Relay already configured: " + relay);
+            } else {
+                cfg.relays.add(relay);
+                src.feedback("Added relay: " + relay);
+            }
+        }
         cfg.save();
-        src.feedback("Added relay: " + relay);
         return 1;
     }
 
@@ -300,17 +341,7 @@ public final class EtmcCommands {
 
     /** Posts a chat line from an async callback (back on the client thread). */
     private static void reply(String msg) {
-        var client = McScreens.mc();
-        client.execute(() -> {
-            if (client.player == null) return;
-            //? if yarn {
-            client.player.sendMessage(Txt.literal("[etmc] " + msg), false);
-            //?} else if <26 {
-            /*client.player.displayClientMessage(Txt.literal("[etmc] " + msg), false);*/
-            //?} else {
-            /*client.player.sendSystemMessage(Txt.literal("[etmc] " + msg));*/
-            //?}
-        });
+        McScreens.chat(msg);
     }
 
     // ------------------------------------------------------------------ shared helpers
@@ -318,14 +349,6 @@ public final class EtmcCommands {
     private static boolean checkReady(Src src) {
         if (!EtmcManager.get().isReady()) {
             src.error("etmc native library not loaded: " + EtmcManager.get().nativeError());
-            return false;
-        }
-        return true;
-    }
-
-    private static boolean checkRelay(Src src) {
-        if (!EtmcManager.get().config().hasRelay()) {
-            src.error("No relay configured. Add one with /etmc relay add <uri>.");
             return false;
         }
         return true;

@@ -2,6 +2,7 @@ package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.EtmcSession;
@@ -31,11 +32,12 @@ public final class EtmcScreen extends EtmcBaseScreen {
         var host = Ui.button(Txt.literal("Host this world"),
                 b -> goTo(new HostScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
-        host.active = ready && !active;
+        // Hosting shares the singleplayer world you're in; on a server (or the title screen) there's none.
+        host.active = ready && !active && McScreens.singleplayer();
         add(host);
         y += 24;
 
-        var join = Ui.button(Txt.literal("Join with a code"),
+        var join = Ui.button(Txt.literal("Join with a link or code"),
                 b -> goTo(new JoinScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         join.active = ready && !active;
@@ -83,8 +85,12 @@ public final class EtmcScreen extends EtmcBaseScreen {
         } else if (m.session() != null && m.session().isActive()) {
             sub = m.session().mode() == EtmcSession.Mode.HOST ? "Currently hosting" : "Currently joined";
             color = COLOR_GOOD;
+        } else if (!McScreens.singleplayer() && !McScreens.inWorld()) {
+            sub = "Open a singleplayer world to host it, or join someone's";
+        } else if (!McScreens.singleplayer()) {
+            sub = "You're on a server: only singleplayer worlds can be hosted";
         } else if (!m.config().hasRelay()) {
-            sub = "No relay set — add one in Settings";
+            sub = "To host, add a relay in Settings first";
             color = COLOR_WARN;
         } else {
             sub = "EasyTier P2P multiplayer, in-game";

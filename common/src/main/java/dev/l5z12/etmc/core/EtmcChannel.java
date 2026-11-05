@@ -110,8 +110,10 @@ public final class EtmcChannel extends AbstractChannel {
 
     @Override
     protected void doClose() throws Exception {
+        boolean wasActive = active;
         open = false;
         active = false;
+        if (wasActive) EtmcConnect.channelClosed();
         long s = stream;
         stream = 0;
         Io.closeStream(target.et(), s);
@@ -268,8 +270,15 @@ public final class EtmcChannel extends AbstractChannel {
                 try {
                     var c = target.et().tcpConnect(target.instanceName(), target.hostIp(), target.hostPort(),
                             CONNECT_TIMEOUT_MS);
+                    if (!open) {
+                        // Closed (cancelled) while connecting: don't leave the stream open behind it.
+                        Io.closeStream(target.et(), c.handle());
+                        eventLoop().execute(() -> promise.tryFailure(new java.nio.channels.ClosedChannelException()));
+                        return;
+                    }
                     stream = c.handle();
                     active = true;
+                    EtmcConnect.channelOpened();
                     eventLoop().execute(() -> {
                         promise.setSuccess();
                         pipeline().fireChannelActive();

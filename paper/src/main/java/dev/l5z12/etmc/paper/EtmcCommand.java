@@ -46,6 +46,11 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         }
         NetworkStatus st = plugin.session().status();
         sender.sendMessage("[etmc] Mesh up — network '" + plugin.network() + "'");
+        if (st.errorMsg() != null) sender.sendMessage("  EasyTier reports: " + st.errorMsg());
+        String hostFailure = plugin.session().hostFailure();
+        if (hostFailure != null) {
+            sender.sendMessage("  NOT accepting players: " + hostFailure + " (run /etmc reload)");
+        }
         sender.sendMessage("  mesh address: " + EtmcConfig.HOST_VIRTUAL_IP + ":" + plugin.virtualPort());
         sender.sendMessage("  virtual ip: " + (st.virtualIp() == null ? "(assigning)" : st.virtualIp())
                 + "   peers: " + st.peerCount() + " (P2P " + st.directPeerCount() + ")"
@@ -63,6 +68,7 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("[etmc] No join code yet (mesh not started).");
             return;
         }
+        sender.sendMessage("[etmc] These contain the network secret: anyone who has them can join.");
         sender.sendMessage("[etmc] Join code (players paste in 'Join with a code'):");
         sender.sendMessage(jc.encode());
         sender.sendMessage("[etmc] …or link (paste into Add Server / Direct Connect):");
@@ -74,10 +80,18 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("[etmc] Mesh not started yet.");
             return;
         }
-        sender.sendMessage("[etmc] Host this as a file; players use 'Connect via config URL':");
-        for (String line : buildConfigFile().split("\n")) {
-            sender.sendMessage(line);
+        // Written to a file rather than dumped into chat: it contains the network secret, and a chat
+        // log or a streamed screen is a poor place for that.
+        java.nio.file.Path out = plugin.getDataFolder().toPath().resolve("join-config.toml");
+        try {
+            java.nio.file.Files.createDirectories(out.getParent());
+            java.nio.file.Files.writeString(out, buildConfigFile(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            sender.sendMessage("[etmc] Couldn't write " + out + ": " + e.getMessage());
+            return;
         }
+        sender.sendMessage("[etmc] Wrote " + out + " (it contains the network secret).");
+        sender.sendMessage("[etmc] Host it at an HTTP(S) URL; players use 'Connect via config URL' with that URL.");
     }
 
     /** EasyTier config + [etmc] server, mirroring the site generator output. */

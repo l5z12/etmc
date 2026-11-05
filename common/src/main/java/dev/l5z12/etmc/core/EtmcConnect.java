@@ -24,9 +24,27 @@ public final class EtmcConnect {
      * carries the real destination and the connection rides an {@link EtmcChannel}. Shared so the
      * address mixin and the connect path can't drift apart.
      */
-    public static final String PLACEHOLDER_ADDRESS = "127.0.0.1:25565";
+    public static final String PLACEHOLDER_ADDRESS = "127.0.0.1:1";
+    // Port 1, not 25565: the server list pings a saved etmc:// entry at this address, and on 25565
+    // it would show whatever local server happens to run there (its MOTD and player count) as if
+    // it were the etmc host. Nothing listens on port 1, so the ping just reports it unreachable.
 
     private static final AtomicReference<Target> PENDING = new AtomicReference<>();
+    /** Live {@link EtmcChannel}s, for the status UI (a link join has no proxy to count connections). */
+    private static final java.util.concurrent.atomic.AtomicInteger OPEN = new java.util.concurrent.atomic.AtomicInteger();
+
+    static void channelOpened() {
+        OPEN.incrementAndGet();
+    }
+
+    static void channelClosed() {
+        OPEN.updateAndGet(n -> Math.max(0, n - 1));
+    }
+
+    /** How many {@code etmc://} connections are currently open. */
+    public static int openChannels() {
+        return OPEN.get();
+    }
 
     /** Set by the client manager; invoked (with the closing channel's instance name) on disconnect. */
     private static volatile Consumer<String> onDisconnect;

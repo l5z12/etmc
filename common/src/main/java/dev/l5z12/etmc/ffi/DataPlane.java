@@ -42,6 +42,8 @@ final class DataPlane {
     /** Opening a session right after {@code run_network_instance} can race the instance coming up. */
     private static final int OPEN_ATTEMPTS = 30;
     private static final long OPEN_RETRY_MS = 100L;
+    /** How long a bind/connect waits out a data-plane runtime that is still starting. */
+    private static final long STARTUP_WAIT_MS = 10_000L;
 
     private final DataPlaneAbi abi;
     private final Map<String, Session> sessions = new ConcurrentHashMap<>();
@@ -58,7 +60,7 @@ final class DataPlane {
 
     EasyTier.Bind tcpBind(String inst, int port, long timeoutMs) {
         Session s = session(inst);
-        long op = abi.tcpBindSubmit(s.handle, port, timeoutMs);
+        long op = whileStarting(() -> abi.tcpBindSubmit(s.handle, port, timeoutMs));
         check(s, op, complete(s, op, timeoutMs + GRACE_MS), "couldn't listen on EasyTier port " + port);
         DataPlaneAbi.Opened r = abi.tcpBindResultTake(s.handle, op);
         return new EasyTier.Bind(register(s, r.resource()), r.localIp(), r.localPort());
@@ -83,7 +85,7 @@ final class DataPlane {
     EasyTier.Bind tcpConnect(String inst, String ip, int port, long timeoutMs) {
         byte[] ipv4 = parseIpv4(ip);
         Session s = session(inst);
-        long op = abi.tcpConnectSubmit(s.handle, ipv4, port, timeoutMs);
+        long op = whileStarting(() -> abi.tcpConnectSubmit(s.handle, ipv4, port, timeoutMs));
         check(s, op, complete(s, op, timeoutMs + GRACE_MS), "couldn't connect to " + ip + ":" + port);
         DataPlaneAbi.Opened r = abi.tcpConnectResultTake(s.handle, op);
         return new EasyTier.Bind(register(s, r.resource()), r.localIp(), r.localPort());
@@ -131,6 +133,25 @@ final class DataPlane {
                 LOG.log(System.Logger.Level.DEBUG, "data_plane_session_close failed", t);
             }
             s.ended();
+        }
+    }
+
+    /**
+     * Submits, retrying while the instance's data-plane runtime is still starting. The runtime comes
+     * up asynchronously after {@code run_network_instance} returns, and a submit in that window fails
+     * with INSTANCE_STOPPED "data-plane runtime is not running" — the same kind a stopped instance
+     * reports, so the retry is time-bounded rather than open-ended.
+     */
+    private static long whileStarting(java.util.function.LongSupplier submit) {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(STARTUP_WAIT_MS);
+        while (true) {
+            try {
+                return submit.getAsLong();
+            } catch (EasyTierException e) {
+                boolean starting = e.is(DataPlaneError.INSTANCE_STOPPED)
+                        && String.valueOf(e.getMessage()).contains("not running");
+                if (!starting || System.nanoTime() > deadline || !sleep(OPEN_RETRY_MS)) throw e;
+            }
         }
     }
 

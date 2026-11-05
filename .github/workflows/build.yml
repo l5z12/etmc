@@ -319,8 +319,10 @@ jobs:
         run: |
           chmod +x ./gradlew
           installs="-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64"
-          for j in 17 21; do
-            ./gradlew $installs -p paper test --tests '*NativeSmokeTest' -Ppaper_java=$j -Petmc.nativeSmoke=true --stacktrace
+          # Each JDK needs a paper-api it can compile against (1.20.5+ requires Java 21).
+          for pair in 17:1.20.4 21:1.21.10; do
+            ./gradlew $installs -p paper test --tests '*NativeSmokeTest' -Ppaper_java=${pair%%:*} \
+              -Ppaper_version=${pair#*:}-R0.1-SNAPSHOT -Petmc.nativeSmoke=true --stacktrace
           done
 
       - name: Build every Paper jar

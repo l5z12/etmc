@@ -8,6 +8,7 @@
     "ClientConnectionMixin",
     "ConnectScreenMixin",
     "DirectConnectScreenMixin",
+    "MultiplayerScreenMixin",
     "ServerAddressMixin"
   ],
   "injectors": {

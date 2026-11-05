@@ -6,6 +6,7 @@ import lombok.Getter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Central state machine for an etmc session. Knows nothing about Minecraft: the client layer feeds
@@ -16,6 +17,8 @@ import java.util.Map;
  */
 public final class EtmcSession {
 
+    private static final System.Logger LOG = System.getLogger("etmc.EtmcSession");
+
     public enum State { IDLE, STARTING, HOSTING, JOINING, ERROR }
     public enum Mode { NONE, HOST, JOIN }
 
@@ -24,6 +27,14 @@ public final class EtmcSession {
     @Getter private volatile State state = State.IDLE;
     @Getter private volatile Mode mode = Mode.NONE;
     @Getter private volatile String instName;
+    /** The device name peers see for this node (EasyTier {@code hostname}). */
+    @Getter private volatile String hostname;
+    /**
+     * Whether this join rides {@link EtmcChannel}s directly (the {@code etmc://} flow) rather than the
+     * loopback {@link JoinProxy}; such a session has no local port, and its connections are counted
+     * by {@link EtmcConnect}.
+     */
+    @Getter private volatile boolean linkJoin;
     /** Why the last host/join failed; only meaningful in {@link State#ERROR}. */
     @Getter private volatile String lastError;
 
@@ -38,7 +49,7 @@ public final class EtmcSession {
     private volatile int preferredLocalPort = 0;
     /**
      * Local player's name, used to derive the EasyTier device name. Stays {@code null} on a dedicated
-     * server (Paper), where there is no player — the host device is then just {@code etmc-host}.
+     * server (Paper), where there is no player — the host device is then just {@code server}.
      */
     private volatile String playerName = null;
 
@@ -52,10 +63,10 @@ public final class EtmcSession {
     }
 
     /**
-     * Sets the local player's name, used as the EasyTier device name (hostname) shown to peers. A
-     * client carries a username, so its device is {@code etmc-host-<username>} when hosting and the
-     * same when joining; a dedicated server (Paper) never calls this, so its host device is plain
-     * {@code etmc-host}. Call before hosting/joining; ignored when blank.
+     * Sets the local player's name, used for the EasyTier device name (hostname) peers see: a client
+     * shows as {@code <username>-host} while hosting and {@code <username>} when joining; a dedicated
+     * server (Paper) never calls this and shows as {@code server}. Call before hosting/joining;
+     * ignored when blank.
      */
     public void setPlayerName(String name) {
         if (name != null && !name.isBlank()) {
@@ -73,15 +84,21 @@ public final class EtmcSession {
      */
     public synchronized JoinCode host(int lanPort, String networkName, String secret,
                                       List<String> relays, int virtualPort) {
+        return host(lanPort, networkName, secret, relays, virtualPort, networkName);
+    }
+
+    /** {@link #host(int, String, String, List, int)} with the label joiners see for this world. */
+    public synchronized JoinCode host(int lanPort, String networkName, String secret,
+                                      List<String> relays, int virtualPort, String label) {
         requireIdle();
         state = State.STARTING;
         try {
-            // Dedicated server (Paper) has no player → plain "etmc-host"; a client host appends its name.
-            this.instName = playerName != null ? "etmc-host-" + sanitizeName(playerName) : "etmc-host";
+            this.instName = newInstanceName("host");
+            this.hostname = playerName != null ? sanitizeName(playerName) + "-host" : "server";
             this.lanPort = lanPort;
             this.virtualPort = virtualPort > 0 ? virtualPort : EtmcConfig.DEFAULT_VIRTUAL_PORT;
 
-            String toml = EtmcConfig.hostToml(instName, networkName, secret, relays);
+            String toml = EtmcConfig.hostToml(instName, hostname, networkName, secret, relays);
             et.runNetworkInstance(toml);
 
             HostShare share = new HostShare(et, instName, this.virtualPort, lanPort);
@@ -89,7 +106,8 @@ public final class EtmcSession {
             this.hostShare = share;
 
             this.currentCode = new JoinCode(networkName, secret, relays,
-                    EtmcConfig.HOST_VIRTUAL_IP, this.virtualPort, networkName);
+                    EtmcConfig.HOST_VIRTUAL_IP, this.virtualPort,
+                    label == null || label.isBlank() ? networkName : label.trim());
             this.mode = Mode.HOST;
             this.state = State.HOSTING;
             return currentCode;
@@ -108,8 +126,8 @@ public final class EtmcSession {
      * <p>Blocking; call off the render thread.
      */
     public synchronized int join(JoinCode code) {
-        String inst = joinerInstanceName();
-        String toml = EtmcConfig.joinToml(inst, code.networkName, code.networkSecret, code.relays);
+        String inst = newInstanceName("join");
+        String toml = EtmcConfig.joinToml(inst, joinerHostname(), code.networkName, code.networkSecret, code.relays);
         return startJoin(toml, inst, code.hostIp, code.hostPort, code);
     }
 
@@ -123,10 +141,12 @@ public final class EtmcSession {
         requireIdle();
         state = State.STARTING;
         try {
-            String inst = joinerInstanceName();
-            String toml = EtmcConfig.joinToml(inst, code.networkName, code.networkSecret, code.relays);
+            String inst = newInstanceName("join");
+            this.hostname = joinerHostname();
+            String toml = EtmcConfig.joinToml(inst, hostname, code.networkName, code.networkSecret, code.relays);
             et.runNetworkInstance(toml);
             this.instName = inst;
+            this.linkJoin = true;
             this.currentCode = code;
             this.mode = Mode.JOIN;
             this.state = State.JOINING;
@@ -157,6 +177,7 @@ public final class EtmcSession {
         state = State.STARTING;
         try {
             this.instName = inst;
+            if (this.hostname == null) this.hostname = joinerHostname();
             et.runNetworkInstance(toml);
 
             JoinProxy proxy = new JoinProxy(et, inst, serverIp, serverPort, preferredLocalPort);
@@ -186,7 +207,10 @@ public final class EtmcSession {
             if (name != null) {
                 try {
                     et.deleteNetworkInstance(name);
-                } catch (Throwable ignored) {
+                } catch (Throwable t) {
+                    // Instance names are unique per session, so a leftover can't block the next host or
+                    // join; it is still a network running in the background, though, so say so.
+                    LOG.log(System.Logger.Level.WARNING, "couldn't stop EasyTier instance " + name, t);
                 }
             }
         } finally {
@@ -194,6 +218,8 @@ public final class EtmcSession {
             joinProxy = null;
             currentCode = null;
             instName = null;
+            hostname = null;
+            linkJoin = false;
             mode = Mode.NONE;
             localPort = 0;
             lanPort = 0;
@@ -206,12 +232,10 @@ public final class EtmcSession {
         String name = instName;
         if (name == null) return NetworkStatus.empty();
         try {
+            // Only ever our own instance: falling back to "whichever network the library knows" could
+            // show a leftover network's peers as if they were this session's.
             Map<String, String> infos = et.collectNetworkInfos(16);
-            String json = infos.get(name);
-            if (json == null && !infos.isEmpty()) {
-                json = infos.values().iterator().next();
-            }
-            return NetworkStatus.parse(json);
+            return NetworkStatus.parse(infos.get(name));
         } catch (Throwable t) {
             return NetworkStatus.empty();
         }
@@ -222,7 +246,14 @@ public final class EtmcSession {
         if (hs != null) return hs.activeConnections();
         JoinProxy jp = joinProxy;
         if (jp != null) return jp.activeConnections();
+        if (linkJoin) return EtmcConnect.openChannels();
         return 0;
+    }
+
+    /** Why the host stopped accepting joiners while the session is still up, or {@code null}. */
+    public String hostFailure() {
+        HostShare hs = hostShare;
+        return hs == null ? null : hs.failure();
     }
 
     // ------------------------------------------------------------------ getters
@@ -249,9 +280,18 @@ public final class EtmcSession {
         this.state = State.ERROR;
     }
 
-    /** EasyTier device name for a joiner: {@code etmc-host-<sanitized username>}. */
-    private String joinerInstanceName() {
-        return "etmc-host-" + sanitizeName(playerName);
+    /**
+     * A fresh EasyTier instance name per session ({@code etmc-<role>-<random>}). Never reused: if a
+     * leave ever fails to delete an instance, the library would refuse a second one with the same name
+     * ("instance already exists") and every later host/join would fail until a restart.
+     */
+    private static String newInstanceName(String role) {
+        return "etmc-" + role + "-" + Long.toHexString(ThreadLocalRandom.current().nextLong() & 0xFFFFFFFFFFL);
+    }
+
+    /** Device name peers see for a joiner: the player's name. */
+    private String joinerHostname() {
+        return sanitizeName(playerName);
     }
 
     /** Keeps only characters valid in an EasyTier hostname; falls back to {@code player} if empty. */

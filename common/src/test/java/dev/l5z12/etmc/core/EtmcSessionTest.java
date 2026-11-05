@@ -43,12 +43,14 @@ class EtmcSessionTest {
         assertEquals(EtmcSession.State.HOSTING, session.state());
         assertEquals(EtmcSession.Mode.HOST, session.mode());
         assertTrue(session.isActive());
-        assertEquals("etmc-host", session.instName(), "no player name on a dedicated server");
+        assertTrue(session.instName().startsWith("etmc-host-"), session.instName());
+        assertEquals("server", session.hostname(), "no player name on a dedicated server");
         assertEquals(25565, session.lanPort());
 
         assertEquals(1, et.started.size());
         String toml = et.started.get(0);
-        assertTrue(toml.contains("instance_name = \"etmc-host\""));
+        assertTrue(toml.contains("instance_name = \"" + session.instName() + "\""));
+        assertTrue(toml.contains("hostname = \"server\""));
         assertTrue(toml.contains("ipv4 = \"" + EtmcConfig.HOST_VIRTUAL_IP + "\""));
         assertTrue(toml.contains("uri = \"tcp://relay.example:11010\""));
 
@@ -64,14 +66,24 @@ class EtmcSessionTest {
     void thePlayerNameShapesTheDeviceNameAndIsSanitized() {
         session.setPlayerName("Steve/../Alex 42");
         host();
-        assertEquals("etmc-host-SteveAlex42", session.instName());
+        assertEquals("SteveAlex42-host", session.hostname());
+    }
+
+    @Test
+    void everySessionGetsAFreshInstanceName() {
+        host();
+        String first = session.instName();
+        session.leave();
+        host();
+        assertTrue(!first.equals(session.instName()),
+                "a reused name would be refused if the old instance was never deleted");
     }
 
     @Test
     void aBlankPlayerNameIsIgnored() {
         session.setPlayerName("  ");
         host();
-        assertEquals("etmc-host", session.instName());
+        assertEquals("server", session.hostname());
     }
 
     @Test
@@ -144,7 +156,8 @@ class EtmcSessionTest {
         assertThrows(IllegalStateException.class, this::host);
 
         assertEquals(EtmcSession.Mode.NONE, session.mode());
-        assertTrue(et.deleted.contains("etmc-host"), "the instance that did start must be deleted");
+        assertEquals(1, et.deleted.size(), "the instance that did start must be deleted");
+        assertTrue(et.started.get(0).contains("instance_name = \"" + et.deleted.get(0) + "\""));
     }
 
     // ------------------------------------------------------------------ joining
@@ -162,7 +175,8 @@ class EtmcSessionTest {
         assertEquals(port, session.localPort());
         assertEquals(EtmcSession.State.JOINING, session.state());
         assertEquals(EtmcSession.Mode.JOIN, session.mode());
-        assertEquals("etmc-host-ann", session.instName());
+        assertTrue(session.instName().startsWith("etmc-join-"), session.instName());
+        assertEquals("ann", session.hostname(), "a joiner shows as the player, not as a host");
         assertTrue(et.started.get(0).contains("dhcp = true"), "joiners take a DHCP address");
 
         try (java.net.Socket s = new java.net.Socket()) {
@@ -195,7 +209,9 @@ class EtmcSessionTest {
         session.setPlayerName("bob");
         String inst = session.startLinkInstance(code());
 
-        assertEquals("etmc-host-bob", inst);
+        assertTrue(inst.startsWith("etmc-join-"), inst);
+        assertEquals("bob", session.hostname());
+        assertTrue(session.linkJoin());
         assertEquals(EtmcSession.State.JOINING, session.state());
         assertEquals(0, session.localPort(), "the etmc:// flow rides the data plane directly");
         assertEquals(1, et.started.size());
