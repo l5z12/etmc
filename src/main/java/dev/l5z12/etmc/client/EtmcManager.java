@@ -391,12 +391,15 @@ public final class EtmcManager {
         }
     }
 
-    /** What the join is waiting for, for the connecting screen. */
+    /**
+     * What the join is waiting for, for the connecting screen. Note that having a virtual IP says
+     * nothing here: EasyTier's DHCP hands out an address before any peer is reached.
+     */
     private static String waitingReason(NetworkStatus st, boolean addressed) {
         if (!st.running()) return "Starting the EasyTier network…";
         if (st.relayNodes() == 0 && st.peers().isEmpty()) return "Contacting the relay…";
-        if (!addressed) return "Connected to the relay — waiting for the host to answer…";
-        return "Looking for the host on the network…";
+        if (!addressed) return "Reached the network — getting an address…";
+        return "Reached the network — waiting for the host to show up…";
     }
 
     /** Why the host was never reached, in terms the player can act on. */
@@ -407,11 +410,9 @@ public final class EtmcManager {
             return "The relay (" + String.join(", ", code.relays) + ") couldn't be reached. Check your internet"
                     + " connection, and ask the host whether the relay is online." + easytier;
         }
-        if (!addressed) {
-            return "The relay answered, but the host didn't. Make sure they are hosting right now and that the"
-                    + " link is from their current session (the network name and secret must match)." + easytier;
-        }
-        return "The host isn't on the network (" + code.hostIp + "). They may have stopped hosting." + easytier;
+        return "The relay answered, but the host (" + code.hostIp + ") isn't on the network. Make sure they"
+                + " are hosting right now and that the link is from their current session (the network name"
+                + " and secret must match)." + easytier;
     }
 
     private static String peerSummary(NetworkStatus st) {

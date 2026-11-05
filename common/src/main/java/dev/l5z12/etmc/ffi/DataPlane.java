@@ -54,7 +54,23 @@ final class DataPlane {
         this.abi = abi;
     }
 
-    private record Resource(Session session, long id) {}
+    /** A stream or listener: its session and resource ID, plus a stream's read carry-over. */
+    private static final class Resource {
+        final Session session;
+        final long id;
+        /** A read that outlived its caller's timeout, left running for the next read to collect. */
+        long pendingRead;
+        int pendingReadLen;
+        /** Bytes a collected read returned beyond what that caller asked for. */
+        byte[] leftover;
+        int leftoverPos;
+        int leftoverEnd;
+
+        Resource(Session session, long id) {
+            this.session = session;
+            this.id = id;
+        }
+    }
 
     // ------------------------------------------------------------------ blocking operations
 
@@ -91,14 +107,83 @@ final class DataPlane {
         return new EasyTier.Bind(register(s, r.resource()), r.localIp(), r.localPort());
     }
 
-    /** Reads up to {@code len} bytes; returns the count, {@code 0} at end of stream. */
+    /**
+     * Reads up to {@code len} bytes; returns the count, {@code 0} at end of stream.
+     *
+     * <p>A read that times out is <b>not</b> cancelled: cancelling a read in the library doesn't stop
+     * it, so the bytes it goes on to receive are thrown away with the cancelled result (found by
+     * NativeSmokeTest). Instead it stays pending and the next read on this stream collects it; bytes
+     * beyond what that caller asked for are kept for the read after. One reader per stream, as both
+     * pumps and the channel use it.
+     */
     int tcpRead(long stream, byte[] buf, int len, long timeoutMs) {
         if (len <= 0) throw new IllegalArgumentException("read length must be positive");
         Resource r = resource(stream, "stream");
-        Session s = r.session;
-        long op = abi.tcpReadSubmit(s.handle, r.id, len);
-        check(s, op, complete(s, op, timeoutMs), "connection read failed");
-        return abi.tcpReadResultTake(s.handle, op, buf, len);
+        synchronized (r) {
+            if (r.leftover != null) return drainLeftover(r, buf, len);
+            Session s = r.session;
+            long op;
+            int opLen;
+            if (r.pendingRead != 0) {
+                op = r.pendingRead;
+                opLen = r.pendingReadLen;
+            } else {
+                op = abi.tcpReadSubmit(s.handle, r.id, len);
+                opLen = len;
+            }
+            Integer status = awaitKeepingPending(s, op, timeoutMs);
+            if (status == null) {
+                r.pendingRead = op;
+                r.pendingReadLen = opLen;
+                throw new EasyTierException("connection read failed: " + DataPlaneError.DEADLINE_EXCEEDED.describe(),
+                        DataPlaneError.DEADLINE_EXCEEDED);
+            }
+            r.pendingRead = 0;
+            check(s, op, status, "connection read failed");
+            if (opLen <= len) return abi.tcpReadResultTake(s.handle, op, buf, len);
+            // The collected read was submitted for more than this caller wants: keep the surplus.
+            byte[] all = new byte[opLen];
+            int n = abi.tcpReadResultTake(s.handle, op, all, opLen);
+            if (n <= len) {
+                System.arraycopy(all, 0, buf, 0, n);
+                return n;
+            }
+            r.leftover = all;
+            r.leftoverPos = 0;
+            r.leftoverEnd = n;
+            return drainLeftover(r, buf, len);
+        }
+    }
+
+    private static int drainLeftover(Resource r, byte[] buf, int len) {
+        int n = Math.min(len, r.leftoverEnd - r.leftoverPos);
+        System.arraycopy(r.leftover, r.leftoverPos, buf, 0, n);
+        r.leftoverPos += n;
+        if (r.leftoverPos >= r.leftoverEnd) {
+            r.leftover = null;
+            r.leftoverEnd = 0;
+        }
+        return n;
+    }
+
+    /**
+     * Waits up to {@code waitMs} for {@code op}; {@code null} if it is still running (it is left
+     * running, and its future registered, for a later call to collect). An interrupt leaves it the
+     * same way and reports CANCELLED.
+     */
+    private Integer awaitKeepingPending(Session s, long op, long waitMs) {
+        CompletableFuture<Integer> f = s.future(op);
+        try {
+            Integer st = f.get(waitMs, TimeUnit.MILLISECONDS);
+            s.ops.remove(op);
+            return st;
+        } catch (TimeoutException | ExecutionException e) {
+            return null;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new EasyTierException("connection read failed: " + DataPlaneError.CANCELLED.describe(),
+                    DataPlaneError.CANCELLED);
+        }
     }
 
     /** Writes all {@code len} bytes; returns {@code len}. */

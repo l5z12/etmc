@@ -7,12 +7,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
-import org.junit.jupiter.api.io.TempDir;
 
 import java.net.ServerSocket;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -45,7 +45,9 @@ class NativeSmokeTest {
     private static long listener;
 
     @BeforeAll
-    static void startMesh(@TempDir Path dir) throws Exception {
+    static void startMesh() throws Exception {
+        // Not a @TempDir: Windows can't delete a loaded DLL, so JUnit's cleanup of one always fails.
+        Path dir = java.nio.file.Files.createTempDirectory("etmc-smoke");
         et = EasyTier.load(NativeLoader.extract(dir).path());
 
         int port;
@@ -61,13 +63,13 @@ class NativeSmokeTest {
 
         // The host is etmc's own host config plus a localhost listener for the joiner to dial (a real
         // session reaches its relay instead).
-        String hostToml = EtmcConfig.hostToml(hostInst, network, secret, List.of())
-                .replace("listeners = []", "listeners = [\"" + peer + "\"]");
+        String hostToml = loopbackOnly(EtmcConfig.hostToml(hostInst, network, secret, List.of())
+                .replace("listeners = []", "listeners = [\"" + peer + "\"]"));
         assertTrue(hostToml.contains(peer), "host TOML layout changed; update this test");
         et.parseConfig(hostToml);
         et.runNetworkInstance(hostToml);
 
-        String joinToml = EtmcConfig.joinToml(joinInst, network, secret, List.of(peer));
+        String joinToml = loopbackOnly(EtmcConfig.joinToml(joinInst, network, secret, List.of(peer)));
         et.parseConfig(joinToml);
         et.runNetworkInstance(joinToml);
 
@@ -134,14 +136,43 @@ class NativeSmokeTest {
     }
 
     @Test
-    void connectingToAClosedPortFailsWithAKind() {
-        connectToHost(); // make sure the route is up first, so the failure is about the port
-        EasyTierException e = assertThrows(EasyTierException.class,
-                () -> et.tcpConnect(joinInst, EtmcConfig.HOST_VIRTUAL_IP, VPORT + 1, 10_000));
-        assertNotNull(e.kind(), e.getMessage());
+    void aClosedPortNeverYieldsData() throws Exception {
+        // Make sure the route is up first, so the outcome is about the port; take the connection off
+        // the listener's queue, or a later test's accept would get it.
+        CompletableFuture<EasyTier.Accept> accepted = CompletableFuture.supplyAsync(this::acceptOne);
+        long probe = connectToHost();
+        et.tcpClose(accepted.get(60, TimeUnit.SECONDS).handle());
+        et.tcpClose(probe);
+
+        // EasyTier (759a270) reports a connect to a virtual port nobody listens on as done, and the
+        // stream then just stays silent (no reset reaches the joiner). Minecraft's own read timeout
+        // covers that in practice; what must never happen is the stream producing data.
+        try {
+            long h = et.tcpConnect(joinInst, EtmcConfig.HOST_VIRTUAL_IP, VPORT + 1, 10_000).handle();
+            byte[] buf = new byte[16];
+            try {
+                assertEquals(0, et.tcpRead(h, buf, buf.length, 3_000), "nothing listens there");
+            } catch (EasyTierException e) {
+                assertNotNull(e.kind(), e.getMessage());
+            } finally {
+                et.tcpClose(h);
+            }
+        } catch (EasyTierException e) {
+            assertNotNull(e.kind(), e.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------ helpers
+
+    /**
+     * EasyTier binds its outgoing sockets to the physical interfaces, and a socket bound there can't
+     * reach 127.0.0.1 (Windows: WSAEADDRNOTAVAIL on every dial). A real session dials a real relay;
+     * this test dials localhost, so it turns that binding off.
+     */
+    private static String loopbackOnly(String toml) {
+        assertTrue(toml.contains("[flags]\n"), "TOML layout changed; update this test");
+        return toml.replace("[flags]\n", "[flags]\nbind_device = false\n");
+    }
 
     private EasyTier.Accept acceptOne() {
         for (int i = 0; i < 60; i++) {
@@ -187,7 +218,9 @@ class NativeSmokeTest {
             if (ok.test(st)) return st;
             sleep(500);
         }
-        throw new AssertionError("status never got there: " + st);
+        Map<String, String> all = et.collectNetworkInfos(16);
+        throw new AssertionError("status never got there: " + st + "\n  host status: "
+                + NetworkStatus.parse(all.get(hostInst)) + "\n  raw joiner json: " + all.get(joinInst));
     }
 
     private static void sleep(long ms) {
