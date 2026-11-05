@@ -50,9 +50,19 @@ jobs:
           commit="$(bash tools/resolve_easytier_ref.sh "$REF")"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
           echo "pinned=$pin" >> "$GITHUB_OUTPUT"
+          # The pin on main only moves when the update PR merges, so while it is open every run would
+          # rebuild the same commit and force-push deps/easytier, which dismisses the PR's approval.
+          # If that branch already carries this commit, leave it alone (delete the branch to force it).
+          branch_pin=""
+          if git fetch -q --depth=1 origin deps/easytier 2>/dev/null; then
+            branch_pin="$(git show FETCH_HEAD:common/src/main/resources/natives/easytier.commit 2>/dev/null | tr -d '[:space:]')"
+          fi
           if [ "$commit" = "$pin" ]; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             echo "::notice::EasyTier $REF is still the pinned commit ${pin:0:7}; nothing to do."
+          elif [ "$commit" = "$branch_pin" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::deps/easytier already updates to ${commit:0:7}; leaving it (and its PR's approval) untouched."
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "::notice::EasyTier $REF moved: ${pin:0:7} -> ${commit:0:7}"
