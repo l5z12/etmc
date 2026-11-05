@@ -5,6 +5,7 @@ import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.client.Wrap;
+import dev.l5z12.etmc.core.Msg;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
 //?} else {
@@ -34,19 +35,19 @@ public final class EtmcNoticeScreen extends EtmcBaseScreen {
 
     public EtmcNoticeScreen(Screen parent, String title, String message) {
         super(Txt.literal(title), parent);
-        this.text = message == null || message.isBlank() ? "Unknown error" : message;
+        this.text = message == null || message.isBlank() ? Msg.tr("etmc.notice.unknown", "Unknown error") : message;
     }
 
     @Override
     protected void init() {
         int textEnd = textTop() + 18 + lines().size() * LINE_H;
         int y = Math.min(this.height - 52, Math.max(this.height / 2 + 40, textEnd + 8));
-        add(Ui.button(Txt.literal("Copy details"), b -> {
+        add(Ui.button(Txt.tr("etmc.notice.copy", "Copy details"), b -> {
                     McScreens.setClipboard(this.title.getString() + ": " + text);
-                    setMessage("Copied.", COLOR_GOOD);
+                    setMessage(Msg.tr("etmc.notice.copied", "Copied."), COLOR_GOOD);
                 })
                 .dimensions(this.width / 2 - 100, y, 98, 20).build());
-        add(Ui.button(Txt.literal("Back"), b -> this.close())
+        add(Ui.button(Txt.translatable("gui.back"), b -> this.close())
                 .dimensions(this.width / 2 + 2, y, 98, 20).build());
     }
 

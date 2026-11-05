@@ -41,7 +41,7 @@ public record ImportedConfig(String toml, String instanceName, String serverIp, 
      */
     public static ImportedConfig parse(String raw, String instanceName, String overrideServer) {
         if (raw == null || raw.isBlank()) {
-            throw new IllegalArgumentException("Empty config.");
+            throw new IllegalArgumentException(Msg.tr("etmc.config.empty", "Empty config."));
         }
         List<String> kept = new ArrayList<>();
         String table = "";
@@ -84,7 +84,8 @@ public record ImportedConfig(String toml, String instanceName, String serverIp, 
         MeshAddress addr = MeshAddress.parse(server, EtmcConfig.DEFAULT_VIRTUAL_PORT);
         if (addr == null) {
             throw new IllegalArgumentException(
-                    "No server address. Add `[etmc]\\nserver = \"ip:port\"` to the config or fill the Server field.");
+                    Msg.tr("etmc.config.no_server",
+                            "No server address. Add `[etmc]\\nserver = \"ip:port\"` to the config or fill the Server field."));
         }
 
         String label = labelFromCfg != null && !labelFromCfg.isBlank() ? labelFromCfg : addr.toString();

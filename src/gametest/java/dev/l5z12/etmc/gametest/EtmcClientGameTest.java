@@ -44,6 +44,7 @@ public class EtmcClientGameTest implements FabricClientGameTest {
     @Override
     public void runTest(ClientGameTestContext ctx) {
         menuFromTheMultiplayerScreen(ctx);
+        menuInChinese(ctx);
         try (TestSingleplayerContext world = ctx.worldBuilder().create()) {
             world.getClientWorld().waitForChunksRender();
             hostTheWorldAndReachItOverEasyTier(ctx);
@@ -63,6 +64,34 @@ public class EtmcClientGameTest implements FabricClientGameTest {
         ctx.waitForScreen(SettingsScreen.class);
         ctx.takeScreenshot("etmc-settings");
         ctx.setScreen(() -> null);
+    }
+
+    /** The game's language picks etmc's text (zh_cn.json), through Msg's translator. */
+    private static void menuInChinese(ClientGameTestContext ctx) {
+        setLanguage(ctx, "zh_cn");
+        try {
+            ctx.setScreen(() -> new EtmcScreen(null));
+            ctx.waitForScreen(EtmcScreen.class);
+            ctx.computeOnClient(c -> button(c.currentScreen, "开放此世界")); // throws if still English
+            ctx.takeScreenshot("etmc-menu-zh_cn");
+            ctx.setScreen(() -> new SettingsScreen(null));
+            ctx.waitForScreen(SettingsScreen.class);
+            ctx.takeScreenshot("etmc-settings-zh_cn");
+            ctx.setScreen(() -> null);
+        } finally {
+            setLanguage(ctx, "en_us");
+        }
+    }
+
+    private static void setLanguage(ClientGameTestContext ctx, String code) {
+        AtomicReference<CompletableFuture<Void>> reload = new AtomicReference<>();
+        ctx.runOnClient(c -> {
+            c.getLanguageManager().setLanguage(code);
+            c.options.language = code;
+            reload.set(c.reloadResources());
+        });
+        // The reload finishes before its loading overlay has faded out; wait for that too.
+        ctx.waitFor(c -> reload.get().isDone() && c.getOverlay() == null, 60 * SECONDS);
     }
 
     private static void hostTheWorldAndReachItOverEasyTier(ClientGameTestContext ctx) {

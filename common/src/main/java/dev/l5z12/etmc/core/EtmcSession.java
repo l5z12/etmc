@@ -267,7 +267,9 @@ public final class EtmcSession {
 
     private void requireIdle() {
         if (mode != Mode.NONE) {
-            throw new IllegalStateException("etmc is already " + mode + "; leave first");
+            throw new IllegalStateException(mode == Mode.HOST
+                    ? Msg.tr("etmc.session.busy_host", "etmc is already hosting; leave first")
+                    : Msg.tr("etmc.session.busy_join", "etmc is already joined; leave first"));
         }
     }
 

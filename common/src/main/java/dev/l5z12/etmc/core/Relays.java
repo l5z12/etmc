@@ -44,34 +44,35 @@ public final class Relays {
     /** What is wrong with {@code uri} as a relay address, or {@code null} if it looks dialable. */
     public static String problem(String uri) {
         String u = uri == null ? "" : uri.trim();
-        if (u.isEmpty()) return "empty relay address";
+        if (u.isEmpty()) return Msg.tr("etmc.relay.empty", "empty relay address");
         if (JoinCode.isLink(u) || u.startsWith(JoinCode.PREFIX)) {
-            return "'" + abbreviate(u) + "' is an etmc join link, not a relay. A relay looks like "
-                    + "tcp://relay.example.com:11010";
+            return Msg.tr("etmc.relay.is_link", "'%s' is an etmc join link, not a relay. A relay looks like "
+                    + "tcp://relay.example.com:11010", abbreviate(u));
         }
         int sep = u.indexOf("://");
         if (sep <= 0) {
-            return "'" + abbreviate(u) + "' has no protocol. Write it like tcp://" + u
-                    + (u.contains(":") ? "" : ":11010");
+            return Msg.tr("etmc.relay.no_scheme", "'%s' has no protocol. Write it like %s", abbreviate(u),
+                    "tcp://" + u + (u.contains(":") ? "" : ":11010"));
         }
         String scheme = u.substring(0, sep).toLowerCase(Locale.ROOT);
         if (!SCHEMES.contains(scheme)) {
-            return "'" + scheme + "://' isn't a relay protocol EasyTier knows (use tcp://, udp://, ws://, "
-                    + "wss://, quic:// or wg://)";
+            return Msg.tr("etmc.relay.bad_scheme", "'%s://' isn't a relay protocol EasyTier knows (use tcp://, "
+                    + "udp://, ws://, wss://, quic:// or wg://)", scheme);
         }
         URI parsed;
         try {
             parsed = new URI(u);
         } catch (Exception e) {
-            return "'" + abbreviate(u) + "' isn't a valid address";
+            return Msg.tr("etmc.relay.invalid", "'%s' isn't a valid address", abbreviate(u));
         }
         String host = parsed.getHost();
-        if (host == null || host.isBlank()) return "'" + abbreviate(u) + "' has no host name";
+        if (host == null || host.isBlank()) return Msg.tr("etmc.relay.no_host", "'%s' has no host name", abbreviate(u));
         int port = parsed.getPort();
         if (port == -1 && NEEDS_PORT.contains(scheme)) {
-            return "'" + abbreviate(u) + "' has no port (EasyTier relays usually listen on 11010)";
+            return Msg.tr("etmc.relay.no_port", "'%s' has no port (EasyTier relays usually listen on 11010)",
+                    abbreviate(u));
         }
-        if (port == 0 || port > 65535) return "'" + abbreviate(u) + "' has an invalid port";
+        if (port == 0 || port > 65535) return Msg.tr("etmc.relay.bad_port", "'%s' has an invalid port", abbreviate(u));
         return null;
     }
 

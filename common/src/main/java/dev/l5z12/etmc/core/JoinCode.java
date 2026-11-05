@@ -72,7 +72,7 @@ public final class JoinCode {
      * @throws IllegalArgumentException if the code is malformed
      */
     public static JoinCode decode(String code) {
-        if (code == null) throw new IllegalArgumentException("empty join code");
+        if (code == null) throw new IllegalArgumentException(Msg.tr("etmc.code.empty", "empty join code"));
         String s = code.trim();
         if (isLink(s)) {
             // etmc://v1/<b64> (or any etmc://<ver>/<b64>) — the payload is the segment after the last '/'.
@@ -86,16 +86,16 @@ public final class JoinCode {
         try {
             raw = Base64.getUrlDecoder().decode(s);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("not a valid etmc join code");
+            throw new IllegalArgumentException(Msg.tr("etmc.code.invalid", "not a valid etmc join code"));
         }
         JoinCode jc;
         try {
             jc = GSON.fromJson(new String(raw, StandardCharsets.UTF_8), JoinCode.class);
         } catch (JsonSyntaxException e) {
-            throw new IllegalArgumentException("corrupt etmc join code");
+            throw new IllegalArgumentException(Msg.tr("etmc.code.corrupt", "corrupt etmc join code"));
         }
         if (jc == null || jc.networkName == null || jc.networkName.isBlank()) {
-            throw new IllegalArgumentException("join code missing network name");
+            throw new IllegalArgumentException(Msg.tr("etmc.code.no_network", "join code missing network name"));
         }
         if (jc.relays == null) jc.relays = new ArrayList<>();
         if (jc.hostIp == null || jc.hostIp.isBlank()) jc.hostIp = EtmcConfig.HOST_VIRTUAL_IP;

@@ -7,6 +7,7 @@ import dev.l5z12.etmc.core.EtmcConnect;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.ImportedConfig;
 import dev.l5z12.etmc.core.JoinCode;
+import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.core.Relays;
 import dev.l5z12.etmc.core.RemoteConfig;
@@ -137,6 +138,8 @@ public final class EtmcManager {
 
     /** Loads config and the EasyTier native library. Call once on client init. */
     public void init() {
+        // Player-facing text follows the game's language from here on (see Msg).
+        Msg.setTranslator(Txt::i18n);
         this.config = ModConfig.load();
         try {
             //? if fabric {
@@ -184,17 +187,22 @@ public final class EtmcManager {
     /** The failure every async entry point reports when the native library never loaded. */
     private <T> CompletableFuture<T> notLoaded() {
         return CompletableFuture.failedFuture(new IllegalStateException(nativeError != null
-                ? "etmc couldn't load its EasyTier library: " + nativeError
-                : "etmc couldn't load its EasyTier library (see the game log)"));
+                ? Msg.tr("etmc.error.no_native", "etmc couldn't load its EasyTier library: %s", nativeError)
+                : Msg.tr("etmc.error.no_native_log", "etmc couldn't load its EasyTier library (see the game log).")));
     }
 
     /** Why hosting can't start right now, or {@code null} if it can. */
     public String hostBlocker() {
-        if (!isReady()) return "etmc couldn't load its EasyTier library (see the game log).";
-        if (!McScreens.singleplayer()) return "Open a singleplayer world first: etmc hosts the world you're playing.";
-        if (!config.hasRelay()) return "Add a relay in Settings first: joiners reach you through it.";
+        if (!isReady()) return Msg.tr("etmc.error.no_native_log", "etmc couldn't load its EasyTier library (see the game log).");
+        if (!McScreens.singleplayer()) {
+            return Msg.tr("etmc.host.blocked.no_world",
+                    "Open a singleplayer world first: etmc hosts the world you're playing.");
+        }
+        if (!config.hasRelay()) {
+            return Msg.tr("etmc.host.blocked.no_relay", "Add a relay in Settings first: joiners reach you through it.");
+        }
         String bad = Relays.firstProblem(config.relays);
-        if (bad != null) return "Fix the relay in Settings: " + bad;
+        if (bad != null) return Msg.tr("etmc.host.blocked.bad_relay", "Fix the relay in Settings: %s", bad);
         return null;
     }
 
@@ -231,7 +239,8 @@ public final class EtmcManager {
         if (!isReady()) return notLoaded();
         String bad = Relays.firstProblem(code.relays);
         if (bad != null) {
-            return CompletableFuture.failedFuture(new IllegalArgumentException("This link's relay is wrong: " + bad));
+            return CompletableFuture.failedFuture(new IllegalArgumentException(
+                    Msg.tr("etmc.join.bad_relay", "This link's relay is wrong: %s", bad)));
         }
         syncPlayerName();
         session.setPreferredLocalPort(config.joinLocalPort);
@@ -281,9 +290,9 @@ public final class EtmcManager {
      */
     public void connectViaLink(Screen parent, String link) {
         if (!isReady()) {
-            showError(parent, "Can't join", nativeError != null
-                    ? "etmc couldn't load its EasyTier library: " + nativeError
-                    : "etmc couldn't load its EasyTier library (see the game log).");
+            showError(parent, Msg.tr("etmc.join.cant_join", "Can't join"), nativeError != null
+                    ? Msg.tr("etmc.error.no_native", "etmc couldn't load its EasyTier library: %s", nativeError)
+                    : Msg.tr("etmc.error.no_native_log", "etmc couldn't load its EasyTier library (see the game log)."));
             return;
         }
         JoinCode code;
@@ -291,20 +300,23 @@ public final class EtmcManager {
             code = JoinCode.decode(link);
         } catch (IllegalArgumentException e) {
             LOGGER.warn("[etmc] bad etmc:// link: {}", e.getMessage());
-            showError(parent, "That etmc link doesn't work",
-                    "It couldn't be read (" + e.getMessage() + "). Ask the host to copy it again.");
+            showError(parent, Msg.tr("etmc.join.bad_link.title", "That etmc link doesn't work"),
+                    Msg.tr("etmc.join.bad_link", "It couldn't be read (%s). Ask the host to copy it again.",
+                            e.getMessage()));
             return;
         }
         String badRelay = code.relays.isEmpty()
-                ? "It has no relay, so there's no way to reach the host. Ask the host to add a relay in etmc Settings and copy the link again."
+                ? Msg.tr("etmc.join.link_no_relay", "It has no relay, so there's no way to reach the host. "
+                        + "Ask the host to add a relay in etmc Settings and copy the link again.")
                 : Relays.firstProblem(code.relays);
         if (badRelay != null) {
-            showError(parent, "That etmc link can't reach the host", badRelay);
+            showError(parent, Msg.tr("etmc.join.link_bad_relay.title", "That etmc link can't reach the host"), badRelay);
             return;
         }
         if (session.isActive()) {
-            showError(parent, "Already in an etmc network",
-                    "Leave the current etmc network first (etmc menu → Session status → Leave network).");
+            showError(parent, Msg.tr("etmc.join.already.title", "Already in an etmc network"),
+                    Msg.tr("etmc.join.already",
+                            "Leave the current etmc network first (etmc menu → Session status → Leave network)."));
             return;
         }
         syncPlayerName();
@@ -323,14 +335,15 @@ public final class EtmcManager {
                     }
                     if (err != null) {
                         LOGGER.warn("[etmc] etmc:// join failed: {}", Errors.message(err), Errors.root(err));
-                        showError(a.parent, "Couldn't start the etmc network", Errors.message(err));
+                        showError(a.parent, Msg.tr("etmc.join.start_failed.title", "Couldn't start the etmc network"),
+                                Errors.message(err));
                         linkAttempt = null;
                         return;
                     }
                     a.instName = inst;
                     a.startedAt = System.currentTimeMillis();
                     a.instanceReady = true;
-                    a.progress = "Contacting the relay…";
+                    a.progress = Msg.tr("etmc.join.progress.relay", "Contacting the relay…");
                     LOGGER.info("[etmc] link instance '{}' up — waiting for host {} (P2P up to {}s once found)",
                             inst, code.hostIp, P2P_WAIT_TIMEOUT_MS / 1000);
                     if (a.proceedRequested) linkDoProceed(a); // user already hit "Join now anyway"
@@ -377,7 +390,8 @@ public final class EtmcManager {
                 linkDoProceed(a);
                 return;
             }
-            a.progress = "Host found via the relay — trying for a direct link (" + (left / 1000 + 1) + "s)…";
+            a.progress = Msg.tr("etmc.join.progress.p2p",
+                    "Host found via the relay — trying for a direct link (%ss)…", left / 1000 + 1);
             return;
         }
 
@@ -387,7 +401,7 @@ public final class EtmcManager {
             LOGGER.warn("[etmc] etmc:// join gave up after {}s: {}", waited / 1000, why);
             linkAttempt = null;
             leaveAsync();
-            showError(a.parent, "Couldn't reach the host", why);
+            showError(a.parent, Msg.tr("etmc.join.unreachable.title", "Couldn't reach the host"), why);
         }
     }
 
@@ -396,23 +410,27 @@ public final class EtmcManager {
      * nothing here: EasyTier's DHCP hands out an address before any peer is reached.
      */
     private static String waitingReason(NetworkStatus st, boolean addressed) {
-        if (!st.running()) return "Starting the EasyTier network…";
-        if (st.relayNodes() == 0 && st.peers().isEmpty()) return "Contacting the relay…";
-        if (!addressed) return "Reached the network — getting an address…";
-        return "Reached the network — waiting for the host to show up…";
+        if (!st.running()) return Msg.tr("etmc.join.progress.start", "Starting the EasyTier network…");
+        if (st.relayNodes() == 0 && st.peers().isEmpty()) {
+            return Msg.tr("etmc.join.progress.relay", "Contacting the relay…");
+        }
+        if (!addressed) return Msg.tr("etmc.join.progress.address", "Reached the network — getting an address…");
+        return Msg.tr("etmc.join.progress.host", "Reached the network — waiting for the host to show up…");
     }
 
     /** Why the host was never reached, in terms the player can act on. */
     private static String diagnose(NetworkStatus st, boolean addressed, JoinCode code) {
-        String easytier = st.errorMsg() == null ? "" : " EasyTier says: " + st.errorMsg();
-        if (!st.running()) return "The EasyTier network didn't start." + easytier;
+        String easytier = st.errorMsg() == null ? ""
+                : Msg.tr("etmc.join.easytier_says", " EasyTier says: %s", st.errorMsg());
+        if (!st.running()) return Msg.tr("etmc.join.why.not_started", "The EasyTier network didn't start.") + easytier;
         if (st.relayNodes() == 0 && st.peers().isEmpty()) {
-            return "The relay (" + String.join(", ", code.relays) + ") couldn't be reached. Check your internet"
-                    + " connection, and ask the host whether the relay is online." + easytier;
+            return Msg.tr("etmc.join.why.no_relay", "The relay (%s) couldn't be reached. Check your internet "
+                    + "connection, and ask the host whether the relay is online.", String.join(", ", code.relays))
+                    + easytier;
         }
-        return "The relay answered, but the host (" + code.hostIp + ") isn't on the network. Make sure they"
-                + " are hosting right now and that the link is from their current session (the network name"
-                + " and secret must match)." + easytier;
+        return Msg.tr("etmc.join.why.no_host", "The relay answered, but the host (%s) isn't on the network. Make "
+                + "sure they are hosting right now and that the link is from their current session (the network "
+                + "name and secret must match).", code.hostIp) + easytier;
     }
 
     private static String peerSummary(NetworkStatus st) {
@@ -497,7 +515,7 @@ public final class EtmcManager {
         volatile long hostFoundAt;
         volatile long lastLog;
         /** What the connecting screen shows under the title. */
-        volatile String progress = "Starting the EasyTier network…";
+        volatile String progress = Msg.tr("etmc.join.progress.start", "Starting the EasyTier network…");
 
         LinkAttempt(Screen parent, JoinCode code, String label) {
             this.parent = parent;
@@ -584,8 +602,8 @@ public final class EtmcManager {
         if (failure == null) return;
         hostFailureNotified = true;
         LOGGER.warn("[etmc] host stopped accepting joiners: {}", failure);
-        McScreens.chat("Joiners can't connect any more (" + failure + "). Stop and start hosting again"
-                + " from the etmc menu.");
+        McScreens.chat(Msg.tr("etmc.host.failed", "Joiners can't connect any more (%s). Stop and start hosting "
+                + "again from the etmc menu.", failure));
     }
 
     /**

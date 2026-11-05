@@ -8,6 +8,7 @@ import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.client.Wrap;
 import dev.l5z12.etmc.core.EtmcConfig;
+import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.Relays;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
@@ -47,7 +48,7 @@ public final class SettingsScreen extends EtmcBaseScreen {
     private boolean hudShown;
 
     public SettingsScreen(Screen parent) {
-        super(Txt.literal("etmc settings"), parent);
+        super(Txt.tr("etmc.settings.title", "etmc settings"), parent);
     }
 
     @Override
@@ -56,17 +57,17 @@ public final class SettingsScreen extends EtmcBaseScreen {
         int x = this.width / 2 - W / 2;
         int y = top();
 
-        relaysField = Ui.textField(font(), x, y + 10, W, 20, Txt.literal("Relays"));
+        relaysField = Ui.textField(font(), x, y + 10, W, 20, Txt.tr("etmc.settings.relays", "Relays"));
         relaysField.setMaxLength(2048);
         Ui.setText(relaysField, cfg.relaysAsText());
         add(relaysField);
         y += 44;
 
-        portField = Ui.textField(font(), x, y + 10, 70, 20, Txt.literal("Port"));
+        portField = Ui.textField(font(), x, y + 10, 70, 20, Txt.tr("etmc.settings.port", "Port"));
         portField.setMaxLength(5);
         Ui.setText(portField, String.valueOf(cfg.defaultVirtualPort));
         add(portField);
-        joinPortField = Ui.textField(font(), x + W / 2 + 4, y + 10, 70, 20, Txt.literal("Join port"));
+        joinPortField = Ui.textField(font(), x + W / 2 + 4, y + 10, 70, 20, Txt.tr("etmc.settings.join_port", "Join port"));
         joinPortField.setMaxLength(5);
         Ui.setText(joinPortField, String.valueOf(cfg.joinLocalPort));
         add(joinPortField);
@@ -81,9 +82,9 @@ public final class SettingsScreen extends EtmcBaseScreen {
         add(hudButton);
         y += 34;
 
-        add(Ui.button(Txt.literal("Save"), b -> save())
+        add(Ui.button(Txt.tr("etmc.settings.save", "Save"), b -> save())
                 .dimensions(x, y, W / 2 - 2, 20).build());
-        add(Ui.button(Txt.literal("Cancel"), b -> this.close())
+        add(Ui.button(Txt.translatable("gui.cancel"), b -> this.close())
                 .dimensions(x + W / 2 + 2, y, W / 2 - 2, 20).build());
     }
 
@@ -98,9 +99,9 @@ public final class SettingsScreen extends EtmcBaseScreen {
             setMessage(bad, COLOR_BAD);
             return;
         }
-        Integer port = port(Ui.getText(portField), 1, "Port inside the network");
+        Integer port = port(Ui.getText(portField), 1, Msg.tr("etmc.settings.port.hint", "Port inside the network"));
         if (port == null) return;
-        Integer joinPort = port(Ui.getText(joinPortField), 0, "Join port");
+        Integer joinPort = port(Ui.getText(joinPortField), 0, Msg.tr("etmc.settings.join_port", "Join port"));
         if (joinPort == null) return;
 
         ModConfig cfg = EtmcManager.get().config();
@@ -120,7 +121,7 @@ public final class SettingsScreen extends EtmcBaseScreen {
         } catch (NumberFormatException ignored) {
             // reported below
         }
-        setMessage(what + " must be a number from " + min + " to 65535.", COLOR_BAD);
+        setMessage(Msg.tr("etmc.settings.bad_port", "%s must be a number from %s to 65535.", what, min), COLOR_BAD);
         return null;
     }
 
@@ -130,16 +131,17 @@ public final class SettingsScreen extends EtmcBaseScreen {
         int x = cx - W / 2;
         int y = top();
         Gfx.centered(ctx, font(), this.title, cx, Math.max(8, y - 24), COLOR_TEXT);
-        Gfx.text(ctx, font(), Txt.literal("Relays, for hosting (commas or spaces between them)"), x, y, COLOR_MUTED);
-        Gfx.text(ctx, font(), Txt.literal("e.g. tcp://relay.example.com:11010"), x, y + 32, 0xFF777777);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.relays.hint", "Relays, for hosting (commas or spaces between them)"), x, y, COLOR_MUTED);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.relays.example", "e.g. tcp://relay.example.com:11010"), x, y + 32, 0xFF777777);
         y += 44;
-        Gfx.text(ctx, font(), Txt.literal("Port inside the network"), x, y, COLOR_MUTED);
-        Gfx.text(ctx, font(), Txt.literal("Join port (0 = any)"), x + W / 2 + 4, y, COLOR_MUTED);
-        Gfx.text(ctx, font(), Txt.literal("advanced; default " + EtmcConfig.DEFAULT_VIRTUAL_PORT),
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.port.hint", "Port inside the network"), x, y, COLOR_MUTED);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.join_port.hint", "Join port (0 = any)"), x + W / 2 + 4, y, COLOR_MUTED);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.port.note", "advanced; default %s", EtmcConfig.DEFAULT_VIRTUAL_PORT),
                 x, y + 33, 0xFF777777);
-        Gfx.text(ctx, font(), Txt.literal("fixed helps ViaFabricPlus"), x + W / 2 + 4, y + 33, 0xFF777777);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.join_port.note", "fixed helps ViaFabricPlus"), x + W / 2 + 4, y + 33, 0xFF777777);
         if (!EtmcHud.isAvailable()) {
-            Gfx.centered(ctx, font(), Txt.literal("This Minecraft/Forge version has no overlay API, so there is no overlay."),
+            Gfx.centered(ctx, font(), Txt.tr("etmc.settings.no_overlay",
+                    "This Minecraft/Forge version has no overlay API, so there is no overlay."),
                     cx, y + 70, 0xFF777777);
         }
         if (!message.isEmpty()) {
@@ -156,7 +158,10 @@ public final class SettingsScreen extends EtmcBaseScreen {
     //?} else {
     /*private Component hudLabel() {*/
     //?}
-        if (!EtmcHud.isAvailable()) return Txt.literal("Top-left status overlay: not available here");
-        return Txt.literal("Top-left status overlay: " + (hudShown ? "Shown" : "Hidden"));
+        if (!EtmcHud.isAvailable()) {
+            return Txt.tr("etmc.settings.overlay.unavailable", "Top-left status overlay: not available here");
+        }
+        return Txt.tr("etmc.settings.overlay", "Top-left status overlay: %s", hudShown
+                ? Msg.tr("etmc.settings.overlay.shown", "Shown") : Msg.tr("etmc.settings.overlay.hidden", "Hidden"));
     }
 }

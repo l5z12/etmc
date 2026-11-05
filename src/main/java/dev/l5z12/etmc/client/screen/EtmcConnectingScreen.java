@@ -4,6 +4,7 @@ import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.client.Wrap;
+import dev.l5z12.etmc.core.Msg;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
 //?} else {
@@ -28,7 +29,8 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
 
     public EtmcConnectingScreen(Screen parent, String label, Runnable onProceed, Runnable onCancel,
                                 Supplier<String> progress) {
-        super(Txt.literal(label == null || label.isBlank() ? "Joining" : "Joining " + label), parent);
+        super(label == null || label.isBlank() ? Txt.tr("etmc.connecting.title", "Joining")
+                : Txt.tr("etmc.connecting.title_label", "Joining %s", label), parent);
         this.onProceed = onProceed;
         this.onCancel = onCancel;
         this.progress = progress;
@@ -36,7 +38,7 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
 
     @Override
     protected void init() {
-        add(Ui.button(Txt.literal("Join now anyway"), b -> {
+        add(Ui.button(Txt.tr("etmc.connecting.now", "Join now anyway"), b -> {
                     if (onProceed != null) onProceed.run();
                 })
                 .dimensions(this.width / 2 - 100, this.height / 2 + 24, 200, 20).build());
@@ -55,12 +57,13 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
         String now = progress == null ? null : progress.get();
         Gfx.centered(ctx, font(), this.title, this.width / 2, this.height / 2 - 50, COLOR_TEXT);
         int y = this.height / 2 - 32;
-        for (String l : Wrap.lines(font(), (now == null ? "Connecting" : now) + dots, Math.min(320, this.width - 40))) {
+        for (String l : Wrap.lines(font(), (now == null ? Msg.tr("etmc.connecting.connecting", "Connecting") : now) + dots, Math.min(320, this.width - 40))) {
             Gfx.centered(ctx, font(), Txt.literal(l), this.width / 2, y, COLOR_MUTED);
             y += 11;
         }
         Gfx.centered(ctx, font(),
-                Txt.literal("\"Join now anyway\" skips the wait (it may fail if the host isn't reachable yet)."),
+                Txt.tr("etmc.connecting.now.hint",
+                        "\"Join now anyway\" skips the wait (it may fail if the host isn't reachable yet)."),
                 this.width / 2, this.height / 2 + 8, 0xFF777777);
     }
 

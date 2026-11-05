@@ -7,6 +7,7 @@ import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.client.Wrap;
 import dev.l5z12.etmc.core.Errors;
+import dev.l5z12.etmc.core.Msg;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -54,7 +55,7 @@ public final class HostScreen extends EtmcBaseScreen {
     private boolean cheats;
 
     public HostScreen(Screen parent) {
-        super(Txt.literal("Host this world"), parent);
+        super(Txt.tr("etmc.menu.host", "Host this world"), parent);
     }
 
     @Override
@@ -64,26 +65,26 @@ public final class HostScreen extends EtmcBaseScreen {
         int x = this.width / 2 - W / 2;
         int y = top();
 
-        networkField = Ui.textField(font(), x, y + 10, W - 40, 18, Txt.literal("Network name"));
+        networkField = Ui.textField(font(), x, y + 10, W - 40, 18, Txt.tr("etmc.host.network", "Network name"));
         networkField.setMaxLength(64);
         Ui.setText(networkField, orDefault(cfg.lastNetworkName, "etmc-" + random(6)));
         add(networkField);
-        add(Ui.button(Txt.literal("New"), b -> {
+        add(Ui.button(Txt.tr("etmc.host.new", "New"), b -> {
                     Ui.setText(networkField, "etmc-" + random(6));
                     Ui.setText(secretField, random(12));
                 })
                 .dimensions(x + W - 36, y + 9, 36, 20).build());
         y += 32;
 
-        secretField = Ui.textField(font(), x, y + 10, W, 18, Txt.literal("Secret"));
+        secretField = Ui.textField(font(), x, y + 10, W, 18, Txt.tr("etmc.host.secret", "Secret"));
         secretField.setMaxLength(128);
         Ui.setText(secretField, orDefault(cfg.lastSecret, random(12)));
         add(secretField);
         y += 32;
 
-        labelField = Ui.textField(font(), x, y + 10, W, 18, Txt.literal("World label"));
+        labelField = Ui.textField(font(), x, y + 10, W, 18, Txt.tr("etmc.host.label", "World label"));
         labelField.setMaxLength(64);
-        Ui.setText(labelField, orDefault(cfg.lastLabel, m.playerName() + "'s world"));
+        Ui.setText(labelField, orDefault(cfg.lastLabel, Msg.tr("etmc.host.default_label", "%s's world", m.playerName())));
         add(labelField);
         y += 34;
 
@@ -101,14 +102,14 @@ public final class HostScreen extends EtmcBaseScreen {
         add(cheatsButton);
         y += 36;
 
-        hostButton = Ui.button(Txt.literal("Start hosting"), b -> startHosting())
+        hostButton = Ui.button(Txt.tr("etmc.host.start", "Start hosting"), b -> startHosting())
                 .dimensions(x, y, W, 20).build();
         String blocker = m.hostBlocker();
         hostButton.active = blocker == null;
         add(hostButton);
         y += 24;
 
-        add(Ui.button(Txt.literal("Back"), b -> this.close())
+        add(Ui.button(Txt.translatable("gui.back"), b -> this.close())
                 .dimensions(x, y, W, 20).build());
 
         if (blocker != null) setMessage(blocker, COLOR_WARN);
@@ -122,24 +123,26 @@ public final class HostScreen extends EtmcBaseScreen {
         EtmcManager m = EtmcManager.get();
         String network = Ui.getText(networkField).trim();
         if (network.isEmpty()) {
-            setMessage("Enter a network name.", COLOR_BAD);
+            setMessage(Msg.tr("etmc.host.need_network", "Enter a network name."), COLOR_BAD);
             return;
         }
         String secret = Ui.getText(secretField);
         if (secret.isBlank()) {
-            setMessage("Enter a secret: without one, anyone who guesses the network name can join.", COLOR_BAD);
+            setMessage(Msg.tr("etmc.host.need_secret",
+                    "Enter a secret: without one, anyone who guesses the network name can join."), COLOR_BAD);
             return;
         }
         ModConfig cfg = m.config();
         cfg.lanGameMode = MODES[modeIndex];
         cfg.lanCheats = cheats;
         hostButton.active = false;
-        setMessage("Starting…", COLOR_BUSY);
+        setMessage(Msg.tr("etmc.host.starting", "Starting…"), COLOR_BUSY);
         String mode = MODES[modeIndex].isEmpty() ? null : MODES[modeIndex];
         m.hostAsync(network, secret, Ui.getText(labelField).trim(), mode, cheats).whenComplete((code, err) ->
                 mc().execute(() -> {
                     if (err != null) {
-                        setMessage("Couldn't start hosting: " + Errors.message(err), COLOR_BAD);
+                        setMessage(Msg.tr("etmc.host.failed_start", "Couldn't start hosting: %s", Errors.message(err)),
+                                COLOR_BAD);
                         hostButton.active = m.hostBlocker() == null;
                     } else {
                         goTo(new StatusScreen(parent));
@@ -153,11 +156,11 @@ public final class HostScreen extends EtmcBaseScreen {
         int x = cx - W / 2;
         int y = top();
         Gfx.centered(ctx, font(), this.title, cx, Math.max(8, y - 22), COLOR_TEXT);
-        Gfx.text(ctx, font(), Txt.literal("Network name (unique to you)"), x, y, COLOR_MUTED);
-        Gfx.text(ctx, font(), Txt.literal("Secret (in your invite link: share it only with friends)"),
+        Gfx.text(ctx, font(), Txt.tr("etmc.host.network.hint", "Network name (unique to you)"), x, y, COLOR_MUTED);
+        Gfx.text(ctx, font(), Txt.tr("etmc.host.secret.hint", "Secret (in your invite link: share it only with friends)"),
                 x, y + 32, COLOR_MUTED);
-        Gfx.text(ctx, font(), Txt.literal("World label (what joiners see)"), x, y + 64, COLOR_MUTED);
-        Gfx.centered(ctx, font(), Txt.literal("Already opened to LAN? Those settings are kept."),
+        Gfx.text(ctx, font(), Txt.tr("etmc.host.label.hint", "World label (what joiners see)"), x, y + 64, COLOR_MUTED);
+        Gfx.centered(ctx, font(), Txt.tr("etmc.host.lan_kept", "Already opened to LAN? Those settings are kept."),
                 cx, y + 120, 0xFF777777);
         if (!message.isEmpty()) {
             int my = this.height - 30;
@@ -174,8 +177,10 @@ public final class HostScreen extends EtmcBaseScreen {
     /*private net.minecraft.network.chat.Component modeLabel() {*/
     //?}
         String m = MODES[modeIndex];
-        String name = m.isEmpty() ? "Same as you" : m.charAt(0) + m.substring(1).toLowerCase(java.util.Locale.ROOT);
-        return Txt.literal("Joiners: " + name);
+        // Vanilla's own names for the game modes, so they read as they do everywhere else in the game.
+        String name = m.isEmpty() ? Msg.tr("etmc.host.mode.same", "Same as you")
+                : Txt.i18n("selectWorld.gameMode." + m.toLowerCase(java.util.Locale.ROOT));
+        return Txt.tr("etmc.host.mode", "Joiners: %s", name);
     }
 
     //? if yarn {
@@ -183,7 +188,7 @@ public final class HostScreen extends EtmcBaseScreen {
     //?} else {
     /*private net.minecraft.network.chat.Component cheatsLabel() {*/
     //?}
-        return Txt.literal("Cheats (everyone): " + (cheats ? "ON" : "OFF"));
+        return Txt.tr("etmc.host.cheats", "Cheats (everyone): %s", Txt.i18n(cheats ? "options.on" : "options.off"));
     }
 
     private static int indexOf(String mode) {

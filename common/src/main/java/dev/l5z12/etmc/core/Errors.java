@@ -36,7 +36,7 @@ public final class Errors {
      * library's function-name prefixes turned into what they mean for the player.
      */
     public static String message(Throwable t) {
-        if (t == null) return "unknown error";
+        if (t == null) return Msg.tr("etmc.error.unknown", "unknown error");
         Throwable c = root(t);
         String msg = c.getMessage();
         if (msg == null || msg.isBlank()) return c.toString();
@@ -48,22 +48,35 @@ public final class Errors {
         String m = msg.trim();
         String lower = m.toLowerCase(java.util.Locale.ROOT);
         if (lower.contains("data plane net is not ready")) {
-            return "the EasyTier network isn't ready yet (no route to the host so far)";
+            return Msg.tr("etmc.error.not_ready", "the EasyTier network isn't ready yet (no route to the host so far)");
         }
-        for (String[] prefix : PREFIXES) {
-            if (m.startsWith(prefix[0])) {
-                String detail = m.substring(prefix[0].length()).trim();
+        for (String prefix : PREFIXES) {
+            if (m.startsWith(prefix)) {
+                String detail = m.substring(prefix.length()).trim();
                 if (detail.startsWith("anyhow error:")) detail = detail.substring("anyhow error:".length()).trim();
-                return detail.isEmpty() ? prefix[1] : prefix[1] + ": " + detail;
+                String what = meaning(prefix);
+                return detail.isEmpty() ? what : what + ": " + detail;
             }
         }
         return m;
     }
 
-    private static final String[][] PREFIXES = {
-            {"run_network_instance failed:", "couldn't start the EasyTier network"},
-            {"parse_config failed:", "EasyTier rejected the network settings"},
-            {"delete_network_instance failed:", "couldn't stop the EasyTier network"},
-            {"collect_network_infos failed:", "couldn't read the EasyTier network status"},
+    private static final String[] PREFIXES = {
+            "run_network_instance failed:", "parse_config failed:",
+            "delete_network_instance failed:", "collect_network_infos failed:",
     };
+
+    /** What a failed library call means for the player (one literal Msg.tr each, for LangFilesTest). */
+    private static String meaning(String prefix) {
+        switch (prefix) {
+            case "run_network_instance failed:":
+                return Msg.tr("etmc.error.start", "couldn't start the EasyTier network");
+            case "parse_config failed:":
+                return Msg.tr("etmc.error.config", "EasyTier rejected the network settings");
+            case "delete_network_instance failed:":
+                return Msg.tr("etmc.error.stop", "couldn't stop the EasyTier network");
+            default:
+                return Msg.tr("etmc.error.status", "couldn't read the EasyTier network status");
+        }
+    }
 }
