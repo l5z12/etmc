@@ -61,10 +61,10 @@ class NativeSmokeTest {
         joinInst = "smoke-join-" + id;
         String peer = "tcp://127.0.0.1:" + port;
 
-        // The host is etmc's own host config plus a localhost listener for the joiner to dial (a real
-        // session reaches its relay instead).
+        // The host is etmc's own host config (its random-port listeners included) plus a localhost
+        // listener for the joiner to dial (a real session reaches its relay instead).
         String hostToml = loopbackOnly(EtmcConfig.hostToml(hostInst, network, secret, List.of())
-                .replace("listeners = []", "listeners = [\"" + peer + "\"]"));
+                .replace("listeners = [", "listeners = [\"" + peer + "\", "));
         assertTrue(hostToml.contains(peer), "host TOML layout changed; update this test");
         et.parseConfig(hostToml);
         et.runNetworkInstance(hostToml);

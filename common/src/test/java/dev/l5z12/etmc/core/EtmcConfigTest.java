@@ -32,7 +32,8 @@ class EtmcConfigTest {
         assertTrue(toml.contains("hostname = \"etmc-host-bob\""));
         assertTrue(toml.contains("ipv4 = \"" + EtmcConfig.HOST_VIRTUAL_IP + "\""));
         assertFalse(toml.contains("dhcp"), "the host must be findable at a fixed address");
-        assertTrue(toml.contains("listeners = []"));
+        // The host takes direct connections, on random ports (so nothing else on the machine clashes).
+        assertTrue(toml.contains("listeners = [\"tcp://0.0.0.0:0\", \"udp://0.0.0.0:0\"]\n"), toml);
         assertTrue(toml.contains("[network_identity]"));
         assertTrue(toml.contains("network_name = \"smp\""));
         assertTrue(toml.contains("network_secret = \"pw\""));
@@ -44,6 +45,7 @@ class EtmcConfigTest {
         String toml = EtmcConfig.joinToml("etmc-host-ann", "smp", "pw", List.of());
         assertTrue(toml.contains("dhcp = true"));
         assertFalse(toml.contains("ipv4 ="));
+        assertTrue(toml.contains("listeners = []\n"), "a joiner only dials out, so it never needs a firewall rule");
         assertTrue(toml.contains("[flags]\nno_tun = true"));
     }
 

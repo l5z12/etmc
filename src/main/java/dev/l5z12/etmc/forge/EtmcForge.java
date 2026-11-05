@@ -3,6 +3,7 @@ package dev.l5z12.etmc.forge;
 import dev.l5z12.etmc.client.EtmcHud;
 import dev.l5z12.etmc.client.EtmcKey;
 import dev.l5z12.etmc.client.command.EtmcCommands;
+import dev.l5z12.etmc.client.screen.SettingsScreen;
 //? if >=1.21.11 {
 /*import net.minecraft.resources.Identifier;*/
 //?} else {
@@ -101,6 +102,25 @@ public final class EtmcForge {
         /*modBus.addListener((FMLClientSetupEvent e) -> e.enqueueWork(() ->
                 OverlayRegistry.registerOverlayTop("etmc_status",
                         (gui, poseStack, partialTick, width, height) -> EtmcHud.render(poseStack))));*/
+        //?}
+
+        // "Config" in the Mods list opens etmc's settings (otherwise the button is greyed out). The
+        // factory record is the same from 1.17 on; only its class moved.
+        //? if >=1.19 {
+        net.minecraftforge.fml.ModLoadingContext.get().registerExtensionPoint(
+                net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory(
+                        (mc, parent) -> new SettingsScreen(parent)));
+        //?} else if >=1.18 {
+        /*net.minecraftforge.fml.ModLoadingContext.get().registerExtensionPoint(
+                net.minecraftforge.client.ConfigGuiHandler.ConfigGuiFactory.class,
+                () -> new net.minecraftforge.client.ConfigGuiHandler.ConfigGuiFactory(
+                        (mc, parent) -> new SettingsScreen(parent)));*/
+        //?} else {
+        /*net.minecraftforge.fml.ModLoadingContext.get().registerExtensionPoint(
+                net.minecraftforge.fmlclient.ConfigGuiHandler.ConfigGuiFactory.class,
+                () -> new net.minecraftforge.fmlclient.ConfigGuiHandler.ConfigGuiFactory(
+                        (mc, parent) -> new SettingsScreen(parent)));*/
         //?}
 
         // Game bus: client commands + ticking.

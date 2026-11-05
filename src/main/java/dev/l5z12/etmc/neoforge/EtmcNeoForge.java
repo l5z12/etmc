@@ -3,6 +3,7 @@ package dev.l5z12.etmc.neoforge;
 import dev.l5z12.etmc.client.EtmcHud;
 import dev.l5z12.etmc.client.EtmcKey;
 import dev.l5z12.etmc.client.command.EtmcCommands;
+import dev.l5z12.etmc.client.screen.SettingsScreen;
 //? if >=1.21.11 {
 /*import net.minecraft.resources.Identifier;*/
 //?} else {
@@ -56,6 +57,18 @@ public final class EtmcNeoForge {
         /*modBus.addListener((RegisterGuiOverlaysEvent e) ->
                 e.registerAboveAll("etmc_status",
                         (gui, guiGraphics, partialTick, width, height) -> EtmcHud.render(guiGraphics)));*/
+        //?}
+
+        // "Config" in the Mods list opens etmc's settings (otherwise the button is greyed out).
+        //? if >=1.20.5 {
+        net.neoforged.fml.ModLoadingContext.get().registerExtensionPoint(
+                net.neoforged.neoforge.client.gui.IConfigScreenFactory.class,
+                () -> (unused, parent) -> new SettingsScreen(parent));
+        //?} else {
+        /*net.neoforged.fml.ModLoadingContext.get().registerExtensionPoint(
+                net.neoforged.neoforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
+                () -> new net.neoforged.neoforge.client.ConfigScreenHandler.ConfigScreenFactory(
+                        (mc, parent) -> new SettingsScreen(parent)));*/
         //?}
 
         // Game bus: client commands + ticking.

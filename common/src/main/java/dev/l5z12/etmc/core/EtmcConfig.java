@@ -21,6 +21,16 @@ public final class EtmcConfig {
     /** Virtual port the host's data-plane listener binds; joiners connect here. */
     public static final int DEFAULT_VIRTUAL_PORT = 25565;
 
+    /**
+     * What a host listens on for direct connections from joiners: TCP and UDP on random free ports
+     * (EasyTier binds port 0 to a free port, and IPv6 alongside, and advertises the real ports to
+     * peers). Without listeners a joiner could only reach the host through the relay or by hole
+     * punching, so joiners on the same LAN, or a host with a public address, still went through
+     * the relay. Opening the world to LAN already listens on every interface from this same
+     * process, so this asks for no new firewall permission. Joiners keep none (see build).
+     */
+    static final String HOST_LISTENERS = "[\"tcp://0.0.0.0:0\", \"udp://0.0.0.0:0\"]";
+
     private EtmcConfig() {}
 
     public static String hostToml(String instName, String networkName, String secret, List<String> relays) {
@@ -30,7 +40,7 @@ public final class EtmcConfig {
     /** @param hostname the device name peers see (the instance name is internal and unique per session) */
     public static String hostToml(String instName, String hostname, String networkName, String secret,
                                   List<String> relays) {
-        return build(instName, hostname, networkName, secret, relays, HOST_VIRTUAL_IP, false);
+        return build(instName, hostname, networkName, secret, relays, HOST_VIRTUAL_IP, false, HOST_LISTENERS);
     }
 
     public static String joinToml(String instName, String networkName, String secret, List<String> relays) {
@@ -39,11 +49,11 @@ public final class EtmcConfig {
 
     public static String joinToml(String instName, String hostname, String networkName, String secret,
                                   List<String> relays) {
-        return build(instName, hostname, networkName, secret, relays, null, true);
+        return build(instName, hostname, networkName, secret, relays, null, true, "[]");
     }
 
     private static String build(String instName, String hostname, String networkName, String secret,
-                                List<String> relays, String staticIpv4, boolean dhcp) {
+                                List<String> relays, String staticIpv4, boolean dhcp, String listeners) {
         StringBuilder sb = new StringBuilder();
         sb.append("instance_name = ").append(Toml.quote(instName)).append('\n');
         String device = hostname == null || hostname.isBlank() ? instName : hostname;
@@ -53,9 +63,9 @@ public final class EtmcConfig {
         } else {
             sb.append("ipv4 = ").append(Toml.quote(staticIpv4)).append('\n');
         }
-        // No inbound listeners: we are a pure client of the user-provided relay and rely on the
-        // relay (plus hole punching coordinated through it) for connectivity.
-        sb.append("listeners = []\n");
+        // A joiner listens on nothing: it only ever dials out (to the relay and the host), so joining
+        // never needs a firewall exception. The host listens; see HOST_LISTENERS.
+        sb.append("listeners = ").append(listeners).append('\n');
         sb.append('\n');
 
         sb.append("[network_identity]\n");

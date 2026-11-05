@@ -1,8 +1,9 @@
 name: release
 
 # Cut a release by pushing a tag (e.g. `v0.1.0`): build any missing natives at the release commit
-# (reusing whatever's committed there), assemble the loader jars with them, and attach the jars to the
-# GitHub Release. `workflow_dispatch` runs the same build WITHOUT publishing (a dry run).
+# (reusing whatever's committed there), assemble the loader jars with them, and attach the jars (and
+# the Paper plugin jars) to the GitHub Release. `workflow_dispatch` runs the same build WITHOUT
+# publishing (a dry run).
 on:
   push:
     tags: [ 'v*' ]
@@ -45,8 +46,9 @@ jobs:
       - name: Download built jars
         uses: actions/download-artifact@v4
         with:
-          # build.yml uploads one etmc-jars-<shard> artifact per build shard.
-          pattern: etmc-jars-*
+          # build.yml uploads one etmc-jars-<shard> artifact per loader shard, plus etmc-paper-jars
+          # (the Paper plugin, one jar per Paper version).
+          pattern: etmc-*jars*
           merge-multiple: true
           path: jars
 
