@@ -12,10 +12,14 @@
     "sources": "https://github.com/L5Z12/etmc"
   },
   "license": "GPL-3.0-or-later",
+  "icon": "assets/etmc/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
       "dev.l5z12.etmc.client.EtmcClient"
+    ],
+    "modmenu": [
+      "dev.l5z12.etmc.client.EtmcModMenu"
     ]
   },
   "mixins": [
@@ -24,7 +28,7 @@
   "depends": {
     "fabricloader": ">=0.16.0",
     "minecraft": "${minecraft_dependency}",
-    "java": ">=21",
+    "java": ">=${java_version}",
     "${fabric_api_id}": "*"
   },
   "suggests": {}

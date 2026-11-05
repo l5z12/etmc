@@ -1,6 +1,8 @@
 package dev.l5z12.etmc.core;
 
+import dev.l5z12.etmc.ffi.DataPlaneError;
 import dev.l5z12.etmc.ffi.EasyTier;
+import dev.l5z12.etmc.ffi.EasyTierException;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -19,6 +21,7 @@ import java.util.function.Consumer;
  */
 public final class TcpBridge {
 
+    private static final System.Logger LOG = System.getLogger("etmc.TcpBridge");
     private static final int BUF = 32 * 1024;
     /** Long: the read returns promptly on data or on close (handle cancellation), not on this timeout. */
     private static final long READ_TIMEOUT_MS = 3_600_000L;
@@ -29,6 +32,7 @@ public final class TcpBridge {
     private final long stream;
     private final Consumer<TcpBridge> onClose;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    private volatile String name = "peer";
 
     /**
      * @param onClose run once when either direction ends, with this bridge as the argument, so an
@@ -43,6 +47,7 @@ public final class TcpBridge {
 
     /** Starts both pump threads. Non-blocking. */
     public void start(String name) {
+        this.name = name;
         Threads.start("etmc-bridge-rx-" + name, this::pumpMeshToLocal);
         Threads.start("etmc-bridge-tx-" + name, this::pumpLocalToMesh);
     }
@@ -53,12 +58,12 @@ public final class TcpBridge {
             OutputStream out = local.getOutputStream();
             while (!closed.get()) {
                 int n = et.tcpRead(stream, tmp, BUF, READ_TIMEOUT_MS);
-                if (n <= 0) break; // 0 = EOF, -1 = error/closed
+                if (n <= 0) break; // end of stream
                 out.write(tmp, 0, n);
                 out.flush();
             }
-        } catch (Throwable ignored) {
-            // fall through to close
+        } catch (Throwable t) {
+            ended("mesh -> local", t);
         } finally {
             close();
         }
@@ -72,14 +77,24 @@ public final class TcpBridge {
                 int n = in.read(tmp);
                 if (n < 0) break; // EOF
                 if (n == 0) continue;
-                int w = et.tcpWrite(stream, tmp, n, WRITE_TIMEOUT_MS);
-                if (w < 0) break;
+                et.tcpWrite(stream, tmp, n, WRITE_TIMEOUT_MS);
             }
-        } catch (Throwable ignored) {
-            // fall through to close
+        } catch (Throwable t) {
+            ended("local -> mesh", t);
         } finally {
             close();
         }
+    }
+
+    /**
+     * Logs why a pump stopped, unless it was this bridge being closed (the other pump finishing, or a
+     * session teardown) — that is the normal way out, and every connection ends with one of those.
+     */
+    private void ended(String direction, Throwable t) {
+        if (closed.get()) return;
+        if (t instanceof EasyTierException e && e.is(DataPlaneError.HANDLE_CLOSED)) return;
+        LOG.log(System.Logger.Level.INFO, "etmc connection with " + name + " dropped (" + direction + "): "
+                + Errors.message(t));
     }
 
     public void close() {

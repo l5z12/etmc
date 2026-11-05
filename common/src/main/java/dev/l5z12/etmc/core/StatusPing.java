@@ -2,7 +2,9 @@ package dev.l5z12.etmc.core;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import dev.l5z12.etmc.ffi.DataPlaneError;
 import dev.l5z12.etmc.ffi.EasyTier;
+import dev.l5z12.etmc.ffi.EasyTierException;
 
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
@@ -16,20 +18,53 @@ import java.nio.charset.StandardCharsets;
  * auto-detect can't do it for an {@code etmc://} join: VFP sockets the placeholder address and reaches
  * nothing. We detect the version here and hand it to VFP so it skips its own (doomed) probe.
  *
- * <p>Blocking; call off the render thread. Returns the protocol number, or {@code -1} on any failure.
+ * <p>The same ping also tells a joiner whether the host's world is there at all, before Minecraft
+ * connects: see {@link #probe}.
+ *
+ * <p>Blocking; call off the render thread.
  */
 public final class StatusPing {
+
+    /** What a ping found at the host's address. */
+    public enum Outcome {
+        /** A Minecraft server answered. */
+        ANSWERED,
+        /**
+         * The stream opened but nothing ever came back. EasyTier reports a connect to a virtual port
+         * nobody listens on as done and then stays silent, so this is what "the host's network is up but
+         * nothing is hosted on that port" looks like.
+         */
+        SILENT,
+        /** Something there hung up: the host's bridge couldn't reach its world, or status is turned off. */
+        CLOSED,
+        /** The host's address couldn't be reached over the network at all. */
+        UNREACHABLE,
+        /** Something answered, but not with a server-list reply. */
+        BAD_REPLY
+    }
+
+    /** A ping's outcome, with the server's protocol number when it {@link Outcome#ANSWERED} (else -1). */
+    public record Result(Outcome outcome, int protocol) {}
 
     private static final long IO_TIMEOUT_MS = 8_000L;
     private static final int MAX_FRAME = 1 << 23; // 8 MiB — status JSON with a favicon can be sizable
 
     private StatusPing() {}
 
+    /** The host's protocol number, or {@code -1} on any failure. */
     public static int protocolVersion(EasyTier et, String inst, String hostIp, int hostPort) {
-        long stream = 0;
+        return probe(et, inst, hostIp, hostPort, IO_TIMEOUT_MS).protocol();
+    }
+
+    /** Pings the host, waiting at most {@code timeoutMs} for each step, and says what it found. */
+    public static Result probe(EasyTier et, String inst, String hostIp, int hostPort, long timeoutMs) {
+        long stream;
         try {
-            EasyTier.Bind c = et.tcpConnect(inst, hostIp, hostPort, IO_TIMEOUT_MS);
-            stream = c.handle();
+            stream = et.tcpConnect(inst, hostIp, hostPort, timeoutMs).handle();
+        } catch (Throwable t) {
+            return new Result(Outcome.UNREACHABLE, -1);
+        }
+        try {
 
             // Handshake (next state = 1 = status), then Status Request, sent back to back.
             ByteArrayOutputStream hs = new ByteArrayOutputStream();
@@ -39,30 +74,43 @@ public final class StatusPing {
             hs.write((hostPort >> 8) & 0xFF); // server port (unsigned short, big-endian)
             hs.write(hostPort & 0xFF);
             writeVarInt(hs, 1);               // next state: status
-            writeFrame(et, stream, hs.toByteArray());
+            writeFrame(et, stream, hs.toByteArray(), timeoutMs);
 
             ByteArrayOutputStream req = new ByteArrayOutputStream();
             writeVarInt(req, 0x00);           // packet id: status request (no fields)
-            writeFrame(et, stream, req.toByteArray());
+            writeFrame(et, stream, req.toByteArray(), timeoutMs);
 
             // Read the Status Response frame: VarInt(len){ VarInt(packetId) VarInt(jsonLen) json }.
-            Reader r = new Reader(et, stream);
+            Reader r = new Reader(et, stream, timeoutMs);
             int frameLen = readVarInt(r::readByte);
-            if (frameLen <= 0 || frameLen > MAX_FRAME) return -1;
+            if (frameLen <= 0 || frameLen > MAX_FRAME) return badReply();
             byte[] frame = r.readBytes(frameLen);
 
             Cursor body = new Cursor(frame);
-            int packetId = readVarInt(body);
-            if (packetId != 0x00) return -1;
-            int jsonLen = readVarInt(body);
-            if (jsonLen <= 0 || body.pos + jsonLen > frame.length) return -1;
+            int packetId;
+            int jsonLen;
+            try {
+                packetId = readVarInt(body);
+                if (packetId != 0x00) return badReply();
+                jsonLen = readVarInt(body);
+            } catch (IOException e) {
+                return badReply(); // the frame arrived whole; it's what's inside that's wrong
+            }
+            if (jsonLen <= 0 || body.pos + jsonLen > frame.length) return badReply();
             String json = new String(frame, body.pos, jsonLen, StandardCharsets.UTF_8);
-            return parseProtocol(json);
+            int protocol = parseProtocol(json);
+            return protocol < 0 ? badReply() : new Result(Outcome.ANSWERED, protocol);
+        } catch (EasyTierException e) {
+            return new Result(e.is(DataPlaneError.DEADLINE_EXCEEDED) ? Outcome.SILENT : Outcome.CLOSED, -1);
         } catch (Throwable t) {
-            return -1;
+            return new Result(Outcome.CLOSED, -1); // end of stream, mid-frame or before a byte
         } finally {
             Io.closeStream(et, stream);
         }
+    }
+
+    private static Result badReply() {
+        return new Result(Outcome.BAD_REPLY, -1);
     }
 
     private static int parseProtocol(String json) {
@@ -79,12 +127,12 @@ public final class StatusPing {
         return -1;
     }
 
-    private static void writeFrame(EasyTier et, long stream, byte[] body) throws IOException {
+    private static void writeFrame(EasyTier et, long stream, byte[] body, long timeoutMs) throws IOException {
         ByteArrayOutputStream framed = new ByteArrayOutputStream();
         writeVarInt(framed, body.length);
         framed.write(body, 0, body.length);
         byte[] out = framed.toByteArray();
-        if (et.tcpWrite(stream, out, out.length, IO_TIMEOUT_MS) < 0) {
+        if (et.tcpWrite(stream, out, out.length, timeoutMs) < 0) {
             throw new IOException("etmc status-ping write failed");
         }
     }
@@ -145,18 +193,20 @@ public final class StatusPing {
 
         private final EasyTier et;
         private final long stream;
+        private final long timeoutMs;
         private final byte[] buf = new byte[CHUNK];
         private int pos = 0;
         private int end = 0;
 
-        Reader(EasyTier et, long stream) {
+        Reader(EasyTier et, long stream, long timeoutMs) {
             this.et = et;
             this.stream = stream;
+            this.timeoutMs = timeoutMs;
         }
 
         /** Refills the buffer; throws {@link EOFException} at end of stream. */
         private void fill() throws IOException {
-            int n = et.tcpRead(stream, buf, buf.length, IO_TIMEOUT_MS);
+            int n = et.tcpRead(stream, buf, buf.length, timeoutMs);
             if (n <= 0) throw new EOFException();
             pos = 0;
             end = n;

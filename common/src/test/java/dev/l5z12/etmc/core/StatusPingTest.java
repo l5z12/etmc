@@ -135,6 +135,45 @@ class StatusPingTest {
         assertEquals(-1, ping());
     }
 
+    // ------------------------------------------------- what a joiner learns before connecting
+
+    private StatusPing.Outcome probe() {
+        return StatusPing.probe(et, "inst", "10.126.126.1", 25565, 300).outcome();
+    }
+
+    @Test
+    void aServerThatAnswersIsAnswered() {
+        host(s -> s.deliver(statusFrame("{\"version\":{\"protocol\":774}}")));
+        assertEquals(new StatusPing.Result(StatusPing.Outcome.ANSWERED, 774),
+                StatusPing.probe(et, "inst", "10.126.126.1", 25565, 300));
+    }
+
+    @Test
+    void aPortThatNeverAnswersIsSilent() {
+        // What EasyTier gives for a virtual port nobody listens on: the connect "succeeds", then nothing.
+        host(s -> {});
+        assertEquals(StatusPing.Outcome.SILENT, probe());
+        assertTrue(peer.get().isClosed(), "the data-plane stream must be released after a timeout");
+    }
+
+    @Test
+    void aHostThatHangsUpIsClosed() {
+        host(FakeEasyTier.Stream::close);
+        assertEquals(StatusPing.Outcome.CLOSED, probe());
+    }
+
+    @Test
+    void aHostThatCannotBeReachedIsUnreachable() {
+        et.connectFailure = new IllegalStateException("data_plane_tcp_connect failed: no route");
+        assertEquals(StatusPing.Outcome.UNREACHABLE, probe());
+    }
+
+    @Test
+    void somethingThatIsNotAMinecraftServerIsABadReply() {
+        host(s -> s.deliver(statusFrame("not json")));
+        assertEquals(StatusPing.Outcome.BAD_REPLY, probe());
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private static byte[] statusFrame(String json) {

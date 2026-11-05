@@ -6,6 +6,7 @@ import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.Errors;
+import dev.l5z12.etmc.core.Msg;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -34,7 +35,7 @@ public final class ConnectUrlScreen extends EtmcBaseScreen {
     //?}
 
     public ConnectUrlScreen(Screen parent) {
-        super(Txt.literal("Connect via config URL"), parent);
+        super(Txt.tr("etmc.menu.connect_url", "Connect via config URL"), parent);
     }
 
     @Override
@@ -43,7 +44,7 @@ public final class ConnectUrlScreen extends EtmcBaseScreen {
         int w = 280;
         int y = this.height / 4;
 
-        urlField = Ui.textField(font(), cx - w / 2, y + 12, w, 20, Txt.literal("Config URL"));
+        urlField = Ui.textField(font(), cx - w / 2, y + 12, w, 20, Txt.tr("etmc.url.field", "Config URL"));
         urlField.setMaxLength(1024);
         add(urlField);
         //? if >=1.17 {
@@ -51,38 +52,38 @@ public final class ConnectUrlScreen extends EtmcBaseScreen {
         //?}
         y += 44;
 
-        serverField = Ui.textField(font(), cx - w / 2, y + 12, w, 20, Txt.literal("Server"));
+        serverField = Ui.textField(font(), cx - w / 2, y + 12, w, 20, Txt.tr("etmc.url.server", "Server"));
         serverField.setMaxLength(64);
         add(serverField);
         y += 48;
 
-        add(Ui.button(Txt.literal("Paste URL"), b -> Ui.setText(urlField, McScreens.getClipboard().trim()))
+        add(Ui.button(Txt.tr("etmc.url.paste", "Paste URL"), b -> Ui.setText(urlField, McScreens.getClipboard().trim()))
                 .dimensions(cx - w / 2, y, w, 20).build());
         y += 28;
 
-        connectButton = Ui.button(Txt.literal("Fetch & connect"), b -> connect())
+        connectButton = Ui.button(Txt.tr("etmc.url.connect", "Fetch & connect"), b -> connect())
                 .dimensions(cx - w / 2, y, w, 20).build();
         connectButton.active = EtmcManager.get().isReady();
         add(connectButton);
         y += 24;
 
-        add(Ui.button(Txt.literal("Back"), b -> this.close())
+        add(Ui.button(Txt.translatable("gui.back"), b -> this.close())
                 .dimensions(cx - w / 2, y, w, 20).build());
     }
 
     private void connect() {
         String url = Ui.getText(urlField).trim();
         if (url.isEmpty()) {
-            setMessage("Enter a config URL.", COLOR_BAD);
+            setMessage(Msg.tr("etmc.url.need_url", "Enter a config URL."), COLOR_BAD);
             return;
         }
         String override = Ui.getText(serverField).trim();
         connectButton.active = false;
-        setMessage("Fetching config…", COLOR_BUSY);
+        setMessage(Msg.tr("etmc.url.fetching", "Fetching config…"), COLOR_BUSY);
         EtmcManager.get().connectUrlAsync(url, override.isEmpty() ? null : override)
                 .whenComplete((port, err) -> mc().execute(() -> {
                     if (err != null) {
-                        setMessage("Failed: " + Errors.message(err), COLOR_BAD);
+                        setMessage(Msg.tr("etmc.url.failed", "Failed: %s", Errors.message(err)), COLOR_BAD);
                         connectButton.active = true;
                     }
                     // on success McNet has switched to the connect screen
@@ -94,9 +95,9 @@ public final class ConnectUrlScreen extends EtmcBaseScreen {
         Gfx.centered(ctx, font(), this.title, this.width / 2, 22, COLOR_TEXT);
         int cx = this.width / 2;
         int w = 280;
-        Gfx.text(ctx, font(), Txt.literal("Config URL (http/https to an EasyTier config)"),
+        Gfx.text(ctx, font(), Txt.tr("etmc.url.field.hint", "Config URL (http/https to an EasyTier config)"),
                 cx - w / 2, this.height / 4, COLOR_MUTED);
-        Gfx.text(ctx, font(), Txt.literal("Server ip:port (optional if config has [etmc] server)"),
+        Gfx.text(ctx, font(), Txt.tr("etmc.url.server.hint", "Server ip:port (optional if config has [etmc] server)"),
                 cx - w / 2, this.height / 4 + 44, COLOR_MUTED);
         if (!message.isEmpty()) {
             Gfx.centered(ctx, font(), Txt.literal(message), cx, this.height - 38, messageColor);

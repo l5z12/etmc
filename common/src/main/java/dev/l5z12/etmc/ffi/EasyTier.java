@@ -8,15 +8,16 @@ import java.util.Map;
  *
  * <p>Two implementations exist so etmc runs across the whole Java range Minecraft uses:
  * <ul>
- *   <li>{@link FfmEasyTier} — {@code java.lang.foreign} (FFM/Panama), Java 19+ (MC 1.20.5+, 1.21.x, 26.x);</li>
- *   <li>{@code JnaEasyTier} — JNA, for Java 17 runtimes (MC 1.19.x and 1.20.1–1.20.4) where FFM is absent.</li>
+ *   <li>{@link FfmEasyTier} — {@code java.lang.foreign} (FFM/Panama), Java 21+ (MC 1.20.5+, 1.21.x, 26.x);</li>
+ *   <li>{@code JnaEasyTier} — JNA, for Java 17 runtimes (MC 1.17.1–1.20.4) where FFM is absent.</li>
  * </ul>
  *
  * <p>Obtain the process-wide instance via {@link #load(Path)}. The native library keeps a single
  * global instance manager, so this is a singleton.
  *
  * <p>Data-plane reads/writes use plain {@code byte[]} so callers never touch native memory; each
- * backend marshals into its own native buffers internally.
+ * backend marshals into its own native buffers internally. The library's data plane is asynchronous
+ * (ABI v3); the native backends present it as these blocking calls via {@code DataPlane}.
  */
 public interface EasyTier {
 
@@ -34,16 +35,24 @@ public interface EasyTier {
     String lastError();
 
     // ------------------------------------------------------------------ data plane (TCP)
+    // Blocking calls. Every failure throws EasyTierException carrying its DataPlaneError kind (a
+    // refused connection, a stopped network, a timeout, ...), so callers can say why, not just that.
+
+    /** Listens on {@code localPort} of the instance's virtual IP. */
     Bind tcpBind(String inst, int localPort, long timeoutMs);
+
+    /** Waits for one inbound connection; returns {@code null} if none arrived within {@code timeoutMs}. */
     Accept tcpAccept(long listener, long timeoutMs);
+
     Bind tcpConnect(String inst, String dstIp, int dstPort, long timeoutMs);
 
-    /** Reads up to {@code len} bytes into {@code buf}; returns bytes read (0 = EOF-ish), or -1 on failure. */
+    /** Reads up to {@code len} bytes into {@code buf}; returns the count, {@code 0} at end of stream. */
     int tcpRead(long handle, byte[] buf, int len, long timeoutMs);
 
-    /** Writes {@code len} bytes from {@code data}; returns &gt;=0 on success, -1 on failure. */
+    /** Writes all {@code len} bytes from {@code data}; returns {@code len}. */
     int tcpWrite(long handle, byte[] data, int len, long timeoutMs);
 
+    /** Closes a stream; in-flight reads/writes on it fail with {@link DataPlaneError#HANDLE_CLOSED}. */
     void tcpClose(long handle);
     void tcpListenerClose(long handle);
 

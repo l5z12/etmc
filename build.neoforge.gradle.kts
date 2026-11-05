@@ -17,8 +17,8 @@ sourceSets {
     named("main") {
         java {
             srcDir(rootProject.file("common/src/main/java"))
-            // This is the NeoForge node: drop the Fabric (EtmcClient) + Forge entry points.
-            exclude("**/EtmcClient.java", "**/forge/**")
+            // This is the NeoForge node: drop the Fabric (EtmcClient, EtmcModMenu) + Forge entry points.
+            exclude("**/EtmcClient.java", "**/EtmcModMenu.java", "**/forge/**")
         }
         resources {
             srcDir(rootProject.file("common/src/main/resources"))
@@ -27,10 +27,17 @@ sourceSets {
     }
 }
 
+// CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
+apply(from = rootProject.file("gradle/launch-probe.gradle"))
+val launchProbeResult = extra["launchProbeResult"] as String?
+
 neoForge {
     version = property("deps.neoforge") as String
     runs {
-        create("client") { client() }
+        create("client") {
+            client()
+            if (launchProbeResult != null) systemProperty("etmc.launchProbe", launchProbeResult)
+        }
     }
     mods {
         create("etmc") { sourceSet(sourceSets["main"]) }
@@ -66,9 +73,14 @@ tasks.processResources {
     inputs.property("compatibility_level", mixinCompat)
     inputs.property("minecraft_range", minecraftRange)
     inputs.property("neoforge_range", neoforgeRange)
+    // NeoForge read META-INF/mods.toml until 20.5 renamed it to neoforge.mods.toml; under the new name
+    // the 1.20.4 loader never saw etmc at all (CI's launch test caught it). The contents are the same.
+    val tomlName = if ((project.property("deps.neoforge") as String).startsWith("20.4.")) "mods.toml" else "neoforge.mods.toml"
+    inputs.property("toml_name", tomlName)
     filesMatching("META-INF/neoforge.mods.toml") {
         expand("version" to project.version, "minecraft_range" to minecraftRange,
                 "neoforge_range" to neoforgeRange)
+        name = tomlName
     }
     filesMatching("etmc.mixins.json") {
         expand("compatibility_level" to mixinCompat)

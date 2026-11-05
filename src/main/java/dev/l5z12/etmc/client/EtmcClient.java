@@ -108,6 +108,8 @@ public final class EtmcClient implements ClientModInitializer {
         /*HudRenderCallback.EVENT.register(tickDelta -> EtmcHud.render(null));*/
         //?} else if !yarn {
         /*HudElementRegistry.addLast(Identifier.fromNamespaceAndPath("etmc", "status"), (ctx, counter) -> EtmcHud.render(ctx));*/
+        //?} else {
+        /*EtmcHud.markUnavailable(); // 1.14.4's fabric-api has no HUD callback*/
         //?}
 
         // 1.19+: register via the command-registration event (v2 API). 1.16.2-1.18: the v1 client

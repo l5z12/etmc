@@ -13,7 +13,8 @@ import java.util.List;
  * {@code collect_network_infos}. We only pull out what the UI shows (virtual IP, peers, latency,
  * running flag) and tolerate missing/renamed fields rather than failing.
  */
-public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers, String errorMsg) {
+public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers, String errorMsg,
+                            int relayNodes) {
 
     /**
      * A snapshot is published to the render thread as soon as it is built, so freeze the peer list:
@@ -21,6 +22,12 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
      */
     public NetworkStatus {
         peers = peers == null ? List.of() : List.copyOf(peers);
+        if (errorMsg != null && errorMsg.isBlank()) errorMsg = null;
+    }
+
+    /** A status without relay-node accounting (tests, and callers that don't care). */
+    public NetworkStatus(boolean running, String virtualIp, List<Peer> peers, String errorMsg) {
+        this(running, virtualIp, peers, errorMsg, 0);
     }
 
     /**
@@ -30,11 +37,20 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
     public record Peer(String hostname, String ipv4, int latencyMs, boolean relay, int cost) {}
 
     public static NetworkStatus empty() {
-        return new NetworkStatus(false, null, List.of(), null);
+        return new NetworkStatus(false, null, List.of(), null, 0);
     }
 
     public int peerCount() {
         return peers.size();
+    }
+
+    /** The peer at {@code ipv4}, or {@code null} when it isn't (yet) in the route table. */
+    public Peer peerAt(String ipv4) {
+        if (ipv4 == null) return null;
+        for (Peer p : peers) {
+            if (ipv4.equals(p.ipv4())) return p;
+        }
+        return null;
     }
 
     /** Peers reachable over a direct (P2P) link — relayed peers are excluded. */
@@ -65,6 +81,7 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
             }
 
             List<Peer> peers = new ArrayList<>();
+            int relayNodes = 0;
             JsonArray pairs = optArray(root, "peer_route_pairs");
             if (pairs != null) {
                 for (JsonElement el : pairs) {
@@ -73,9 +90,13 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
                     JsonObject route = optObject(pair, "route");
                     if (route == null) continue;
                     String ip = decodeIpv4Inet(optObject(route, "ipv4_addr"));
-                    // Skip infrastructure peers with no virtual IP (public relay nodes): they aren't game
-                    // peers, so they'd just clutter the HUD as a no-name "?" entry.
-                    if (ip == null) continue;
+                    // Infrastructure peers with no virtual IP are relay nodes: not game peers (they'd just
+                    // clutter the HUD as a no-name entry), but worth counting — "connected to 0 relays"
+                    // is the difference between "the relay is unreachable" and "the host is offline".
+                    if (ip == null) {
+                        relayNodes++;
+                        continue;
+                    }
                     // EasyTier: route.cost <= 1 is a direct (p2p) link; > 1 is relayed (cost == hops).
                     int cost = optInt(route, "cost", 1);
                     boolean relay = cost > 1;
@@ -89,7 +110,7 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
                     peers.add(new Peer(hostname, ip, latency, relay, cost));
                 }
             }
-            return new NetworkStatus(running, vip, peers, errorMsg);
+            return new NetworkStatus(running, vip, peers, errorMsg, relayNodes);
         } catch (Exception e) {
             return empty();
         }

@@ -39,13 +39,57 @@ sourceSets {
     }
 }
 
+// Mod Menu's API, as compile-only stubs (stubs/README.md): EtmcModMenu implements it, the real Mod
+// Menu provides it at runtime. A separate source set that only main's compile classpath sees, so none
+// of it is in the jar or on the dev runtime classpath.
+val modmenuStubs = sourceSets.create("modmenuStubs") {
+    java.setSrcDirs(listOf(rootProject.file("stubs/modmenu/yarn/java")))
+    resources.setSrcDirs(emptyList<File>())
+}
+configurations.named("modmenuStubsCompileClasspath") { extendsFrom(configurations["compileClasspath"]) }
+sourceSets.named("main") { compileClasspath += modmenuStubs.output }
+
+// CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
+apply(from = rootProject.file("gradle/launch-probe.gradle"))
+val launchProbeResult = extra["launchProbeResult"] as String?
+
 loom {
     runs {
         named("client") {
             client()
             ideConfigGenerated(true)
             runDir("run")
+            if (launchProbeResult != null) property("etmc.launchProbe", launchProbeResult)
         }
+    }
+}
+
+// Client gametests (src/gametest, yarn 1.21.10 names): a real client that drives etmc's menu and hosts
+// a world over the bundled EasyTier library. Only on the node the source tree is checked out as; run
+// with `./gradlew :1.21.10-fabric:runClientGameTest` (CI puts it under xvfb).
+if (mcVersion == "1.21.10") {
+    fabricApi {
+        configureTests {
+            createSourceSet = true
+            modId = "etmc-gametest"
+            enableGameTests = false
+            enableClientGameTests = true
+            eula = true
+        }
+    }
+    sourceSets.named("gametest") {
+        java.setSrcDirs(listOf(rootProject.file("src/gametest/java")))
+        resources.setSrcDirs(listOf(rootProject.file("src/gametest/resources")))
+    }
+    // The real Mod Menu on the dev runtime (never in the jar), so the gametest can check that it
+    // finds etmc's config screen through EtmcModMenu and the stubbed API.
+    repositories {
+        maven("https://maven.terraformersmc.com/releases/") { content { includeGroup("com.terraformersmc") } }
+    }
+    dependencies { "modLocalRuntime"("com.terraformersmc:modmenu:16.0.1") }
+    loom.runs.named("clientGameTest") {
+        // etmc hooks the Netty pipeline itself (EtmcChannel), which the gametest packet sync can't follow.
+        property("fabric.client.gametest.disableNetworkSynchronizer", "true")
     }
 }
 
@@ -83,9 +127,12 @@ tasks.processResources {
     inputs.property("minecraft_dependency", minecraftDependency)
     inputs.property("compatibility_level", mixinCompat)
     inputs.property("fabric_api_id", fabricApiId)
+    // The Java this node targets (17 below MC 1.20.5): a hardcoded ">=21" made Fabric refuse every
+    // 1.14.4-1.20.4 jar on the Java 17 those versions run on.
+    inputs.property("java_version", javaVersion)
     filesMatching("fabric.mod.json") {
         expand("version" to project.version, "minecraft_dependency" to minecraftDependency,
-                "fabric_api_id" to fabricApiId)
+                "fabric_api_id" to fabricApiId, "java_version" to javaVersion)
     }
     filesMatching("etmc.mixins.json") {
         expand("compatibility_level" to mixinCompat)

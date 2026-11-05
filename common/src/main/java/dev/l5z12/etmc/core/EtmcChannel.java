@@ -1,5 +1,7 @@
 package dev.l5z12.etmc.core;
 
+import dev.l5z12.etmc.ffi.DataPlaneError;
+import dev.l5z12.etmc.ffi.EasyTierException;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.AbstractChannel;
 import io.netty.channel.ChannelConfig;
@@ -108,8 +110,10 @@ public final class EtmcChannel extends AbstractChannel {
 
     @Override
     protected void doClose() throws Exception {
+        boolean wasActive = active;
         open = false;
         active = false;
+        if (wasActive) EtmcConnect.channelClosed();
         long s = stream;
         stream = 0;
         Io.closeStream(target.et(), s);
@@ -186,7 +190,7 @@ public final class EtmcChannel extends AbstractChannel {
                     readGate.acquire();           // wait until netty requests a read (backpressure)
                     if (!open) break;
                     int n = target.et().tcpRead(stream, tmp, BUF, READ_TIMEOUT_MS);
-                    if (n <= 0) break;
+                    if (n <= 0) break; // the host closed the connection
                     ByteBuf out = config.getAllocator().buffer(n);
                     out.writeBytes(tmp, 0, n);
                     try {
@@ -201,8 +205,8 @@ public final class EtmcChannel extends AbstractChannel {
                         throw rejected;
                     }
                 }
-            } catch (Throwable ignored) {
-                // fall through to close
+            } catch (Throwable t2) {
+                failOnEventLoop(t2);
             } finally {
                 closeOnEventLoop();
             }
@@ -218,20 +222,32 @@ public final class EtmcChannel extends AbstractChannel {
                 while (open) {
                     byte[] data = writeQueue.take(); // blocks until there's something to send
                     if (data.length == 0) continue;
-                    int w = target.et().tcpWrite(stream, data, data.length, WRITE_TIMEOUT_MS);
-                    if (w < 0) {
-                        throw new java.io.IOException("etmc data-plane write failed");
-                    }
+                    target.et().tcpWrite(stream, data, data.length, WRITE_TIMEOUT_MS);
                 }
             } catch (InterruptedException ignored) {
                 // channel closing
-            } catch (Throwable ignored) {
-                // the mesh write failed — fall through to close
+            } catch (Throwable t2) {
+                failOnEventLoop(t2);
                 closeOnEventLoop();
             }
         });
         writer = t;
         t.start();
+    }
+
+    /**
+     * Reports why the connection broke (the network stopped, the host vanished, ...) to the pipeline,
+     * which is how Minecraft learns a reason to show on its disconnect screen. A close we caused
+     * ourselves is the normal way out and reports nothing.
+     */
+    private void failOnEventLoop(Throwable t) {
+        if (!open || (t instanceof EasyTierException e && e.is(DataPlaneError.HANDLE_CLOSED))) return;
+        java.io.IOException reason = new java.io.IOException("etmc: " + Errors.message(t), t);
+        try {
+            eventLoop().execute(() -> pipeline().fireExceptionCaught(reason));
+        } catch (Throwable ignored) {
+            // event loop already shut down
+        }
     }
 
     /** Closes from an I/O thread: netty requires channel teardown to run on the event loop. */
@@ -254,8 +270,15 @@ public final class EtmcChannel extends AbstractChannel {
                 try {
                     var c = target.et().tcpConnect(target.instanceName(), target.hostIp(), target.hostPort(),
                             CONNECT_TIMEOUT_MS);
+                    if (!open) {
+                        // Closed (cancelled) while connecting: don't leave the stream open behind it.
+                        Io.closeStream(target.et(), c.handle());
+                        eventLoop().execute(() -> promise.tryFailure(new java.nio.channels.ClosedChannelException()));
+                        return;
+                    }
                     stream = c.handle();
                     active = true;
+                    EtmcConnect.channelOpened();
                     eventLoop().execute(() -> {
                         promise.setSuccess();
                         pipeline().fireChannelActive();

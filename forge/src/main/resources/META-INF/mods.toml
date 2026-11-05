@@ -7,6 +7,7 @@ issueTrackerURL = "https://github.com/L5Z12/etmc/issues"
 modId = "etmc"
 version = "${version}"
 displayName = "etmc"
+logoFile = "assets/etmc/icon.png"
 authors = "L5Z12"
 description = "EasyTier P2P multiplayer, in-game — no port-forwarding, no TUN, no admin."
 

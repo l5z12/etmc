@@ -22,7 +22,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     works depends on the join path:
   </p>
   <ul>
-    <li><strong>Join with a code / config URL.</strong> These ride a loopback relay, so ViaFabricPlus's probe
+    <li><strong>Joining from inside a world / config URL.</strong> These ride a loopback relay, so ViaFabricPlus's probe
       passes straight through to the host and auto-detect just works — nothing special needed.</li>
     <li><strong><code>etmc://</code> links.</strong> These use the mesh netty channel directly, so there is no
       socket for ViaFabricPlus to probe and its auto-detect can't reach the host on its own. etmc detects the

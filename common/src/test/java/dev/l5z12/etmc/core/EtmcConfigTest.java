@@ -32,7 +32,8 @@ class EtmcConfigTest {
         assertTrue(toml.contains("hostname = \"etmc-host-bob\""));
         assertTrue(toml.contains("ipv4 = \"" + EtmcConfig.HOST_VIRTUAL_IP + "\""));
         assertFalse(toml.contains("dhcp"), "the host must be findable at a fixed address");
-        assertTrue(toml.contains("listeners = []"));
+        // The host takes direct connections, on random ports (so nothing else on the machine clashes).
+        assertTrue(toml.contains("listeners = [\"tcp://0.0.0.0:0\", \"udp://0.0.0.0:0\"]\n"), toml);
         assertTrue(toml.contains("[network_identity]"));
         assertTrue(toml.contains("network_name = \"smp\""));
         assertTrue(toml.contains("network_secret = \"pw\""));
@@ -44,6 +45,7 @@ class EtmcConfigTest {
         String toml = EtmcConfig.joinToml("etmc-host-ann", "smp", "pw", List.of());
         assertTrue(toml.contains("dhcp = true"));
         assertFalse(toml.contains("ipv4 ="));
+        assertTrue(toml.contains("listeners = []\n"), "a joiner only dials out, so it never needs a firewall rule");
         assertTrue(toml.contains("[flags]\nno_tun = true"));
     }
 
@@ -55,6 +57,22 @@ class EtmcConfigTest {
         assertEquals(2, count(toml, "[[peer]]"));
         assertTrue(toml.contains("uri = \"tcp://a:11010\""));
         assertTrue(toml.contains("uri = \"tcp://b:11010\""));
+    }
+
+    @Test
+    void aRelayOnThisMachineTurnsOffDeviceBinding() {
+        // Sockets bound to a physical interface can't reach loopback, so a local relay needs this off.
+        for (String relay : List.of("tcp://127.0.0.1:11010", "udp://localhost:11010", "tcp://[::1]:11010",
+                "TCP://LOCALHOST:1", "wg://127.8.9.10:11011")) {
+            String toml = EtmcConfig.hostToml("i", "n", "", List.of("tcp://relay.example:11010", relay));
+            assertEquals(1, count(toml, "bind_device = false"), relay);
+            assertTrue(toml.contains("[flags]\nno_tun = true\nbind_device = false\n"), relay);
+        }
+        for (String relay : List.of("tcp://relay.example:11010", "tcp://10.0.0.1:11010", "tcp://128.0.0.1:1",
+                "tcp://localhost.example:1", "not a uri")) {
+            assertFalse(EtmcConfig.joinToml("i", "n", "", List.of(relay)).contains("bind_device"), relay);
+        }
+        assertFalse(EtmcConfig.joinToml("i", "n", "", null).contains("bind_device"));
     }
 
     @Test

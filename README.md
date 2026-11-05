@@ -1,3 +1,5 @@
+<img src="site/public/icon-512.png" alt="" width="96" height="96" align="right">
+
 # etmc
 
 EasyTier P2P multiplayer, in-game. MCJE — **Fabric, NeoForge, Forge** (client) and **Paper** (server).
@@ -52,8 +54,8 @@ where to reach it; joiners use DHCP.
 - **Join via code / config URL**: `JoinProxy` opens a loopback listener and points Minecraft at
   `127.0.0.1:<port>` as if it were a LAN server, bridging each local connection to the host's virtual
   IP over the mesh.
-- A **join code** (`ETMC1:…`) carries the network name, secret, relay(s) and host address — share it
-  with a friend, or publish an `etmc://` link / config URL.
+- An **`etmc://` link** carries the network name, secret, relay(s) and host address — share it with a
+  friend (it pastes into Add Server / Direct Connect), or publish a config URL.
 
 The Foreign Function & Memory API (`java.lang.foreign`) is reached through a small **reflection
 facade** (`ffi/Panama.java`) so the jar stays plain Java 21 bytecode and runs on Java 21+ without
@@ -64,11 +66,12 @@ facade** (`ffi/Panama.java`) so the jar stays plain Java 21 bytecode and runs on
 1. Open the menu with the **G** key (rebindable, under *Controls → Misc*) or `/etmc menu`.
 2. **Settings → relays**: add your EasyTier relay node, e.g. `tcp://my.relay:11010` (required — etmc
    ships no public relay).
-3. **Host this world** → pick a network name (+ optional secret) → share the join code shown.
-4. Friends: **Join with a code** → paste → connect.
+3. **Host this world** → pick a network name and secret → share the `etmc://` link (Session status →
+   Copy invite link).
+4. Friends paste it into **Multiplayer → Add Server / Direct Connect**, or etmc's **Join with a link**.
 
-Commands: `/etmc host <network> [secret]`, `/etmc join <code>`, `/etmc connect <url> [ip:port]`,
-`/etmc status`, `/etmc invite` (copies the code), `/etmc leave`, `/etmc relay add|list|clear`,
+Commands: `/etmc host <network> [secret]`, `/etmc join <link>`, `/etmc connect <url> [ip:port]`,
+`/etmc status`, `/etmc invite` (copies the link), `/etmc leave`, `/etmc relay add|list|clear`,
 `/etmc hud`.
 
 ### Connect to a server from a config URL
@@ -93,8 +96,8 @@ label  = "My SMP"
 ```
 
 etmc fetches it, forces `no_tun`, joins the mesh, and tunnels to `server`. If the file omits
-`[etmc] server`, the player fills the Server field / passes `ip:port` to the command. An `ETMC1:…`
-join code at the URL works too. The target server just needs to be reachable on the EasyTier
+`[etmc] server`, the player fills the Server field / passes `ip:port` to the command. An `etmc://`
+link at the URL works too. The target server just needs to be reachable on the EasyTier
 network — it does **not** need to run etmc.
 
 ## Mod compatibility (ViaFabricPlus, etc.)
@@ -190,7 +193,7 @@ sources without Loom/ModDevGradle/ForgeGradle:
 ./gradlew -p paper test
 ```
 
-They cover the wire formats that have to stay byte-exact (`ETMC1:` / `etmc://`, EasyTier TOML
+They cover the wire formats that have to stay byte-exact (the `etmc://` link, EasyTier TOML
 generation and normalization, `collect_network_infos` parsing, the Server List Ping framing) **and**
 the networking core itself: the session state machine, both bridges, and the `etmc://` netty
 channel. Those run against `FakeEasyTier`, an in-memory stand-in for the FFI whose data plane is a

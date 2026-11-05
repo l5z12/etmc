@@ -16,6 +16,20 @@ repositories {
     mavenCentral()
 }
 
+// CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
+apply from: "$rootDir/gradle/launch-probe.gradle"
+if (launchProbeResult != null) {
+    loom.runs.matching { it.name == 'client' }.configureEach { property 'etmc.launchProbe', launchProbeResult }
+}
+
+// Mod Menu's API as compile-only stubs in official names (stubs/README.md); never in the jar.
+sourceSets.create('modmenuStubs') {
+    java.srcDirs = [file("$rootDir/stubs/modmenu/official/java")]
+    resources.srcDirs = []
+}
+configurations.modmenuStubsCompileClasspath.extendsFrom(configurations.compileClasspath)
+sourceSets.main.compileClasspath += sourceSets.modmenuStubs.output
+
 sourceSets.main.java.srcDir("$rootDir/common/src/main/java")
 sourceSets.main.resources.srcDir("$rootDir/common/src/main/resources")
 // Loader entry points compile only on their own loader; EtmcKey is mojmap-only.
@@ -57,8 +71,10 @@ processResources {
     inputs.property 'minecraft_dependency', minecraftDependency
     inputs.property 'compatibility_level', mixinCompat
     inputs.property 'fabric_api_id', fabricApiId
+    inputs.property 'java_version', javaVersion
     filesMatching('fabric.mod.json') {
-        expand 'version': project.version, 'minecraft_dependency': minecraftDependency, 'fabric_api_id': fabricApiId
+        expand 'version': project.version, 'minecraft_dependency': minecraftDependency, 'fabric_api_id': fabricApiId,
+                'java_version': javaVersion
     }
     filesMatching('etmc.mixins.json') {
         expand 'compatibility_level': mixinCompat

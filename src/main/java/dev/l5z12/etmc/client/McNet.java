@@ -1,5 +1,7 @@
 package dev.l5z12.etmc.client;
 
+import dev.l5z12.etmc.core.Msg;
+
 //? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
@@ -49,13 +51,20 @@ public final class McNet {
     /** @see dev.l5z12.etmc.core.EtmcConnect#PLACEHOLDER_ADDRESS */
     private static final String PLACEHOLDER_ADDRESS = dev.l5z12.etmc.core.EtmcConnect.PLACEHOLDER_ADDRESS;
 
+    /** Name prefix of the server-list entries {@link #presentJoin} adds (and {@link #removeJoinEntries} removes). */
+    private static final String JOIN_ENTRY_PREFIX = "etmc: ";
+
     private McNet() {}
 
     /**
      * Ensures the current singleplayer world is open to LAN and completes with its port. Runs on the
      * client thread.
+     *
+     * <p>If the world is already open to LAN (the player used vanilla's dialog), that is reused as is.
+     * Otherwise it is opened with {@code gameMode} for joiners ({@code null} = the host's current mode)
+     * and {@code cheats} — which, as in vanilla's dialog, applies to the host too.
      */
-    public static CompletableFuture<Integer> ensureOpenToLan() {
+    public static CompletableFuture<Integer> ensureOpenToLan(String gameMode, boolean cheats) {
         CompletableFuture<Integer> cf = new CompletableFuture<>();
         //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
@@ -63,7 +72,7 @@ public final class McNet {
             try {
                 IntegratedServer server = client.getServer();
                 if (server == null) {
-                    cf.completeExceptionally(new IllegalStateException("Open a singleplayer world first."));
+                    cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.no_world", "Open a singleplayer world first.")));
                     return;
                 }
                 int port = server.getServerPort();
@@ -72,11 +81,12 @@ public final class McNet {
                     return;
                 }
                 int chosen = freePort();
-                GameMode mode = client.interactionManager != null
+                GameMode mode = gameMode != null ? GameMode.valueOf(gameMode)
+                        : client.interactionManager != null
                         ? client.interactionManager.getCurrentGameMode() : GameMode.SURVIVAL;
-                boolean ok = server.openToLan(mode, false, chosen);
+                boolean ok = server.openToLan(mode, cheats, chosen);
                 if (!ok) {
-                    cf.completeExceptionally(new IllegalStateException("Failed to open the world to LAN."));
+                    cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.failed", "Failed to open the world to LAN.")));
                     return;
                 }
                 cf.complete(server.getServerPort());
@@ -90,7 +100,7 @@ public final class McNet {
             try {
                 IntegratedServer server = client.getSingleplayerServer();
                 if (server == null) {
-                    cf.completeExceptionally(new IllegalStateException("Open a singleplayer world first."));
+                    cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.no_world", "Open a singleplayer world first.")));
                     return;
                 }
                 int port = server.getPort();
@@ -99,10 +109,11 @@ public final class McNet {
                     return;
                 }
                 int chosen = freePort();
-                GameType mode = client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
-                boolean ok = server.publishServer(mode, false, chosen);
+                GameType mode = gameMode != null ? GameType.valueOf(gameMode)
+                        : client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
+                boolean ok = server.publishServer(mode, cheats, chosen);
                 if (!ok) {
-                    cf.completeExceptionally(new IllegalStateException("Failed to open the world to LAN."));
+                    cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.failed", "Failed to open the world to LAN.")));
                     return;
                 }
                 cf.complete(server.getPort());
@@ -116,7 +127,7 @@ public final class McNet {
             try {
                 IntegratedServer server = client.getSingleplayerServer();
                 if (server == null) {
-                    cf.completeExceptionally(new IllegalStateException("Open a singleplayer world first."));
+                    cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.no_world", "Open a singleplayer world first.")));
                     return;
                 }
                 int port = server.getPort();
@@ -125,11 +136,12 @@ public final class McNet {
                     return;
                 }
                 int chosen = freePort();
-                GameType mode = client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
+                GameType mode = gameMode != null ? GameType.valueOf(gameMode)
+                        : client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
                 boolean ok = server.publishServer(
-                        net.minecraft.server.MinecraftServer.MultiplayerScope.LAN, mode, false, chosen);
+                        net.minecraft.server.MinecraftServer.MultiplayerScope.LAN, mode, cheats, chosen);
                 if (!ok) {
-                    cf.completeExceptionally(new IllegalStateException("Failed to open the world to LAN."));
+                    cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.failed", "Failed to open the world to LAN.")));
                     return;
                 }
                 cf.complete(server.getPort());
@@ -155,7 +167,7 @@ public final class McNet {
         /*Minecraft client = Minecraft.getInstance();*/
         //?}
         String address = "127.0.0.1:" + port;
-        String name = "etmc: " + label;
+        String name = JOIN_ENTRY_PREFIX + label;
 
         ServerList list = new ServerList(client);
         //? if yarn {
@@ -238,10 +250,50 @@ public final class McNet {
         //?}
     }
 
+    /**
+     * Removes the {@code etmc: ...} entries {@link #presentJoin} added. They point at a loopback port
+     * that only works while that join is running, so once it ends (or after a restart) they are dead
+     * entries that just show "Can't connect". Client thread.
+     */
+    public static void removeJoinEntries() {
+        //? if yarn {
+        MinecraftClient client = MinecraftClient.getInstance();
+        //?} else {
+        /*Minecraft client = Minecraft.getInstance();*/
+        //?}
+        ServerList list = new ServerList(client);
+        //? if yarn {
+        list.loadFile();
+        //?} else {
+        /*list.load();*/
+        //?}
+        boolean changed = false;
+        for (int i = list.size() - 1; i >= 0; i--) {
+            //? if yarn {
+            ServerInfo s = list.get(i);
+            String address = s == null ? null : s.address;
+            //?} else {
+            /*ServerData s = list.get(i);
+            String address = s == null ? null : s.ip;*/
+            //?}
+            if (s != null && s.name != null && s.name.startsWith(JOIN_ENTRY_PREFIX)
+                    && address != null && address.startsWith("127.0.0.1:")) {
+                list.remove(s);
+                changed = true;
+            }
+        }
+        if (!changed) return;
+        //? if yarn {
+        list.saveFile();
+        //?} else {
+        /*list.save();*/
+        //?}
+    }
+
     /** Chat line shown when a world is loaded, so the player knows where the entry went. */
     private static String addedHint(String name, String address) {
-        return "[etmc] Added '" + name + "' to Multiplayer. Leave your world, then connect there"
-                + " (or Direct Connect " + address + ").";
+        return "[etmc] " + Msg.tr("etmc.join.added", "Added '%s' to Multiplayer. Leave this world, then join it "
+                + "from there (or Direct Connect %s). It stays valid until you leave the etmc network.", name, address);
     }
 
     /**
@@ -303,7 +355,7 @@ public final class McNet {
             return ss.getLocalPort();
         } catch (Exception e) {
             // Handing 0 to openToLan would fail with a far less obvious message than this.
-            throw new IllegalStateException("Couldn't reserve a local port for Open to LAN.", e);
+            throw new IllegalStateException(Msg.tr("etmc.lan.no_port", "Couldn't reserve a local port for Open to LAN."), e);
         }
     }
 }

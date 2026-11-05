@@ -3,32 +3,43 @@ package dev.l5z12.etmc.ffi;
 import com.sun.jna.Library;
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
+import com.sun.jna.NativeLibrary;
 import com.sun.jna.Pointer;
 import com.sun.jna.StringArray;
+import com.sun.jna.Structure;
+import com.sun.jna.ptr.ByteByReference;
+import com.sun.jna.ptr.IntByReference;
+import com.sun.jna.ptr.LongByReference;
 import com.sun.jna.ptr.PointerByReference;
-import com.sun.jna.ptr.ShortByReference;
 
+import java.nio.ByteOrder;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * {@link EasyTier} backend built on JNA, for Java 17 runtimes (MC 1.19.x and 1.20.1–1.20.4) where
- * {@code java.lang.foreign} doesn't exist yet. Mirrors {@link FfmEasyTier} exactly; JNA marshals the
- * C-ABI calls. Data-plane reads/writes take {@code byte[]} (JNA pins the array and copies back).
+ * {@link EasyTier} backend built on JNA, for Java 17 runtimes (MC 1.17.1–1.20.4) where
+ * {@code java.lang.foreign} doesn't exist yet. Mirrors {@link FfmEasyTier}; JNA marshals the C-ABI
+ * calls, and {@link DataPlane} builds the blocking stream API on the ABI v3 calls below.
  *
- * <p>The native struct {@code KeyValuePair { const char* key; const char* value; }} is 16 bytes on a
- * 64-bit target (all our Java-17 platforms are 64-bit), read directly out of a {@link Memory} block.
+ * <p>The native structs are read straight out of {@link Memory} blocks: {@code KeyValuePair} is
+ * 16 bytes and {@code DataPlaneCompletion} 16 bytes on a 64-bit target (all our Java-17 platforms
+ * are 64-bit); {@code DataPlaneSocketAddr} is 20 bytes and is passed by value as {@link SockAddr}.
  */
-public final class JnaEasyTier implements EasyTier {
-
-    static {
-        // Match FfmEasyTier: all C strings are UTF-8.
-        System.setProperty("jna.encoding", "UTF-8");
-    }
+public final class JnaEasyTier extends NativeEasyTier {
 
     private static final long KV_PAIR_BYTES = 16;
     private static final long PTR_BYTES = 8;
+    private static final int COMPLETION_BYTES = 16;
+
+    /** {@code DataPlaneSocketAddr}, by value. Public + static: JNA instantiates it reflectively. */
+    @Structure.FieldOrder({"family", "port", "address"})
+    public static class SockAddr extends Structure implements Structure.ByValue {
+        public short family;
+        public short port;
+        public byte[] address = new byte[16];
+    }
 
     /** Direct JNA mapping of the easytier_ffi C-ABI. */
     private interface Lib extends Library {
@@ -39,17 +50,26 @@ public final class JnaEasyTier implements EasyTier {
         void get_error_msg(PointerByReference out);                    // (const char**)
         void free_string(Pointer s);
 
-        long data_plane_tcp_connect(String inst, String dstIp, short dstPort, long timeoutMs,
-                                    PointerByReference outIp, ShortByReference outPort);
-        long data_plane_tcp_bind(String inst, short localPort, long timeoutMs,
-                                 PointerByReference outIp, ShortByReference outPort);
-        long data_plane_tcp_accept(long listener, long timeoutMs,
-                                   PointerByReference outLip, ShortByReference outLport,
-                                   PointerByReference outPip, ShortByReference outPport);
-        int data_plane_tcp_read(long handle, byte[] buf, int len, long timeoutMs);
-        int data_plane_tcp_write(long handle, byte[] data, int len, long timeoutMs);
-        int data_plane_tcp_close(long handle);
-        int data_plane_tcp_listener_close(long handle);
+        int data_plane_session_open(String inst, LongByReference outSession);
+        int data_plane_session_close(long session);
+        int data_plane_tcp_connect_submit(long session, SockAddr peer, long timeoutMs, LongByReference outOp);
+        int data_plane_tcp_bind_submit(long session, short port, long timeoutMs, LongByReference outOp);
+        int data_plane_tcp_accept_submit(long session, long listener, long timeoutMs, LongByReference outOp);
+        int data_plane_tcp_read_submit(long session, long stream, int maxLen, LongByReference outOp);
+        int data_plane_tcp_write_submit(long session, long stream, byte[] data, int len, LongByReference outOp);
+        int data_plane_completion_wait(long session, long timeoutMs);
+        int data_plane_completion_drain(long session, Pointer completions, int capacity);
+        int data_plane_tcp_connect_result_take(long session, long op, LongByReference outStream,
+                                               Pointer outLocal, Pointer outPeer);
+        int data_plane_tcp_bind_result_take(long session, long op, LongByReference outListener, Pointer outLocal);
+        int data_plane_tcp_accept_result_take(long session, long op, LongByReference outStream,
+                                              Pointer outLocal, Pointer outPeer);
+        int data_plane_tcp_read_result_take(long session, long op, byte[] data, int capacity,
+                                            IntByReference outLen, ByteByReference outEof);
+        int data_plane_tcp_write_result_take(long session, long op, IntByReference outLen);
+        int data_plane_operation_cancel(long session, long op);
+        int data_plane_operation_free(long session, long op);
+        int data_plane_resource_close(long session, long resource);
     }
 
     private final Lib lib;
@@ -64,13 +84,31 @@ public final class JnaEasyTier implements EasyTier {
     private Memory kvScratch;
     private int kvScratchPairs;
 
+    /** The completion-drain block; only the dispatcher thread drains, but guard it anyway. */
+    private final Memory drainScratch = new Memory((long) DRAIN_BATCH * COMPLETION_BYTES);
+
     private JnaEasyTier(Lib lib) {
         this.lib = lib;
     }
 
-    /** Loads the native library at {@code dll} and binds a JNA backend. */
+    /**
+     * Loads the native library at {@code dll} and binds a JNA backend.
+     *
+     * <p>The string encoding is passed to the load itself. The {@code jna.encoding} system property
+     * would only take effect if set before JNA first initialises — and Minecraft ships and uses JNA
+     * long before etmc runs, so on, say, Chinese Windows every string would go out as GBK. The
+     * library expects UTF-8 (network names, secrets and player names can be non-ASCII).
+     */
     public static JnaEasyTier create(Path dll) {
-        Lib lib = Native.load(dll.toAbsolutePath().toString(), Lib.class);
+        Map<String, Object> options = Collections.singletonMap(Library.OPTION_STRING_ENCODING, "UTF-8");
+        String path = dll.toAbsolutePath().toString();
+        Lib lib = Native.load(path, Lib.class, options);
+        // JNA resolves symbols on first call; resolve them all now so a library with a different ABI
+        // (pre-v3, or missing a function) fails at load naming the symbol, as the FFM backend does.
+        NativeLibrary nl = NativeLibrary.getInstance(path, options);
+        for (java.lang.reflect.Method m : Lib.class.getMethods()) {
+            nl.getFunction(m.getName());
+        }
         return new JnaEasyTier(lib);
     }
 
@@ -87,9 +125,8 @@ public final class JnaEasyTier implements EasyTier {
     }
 
     @Override
-    public void deleteNetworkInstance(String... names) {
-        if (names == null || names.length == 0) return;
-        if (lib.delete_network_instance(new StringArray(names), names.length) != 0) {
+    protected void deleteInstances(String... names) {
+        if (lib.delete_network_instance(new StringArray(names, "UTF-8"), names.length) != 0) {
             throw new EasyTierException("delete_network_instance failed: " + lastError());
         }
     }
@@ -133,66 +170,146 @@ public final class JnaEasyTier implements EasyTier {
         return msg == null ? "(no error message)" : msg;
     }
 
-    // ------------------------------------------------------------------ data plane (TCP)
+    // ------------------------------------------------------------------ data plane (ABI v3)
 
     @Override
-    public Bind tcpBind(String inst, int localPort, long timeoutMs) {
-        PointerByReference outIp = new PointerByReference();
-        ShortByReference outPort = new ShortByReference();
-        long h = lib.data_plane_tcp_bind(inst, (short) localPort, timeoutMs, outIp, outPort);
-        if (h == 0) throw new EasyTierException("data_plane_tcp_bind failed: " + lastError());
-        return new Bind(h, takeString(outIp), outPort.getValue() & 0xFFFF);
+    public long sessionOpen(String instName) {
+        LongByReference out = new LongByReference();
+        rc("data_plane_session_open", lib.data_plane_session_open(instName, out));
+        return out.getValue();
     }
 
     @Override
-    public Accept tcpAccept(long listener, long timeoutMs) {
-        PointerByReference outLip = new PointerByReference();
-        ShortByReference outLport = new ShortByReference();
-        PointerByReference outPip = new PointerByReference();
-        ShortByReference outPport = new ShortByReference();
-        long h = lib.data_plane_tcp_accept(listener, timeoutMs, outLip, outLport, outPip, outPport);
-        if (h == 0) return null;
-        return new Accept(h, takeString(outLip), outLport.getValue() & 0xFFFF,
-                takeString(outPip), outPport.getValue() & 0xFFFF);
+    public void sessionClose(long session) {
+        rc("data_plane_session_close", lib.data_plane_session_close(session));
     }
 
     @Override
-    public Bind tcpConnect(String inst, String dstIp, int dstPort, long timeoutMs) {
-        PointerByReference outIp = new PointerByReference();
-        ShortByReference outPort = new ShortByReference();
-        long h = lib.data_plane_tcp_connect(inst, dstIp, (short) dstPort, timeoutMs, outIp, outPort);
-        if (h == 0) throw new EasyTierException("data_plane_tcp_connect failed: " + lastError());
-        return new Bind(h, takeString(outIp), outPort.getValue() & 0xFFFF);
+    public long tcpConnectSubmit(long session, byte[] ipv4, int port, long timeoutMs) {
+        SockAddr addr = new SockAddr();
+        addr.family = 4;
+        addr.port = (short) port;
+        System.arraycopy(ipv4, 0, addr.address, 0, 4);
+        LongByReference out = new LongByReference();
+        rc("data_plane_tcp_connect_submit", lib.data_plane_tcp_connect_submit(session, addr, timeoutMs, out));
+        return out.getValue();
     }
 
     @Override
-    public int tcpRead(long handle, byte[] buf, int len, long timeoutMs) {
-        return lib.data_plane_tcp_read(handle, buf, len, timeoutMs);
+    public long tcpBindSubmit(long session, int port, long timeoutMs) {
+        LongByReference out = new LongByReference();
+        rc("data_plane_tcp_bind_submit", lib.data_plane_tcp_bind_submit(session, (short) port, timeoutMs, out));
+        return out.getValue();
     }
 
     @Override
-    public int tcpWrite(long handle, byte[] data, int len, long timeoutMs) {
-        return lib.data_plane_tcp_write(handle, data, len, timeoutMs);
+    public long tcpAcceptSubmit(long session, long listener, long timeoutMs) {
+        LongByReference out = new LongByReference();
+        rc("data_plane_tcp_accept_submit", lib.data_plane_tcp_accept_submit(session, listener, timeoutMs, out));
+        return out.getValue();
     }
 
     @Override
-    public void tcpClose(long handle) {
-        if (handle != 0) lib.data_plane_tcp_close(handle);
+    public long tcpReadSubmit(long session, long stream, int maxLen) {
+        LongByReference out = new LongByReference();
+        rc("data_plane_tcp_read_submit", lib.data_plane_tcp_read_submit(session, stream, maxLen, out));
+        return out.getValue();
     }
 
     @Override
-    public void tcpListenerClose(long handle) {
-        if (handle != 0) lib.data_plane_tcp_listener_close(handle);
+    public long tcpWriteSubmit(long session, long stream, byte[] data, int len) {
+        LongByReference out = new LongByReference();
+        rc("data_plane_tcp_write_submit", lib.data_plane_tcp_write_submit(session, stream, data, len, out));
+        return out.getValue();
     }
 
-    // ------------------------------------------------------------------ helpers
+    @Override
+    public int completionWait(long session, long timeoutMs) {
+        return rc("data_plane_completion_wait", lib.data_plane_completion_wait(session, timeoutMs));
+    }
 
-    /** Reads the C string written into a {@code char**} out param and frees the native copy. */
-    private String takeString(PointerByReference ref) {
-        Pointer p = ref.getValue();
-        if (p == null) return null;
-        String s = p.getString(0, "UTF-8");
-        lib.free_string(p);
-        return s;
+    @Override
+    public synchronized int completionDrain(long session, long[] ops, int[] statuses) {
+        int cap = Math.min(ops.length, DRAIN_BATCH);
+        int n = rc("data_plane_completion_drain", lib.data_plane_completion_drain(session, drainScratch, cap));
+        for (int i = 0; i < n; i++) {
+            long base = (long) i * COMPLETION_BYTES;
+            ops[i] = drainScratch.getLong(base);
+            statuses[i] = drainScratch.getShort(base + 10) & 0xFFFF;
+        }
+        return n;
+    }
+
+    @Override
+    public Opened tcpConnectResultTake(long session, long op) {
+        LongByReference stream = new LongByReference();
+        Memory local = new Memory(SOCKADDR_BYTES);
+        Memory peer = new Memory(SOCKADDR_BYTES);
+        rc("data_plane_tcp_connect_result_take",
+                lib.data_plane_tcp_connect_result_take(session, op, stream, local, peer));
+        return opened(stream.getValue(), local, peer);
+    }
+
+    @Override
+    public Opened tcpAcceptResultTake(long session, long op) {
+        LongByReference stream = new LongByReference();
+        Memory local = new Memory(SOCKADDR_BYTES);
+        Memory peer = new Memory(SOCKADDR_BYTES);
+        rc("data_plane_tcp_accept_result_take",
+                lib.data_plane_tcp_accept_result_take(session, op, stream, local, peer));
+        return opened(stream.getValue(), local, peer);
+    }
+
+    @Override
+    public Opened tcpBindResultTake(long session, long op) {
+        LongByReference listener = new LongByReference();
+        Memory local = new Memory(SOCKADDR_BYTES);
+        rc("data_plane_tcp_bind_result_take", lib.data_plane_tcp_bind_result_take(session, op, listener, local));
+        var l = local.getByteBuffer(0, SOCKADDR_BYTES).order(ByteOrder.nativeOrder());
+        return new Opened(listener.getValue(), DataPlaneAbi.sockAddrIp(l), DataPlaneAbi.sockAddrPort(l), null, 0);
+    }
+
+    private static Opened opened(long resource, Memory local, Memory peer) {
+        var l = local.getByteBuffer(0, SOCKADDR_BYTES).order(ByteOrder.nativeOrder());
+        var p = peer.getByteBuffer(0, SOCKADDR_BYTES).order(ByteOrder.nativeOrder());
+        return new Opened(resource, DataPlaneAbi.sockAddrIp(l), DataPlaneAbi.sockAddrPort(l),
+                DataPlaneAbi.sockAddrIp(p), DataPlaneAbi.sockAddrPort(p));
+    }
+
+    @Override
+    public int tcpReadResultTake(long session, long op, byte[] buf, int capacity) {
+        IntByReference len = new IntByReference();
+        ByteByReference eof = new ByteByReference();
+        rc("data_plane_tcp_read_result_take",
+                lib.data_plane_tcp_read_result_take(session, op, buf, capacity, len, eof));
+        return len.getValue();
+    }
+
+    @Override
+    public int tcpWriteResultTake(long session, long op) {
+        IntByReference len = new IntByReference();
+        rc("data_plane_tcp_write_result_take", lib.data_plane_tcp_write_result_take(session, op, len));
+        return len.getValue();
+    }
+
+    @Override
+    public void operationCancel(long session, long op) {
+        rc("data_plane_operation_cancel", lib.data_plane_operation_cancel(session, op));
+    }
+
+    @Override
+    public void operationFree(long session, long op) {
+        rc("data_plane_operation_free", lib.data_plane_operation_free(session, op));
+    }
+
+    @Override
+    public void resourceClose(long session, long resource) {
+        rc("data_plane_resource_close", lib.data_plane_resource_close(session, resource));
+    }
+
+    /** Returns a non-negative ABI result, or throws the kind a negative one encodes. */
+    private int rc(String fn, int rc) {
+        if (rc < 0) throw abiFailure(fn, rc);
+        return rc;
     }
 }

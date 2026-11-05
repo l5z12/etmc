@@ -87,6 +87,10 @@ public final class EtmcPlugin extends JavaPlugin {
             if (relays.isEmpty()) {
                 throw new IllegalStateException("No relays configured. Set 'relays' in plugins/etmc/config.yml.");
             }
+            String relayProblem = dev.l5z12.etmc.core.Relays.firstProblem(relays);
+            if (relayProblem != null) {
+                throw new IllegalStateException("Bad relay in plugins/etmc/config.yml: " + relayProblem);
+            }
 
             Path cacheRoot = getDataFolder().toPath();
             NativeLoader.Native nat = NativeLoader.extract(cacheRoot);
@@ -102,9 +106,7 @@ public final class EtmcPlugin extends JavaPlugin {
             ready = true;
             getLogger().info("Mesh up — network '" + network + "', reachable on the mesh at "
                     + EtmcConfig.HOST_VIRTUAL_IP + ":" + virtualPort + " (-> local :" + serverPort + ").");
-            getLogger().info("Share this join code with players:");
-            getLogger().info(joinCode.encode());
-            getLogger().info("…or this link (paste into Add Server / Direct Connect):");
+            getLogger().info("Share this link with players (they paste it into Add Server / Direct Connect):");
             getLogger().info(joinCode.encodeLink());
         } catch (Throwable t) {
             startError = Errors.message(t);

@@ -1,16 +1,17 @@
 name: release
 
 # Cut a release by pushing a tag (e.g. `v0.1.0`): build any missing natives at the release commit
-# (reusing whatever's committed there), assemble the loader jars with them, and attach the jars to the
-# GitHub Release. `workflow_dispatch` runs the same build WITHOUT publishing (a dry run).
+# (reusing whatever's committed there), assemble the loader jars with them, and attach the jars (and
+# the Paper plugin jars) to the GitHub Release. `workflow_dispatch` runs the same build WITHOUT
+# publishing (a dry run).
 on:
   push:
     tags: [ 'v*' ]
   workflow_dispatch:
     inputs:
       easytier_ref:
-        description: "EasyTier git ref to build any missing natives from"
-        default: "main"
+        description: "EasyTier git ref to build any missing natives from (empty = the pinned commit)"
+        default: ""
 
 permissions:
   contents: read
@@ -20,16 +21,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Build only the natives missing at the release commit (committed ones are reused).
+  # Build only the natives missing at the release commit (committed ones are reused). Missing ones
+  # (macOS) are built from the pinned EasyTier commit (natives/easytier.commit), so every platform in
+  # a release runs the same EasyTier.
   natives:
     uses: ./.github/workflows/natives.yml
     with:
-      easytier_ref: ${{ github.event.inputs.easytier_ref || 'main' }}
+      easytier_ref: ${{ github.event.inputs.easytier_ref || '' }}
 
   # Assemble the loader jars; picks up the freshly-built native-* artifacts from the natives job above.
   jars:
     needs: natives
     uses: ./.github/workflows/build.yml
+    secrets: inherit   # the R2 decompile-cache secrets; without them every shard builds cold
 
   publish:
     name: publish release
@@ -40,15 +44,16 @@ jobs:
       contents: write   # create the release and upload assets
     steps:
       - name: Download built jars
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
-          # build.yml uploads one etmc-jars-<shard> artifact per build shard.
-          pattern: etmc-jars-*
+          # build.yml uploads one etmc-jars-<shard> artifact per loader shard, plus etmc-paper-jars
+          # (the Paper plugin, one jar per Paper version).
+          pattern: etmc-*jars*
           merge-multiple: true
           path: jars
 
       - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: jars/**/*.jar
           fail_on_unmatched_files: true

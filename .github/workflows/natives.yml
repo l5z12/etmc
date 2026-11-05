@@ -1,33 +1,77 @@
 name: natives
 
-# Builds the EasyTier FFI native (easytier_ffi) for each platform whose library isn't already committed
-# under natives/<os>-<arch>/ — so committed platforms do no Rust work and only a genuinely missing one
-# (e.g. macOS) is built. Reusable (workflow_call) + manually runnable (workflow_dispatch). It is NOT
-# wired to push, so a routine commit never triggers a native build.
+# Builds the EasyTier FFI native (easytier_ffi) for each platform. The EasyTier commit the committed
+# natives were built from is pinned in common/src/main/resources/natives/easytier.commit, and that pin
+# is what gets built unless a caller asks for another ref:
+#   - a platform whose library is committed AND the requested ref resolves to the pinned commit does
+#     no Rust work (the committed file is reused);
+#   - any other platform (a missing one such as macOS, or every platform when the ref differs from the
+#     pin) is built from the requested ref and uploaded as native-<tag>.
+# Reusable (workflow_call) + manually runnable (workflow_dispatch). NOT wired to push, so a routine
+# commit never triggers a native build. easytier-update.yml uses it to move the pin.
 on:
   workflow_call:
     inputs:
       easytier_ref:
-        description: "EasyTier git ref to build missing natives from"
+        description: "EasyTier git ref to build from (empty = the pinned commit)"
         type: string
         required: false
-        default: "main"
+        default: ""
+      only_committed:
+        description: "Skip platforms that have no committed native (e.g. macOS) instead of building them"
+        type: boolean
+        required: false
+        default: false
+    outputs:
+      easytier_commit:
+        description: "The EasyTier commit the natives were resolved to"
+        value: ${{ jobs.resolve.outputs.commit }}
   workflow_dispatch:
     inputs:
       easytier_ref:
-        description: "EasyTier git ref (branch/tag/sha) to build missing natives from"
-        default: "main"
+        description: "EasyTier git ref (branch/tag/sha) to build from (empty = the pinned commit)"
+        default: ""
+      only_committed:
+        description: "Skip platforms that have no committed native"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
-env:
-  EASYTIER_REF: ${{ inputs.easytier_ref || 'main' }}
-
 jobs:
+  # Resolve the requested ref (or the pin) to a full commit once, so every platform builds the same
+  # EasyTier even if a branch moves mid-run.
+  resolve:
+    name: resolve EasyTier commit
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.r.outputs.commit }}
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v7
+      - name: Resolve ref
+        id: r
+        env:
+          REQ: ${{ inputs.easytier_ref }}
+        run: |
+          pin="$(tr -d '[:space:]' < common/src/main/resources/natives/easytier.commit)"
+          ref="${REQ:-$pin}"
+          if [[ "$ref" =~ ^[0-9a-f]{40}$ ]]; then
+            commit="$ref"
+          else
+            commit="$(git ls-remote https://github.com/EasyTier/EasyTier.git "$ref" "refs/tags/$ref" "refs/heads/$ref" | head -1 | cut -f1)"
+          fi
+          [ -n "$commit" ] || { echo "::error::cannot resolve EasyTier ref '$ref'"; exit 1; }
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "EasyTier ref '$ref' -> $commit (pinned: $pin)"
+
   native:
     name: native (${{ matrix.tag }})
+    needs: resolve
     runs-on: ${{ matrix.os }}
+    env:
+      EASYTIER_REF: ${{ needs.resolve.outputs.commit }}
     strategy:
       fail-fast: false
       matrix:
@@ -36,26 +80,35 @@ jobs:
           - { os: ubuntu-latest,  tag: linux-x86_64,   target: x86_64-unknown-linux-gnu,  lib: libeasytier_ffi.so }
           - { os: ubuntu-latest,  tag: linux-aarch64,  target: aarch64-unknown-linux-gnu, lib: libeasytier_ffi.so, cross: aarch64 }
           - { os: macos-14,       tag: macos-aarch64,  target: aarch64-apple-darwin,      lib: libeasytier_ffi.dylib }
-          - { os: macos-13,       tag: macos-x86_64,   target: x86_64-apple-darwin,       lib: libeasytier_ffi.dylib }
+          - { os: macos-15-intel, tag: macos-x86_64,   target: x86_64-apple-darwin,       lib: libeasytier_ffi.dylib }
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      # If the native is already committed at this commit, use it and skip the (expensive) Rust build.
+      # Reuse the committed native when it was built from the commit we're asked for; skip a platform
+      # with no committed native when the caller only wants committed platforms refreshed.
       - name: Native already committed?
         id: have
         shell: bash
+        env:
+          ONLY_COMMITTED: ${{ inputs.only_committed }}
         run: |
-          if [ -s "common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}" ]; then
+          lib="common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}"
+          pin="$(tr -d '[:space:]' < common/src/main/resources/natives/easytier.commit)"
+          if [ -s "$lib" ] && [ "$pin" = "$EASYTIER_REF" ]; then
             echo "committed=true" >> "$GITHUB_OUTPUT"
-            echo "::notice::Using committed native for ${{ matrix.tag }} (skipping build)"
+            echo "::notice::Using committed native for ${{ matrix.tag }} (built from $pin)"
+          elif [ ! -s "$lib" ] && [ "$ONLY_COMMITTED" = "true" ]; then
+            echo "committed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::No committed native for ${{ matrix.tag }}; skipped (only_committed)"
           else
             echo "committed=false" >> "$GITHUB_OUTPUT"
+            echo "Building ${{ matrix.tag }} from EasyTier $EASYTIER_REF (pinned: $pin)"
           fi
 
       - name: Checkout EasyTier (${{ env.EASYTIER_REF }})
         if: steps.have.outputs.committed != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: EasyTier/EasyTier
           ref: ${{ env.EASYTIER_REF }}
@@ -65,7 +118,7 @@ jobs:
       - name: Cache built native
         id: natcache
         if: steps.have.outputs.committed != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}
           key: native-${{ matrix.tag }}-full-${{ env.EASYTIER_REF }}-${{ hashFiles('easytier/Cargo.lock') }}
@@ -118,6 +171,11 @@ jobs:
             export CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
             export AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar   # vendored OpenSSL cross build
           fi
+          # Vendored OpenSSL's Configure needs a full Perl. Git-Bash's MSYS perl on the Windows image
+          # lacks Locale::Maketext::Simple, so point openssl-src at the preinstalled Strawberry Perl.
+          if [ "$RUNNER_OS" = "Windows" ] && [ -x /c/Strawberry/perl/bin/perl.exe ]; then
+            export OPENSSL_SRC_PERL='C:\Strawberry\perl\bin\perl.exe'
+          fi
           # --features easytier/full = all transports/connectors + crypto backends (aes-gcm, vendored openssl).
           cargo build -p easytier-ffi --release --features easytier/full --target ${{ matrix.target }}
 
@@ -145,7 +203,7 @@ jobs:
       # Uploads the whole tag dir so the Windows Packet.dll shim rides along with easytier_ffi.dll.
       - name: Upload native
         if: steps.have.outputs.committed != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-${{ matrix.tag }}
           path: common/src/main/resources/natives/${{ matrix.tag }}/

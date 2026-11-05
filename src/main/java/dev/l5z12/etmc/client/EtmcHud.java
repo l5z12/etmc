@@ -1,6 +1,7 @@
 package dev.l5z12.etmc.client;
 
 import dev.l5z12.etmc.core.EtmcSession;
+import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.NetworkStatus;
 //? if yarn {
 import net.minecraft.client.MinecraftClient;
@@ -25,11 +26,27 @@ public final class EtmcHud {
     private static final int LABEL = 0xFFAAAAAA;
     private static final int VALUE = 0xFFFFFFFF;
     private static final int WARN = 0xFFFFAA00;
+    private static final int BAD = 0xFFFF5555;
     /** Peers listed before collapsing the rest into a "+n more" line. */
     private static final int MAX_PEERS = 6;
     /** Overlay box: inset from the screen corner, and padding between its edge and the text. */
     private static final int MARGIN = 4;
     private static final int PADDING = 3;
+    /** Longest EasyTier error shown in the overlay; the Status screen shows it in full. */
+    private static final int MAX_ERROR_CHARS = 60;
+
+    /** False on versions whose loader offers no HUD hook (the overlay simply can't be drawn there). */
+    private static volatile boolean available = true;
+
+    /** Called by a loader entry point that has no way to register the overlay on this version. */
+    public static void markUnavailable() {
+        available = false;
+    }
+
+    /** Whether this build can draw the overlay at all (the Settings toggle says so when it can't). */
+    public static boolean isAvailable() {
+        return available;
+    }
 
     /**
      * Last built line list, reused until something it shows actually changes. This runs on the render
@@ -40,11 +57,12 @@ public final class EtmcHud {
     private static NetworkStatus cachedFrom;
     private static EtmcSession.Mode cachedMode;
     private static int cachedConnections = -1;
+    private static String cachedFailure;
 
     private EtmcHud() {}
 
     /**
-     * Draws the overlay. {@code ctx} is whatever draw context this Minecraft build hands its HUD
+     * Draws the overlay. Hidden with F1 like the rest of the HUD. {@code ctx} is whatever draw context this Minecraft build hands its HUD
      * callback (nothing at all before 1.16, hence {@code null} there); it is passed straight to
      * {@link Gfx}, which is the one place that knows its real type.
      */
@@ -56,7 +74,7 @@ public final class EtmcHud {
         EtmcSession s = m.session();
         if (s == null || !s.isActive()) return;
 
-        // 26.x dropped Options.hideGui; there the etmc HUD just always renders while a session is active.
+        // F1: Options.hideGui before 26.x; 26.x moved the flag onto the HUD itself (gui.hud.isHidden()).
         //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options.hudHidden) return;
@@ -67,6 +85,7 @@ public final class EtmcHud {
         Font tr = client.font;*/
         //?} else {
         /*Minecraft client = Minecraft.getInstance();
+        if (client.gui.hud.isHidden()) return;
         Font tr = client.font;*/
         //?}
         List<Line> lines = lines(s, m.cachedStatus());
@@ -104,41 +123,52 @@ public final class EtmcHud {
     private static List<Line> lines(EtmcSession s, NetworkStatus st) {
         EtmcSession.Mode mode = s.mode();
         int connections = s.activeConnections();
-        if (st == cachedFrom && mode == cachedMode && connections == cachedConnections) {
+        String failure = s.hostFailure();
+        if (st == cachedFrom && mode == cachedMode && connections == cachedConnections
+                && java.util.Objects.equals(failure, cachedFailure)) {
             return cachedLines;
         }
 
         List<Line> lines = new ArrayList<>();
-        lines.add(new Line("etmc — " + (mode == EtmcSession.Mode.HOST ? "Hosting" : "Joined"), TITLE));
+        lines.add(new Line(mode == EtmcSession.Mode.HOST
+                ? Msg.tr("etmc.hud.hosting", "etmc — Hosting") : Msg.tr("etmc.hud.joined", "etmc — Joined"), TITLE));
 
         if (st.virtualIp() != null) {
-            lines.add(new Line("IP " + st.virtualIp(), VALUE));
+            lines.add(new Line(Msg.tr("etmc.hud.ip", "IP %s", st.virtualIp()), VALUE));
         }
-        if (mode == EtmcSession.Mode.HOST) {
-            lines.add(new Line("Players: " + connections, VALUE));
-        } else if (connections > 0) {
-            lines.add(new Line("Tunnel: up", VALUE));
+        // Open game connections (a server-list ping counts too), not a player count.
+        lines.add(new Line(Msg.tr("etmc.hud.connections", "Connections: %s", connections), VALUE));
+        if (failure != null) {
+            lines.add(new Line(Msg.tr("etmc.hud.host_failed", "Joiners can't connect — host again"), BAD));
         }
         if (!st.running()) {
-            lines.add(new Line("connecting…", WARN));
+            lines.add(new Line(Msg.tr("etmc.hud.not_running", "network not running"), WARN));
+        } else if (st.peers().isEmpty() && st.relayNodes() == 0) {
+            lines.add(new Line(Msg.tr("etmc.hud.no_relay", "relay not reached yet"), WARN));
+        }
+        if (st.errorMsg() != null) {
+            String e = st.errorMsg();
+            lines.add(new Line(Msg.tr("etmc.status.easytier_error", "EasyTier: %s",
+                    e.length() > MAX_ERROR_CHARS ? e.substring(0, MAX_ERROR_CHARS - 1) + "…" : e), BAD));
         }
 
         List<NetworkStatus.Peer> peers = st.peers();
         for (int i = 0; i < peers.size(); i++) {
             if (i >= MAX_PEERS) {
-                lines.add(new Line("  +" + (peers.size() - MAX_PEERS) + " more", LABEL));
+                lines.add(new Line(Msg.tr("etmc.hud.more", "  +%s more", peers.size() - MAX_PEERS), LABEL));
                 break;
             }
             NetworkStatus.Peer p = peers.get(i);
             String ping = p.latencyMs() >= 0 ? p.latencyMs() + "ms" : "?";
             String ip = p.ipv4() == null ? "" : " " + p.ipv4();
-            String tag = p.relay() ? "  (relay)" : "";
+            String tag = p.relay() ? Msg.tr("etmc.hud.relay", "  (relay)") : "";
             lines.add(new Line("  " + p.hostname() + ip + "  " + ping + tag, p.relay() ? WARN : LABEL));
         }
 
         cachedFrom = st;
         cachedMode = mode;
         cachedConnections = connections;
+        cachedFailure = failure;
         cachedLines = List.copyOf(lines); // frozen: it is handed back on every frame until it changes
         return cachedLines;
     }

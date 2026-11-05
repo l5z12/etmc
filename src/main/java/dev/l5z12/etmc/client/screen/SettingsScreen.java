@@ -1,11 +1,15 @@
 package dev.l5z12.etmc.client.screen;
 
+import dev.l5z12.etmc.client.EtmcHud;
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.ModConfig;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
+import dev.l5z12.etmc.client.Wrap;
 import dev.l5z12.etmc.core.EtmcConfig;
+import dev.l5z12.etmc.core.Msg;
+import dev.l5z12.etmc.core.Relays;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -18,103 +22,146 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;*/
 //?}
 
-/** Configure relays (required), default virtual port, and toggles. */
+import java.util.List;
+
+/**
+ * Relays, the two ports, and the overlay toggle. Every change — text field or toggle — is applied
+ * only by <b>Save</b>; <b>Cancel</b> (or Esc) discards all of them.
+ */
 public final class SettingsScreen extends EtmcBaseScreen {
+
+    private static final int W = 300;
 
     //? if yarn {
     private TextFieldWidget relaysField;
     private TextFieldWidget portField;
+    private TextFieldWidget joinPortField;
     private ButtonWidget hudButton;
-    private ButtonWidget reconnectButton;
     //?} else {
     /*private EditBox relaysField;
     private EditBox portField;
-    private Button hudButton;
-    private Button reconnectButton;*/
+    private EditBox joinPortField;
+    private Button hudButton;*/
     //?}
 
+    /** The overlay choice being edited; written to the config only on Save. */
+    private boolean hudShown;
+
     public SettingsScreen(Screen parent) {
-        super(Txt.literal("etmc settings"), parent);
+        super(Txt.tr("etmc.settings.title", "etmc settings"), parent);
     }
 
     @Override
     protected void init() {
         ModConfig cfg = EtmcManager.get().config();
-        int cx = this.width / 2;
-        int w = 280;
-        int y = this.height / 6 + 8;
+        int x = this.width / 2 - W / 2;
+        int y = top();
 
-        relaysField = Ui.textField(font(), cx - w / 2, y, w, 20, Txt.literal("Relays"));
+        relaysField = Ui.textField(font(), x, y + 10, W, 20, Txt.tr("etmc.settings.relays", "Relays"));
         relaysField.setMaxLength(2048);
         Ui.setText(relaysField, cfg.relaysAsText());
         add(relaysField);
-        y += 40;
+        y += 44;
 
-        portField = Ui.textField(font(), cx - w / 2, y, 80, 20, Txt.literal("Port"));
+        portField = Ui.textField(font(), x, y + 10, 70, 20, Txt.tr("etmc.settings.port", "Port"));
         portField.setMaxLength(5);
         Ui.setText(portField, String.valueOf(cfg.defaultVirtualPort));
         add(portField);
-        y += 36;
+        joinPortField = Ui.textField(font(), x + W / 2 + 4, y + 10, 70, 20, Txt.tr("etmc.settings.join_port", "Join port"));
+        joinPortField.setMaxLength(5);
+        Ui.setText(joinPortField, String.valueOf(cfg.joinLocalPort));
+        add(joinPortField);
+        y += 44;
 
-        hudButton = Ui.button(hudLabel(cfg), b -> {
-            cfg.hudEnabled = !cfg.hudEnabled;
-            Ui.setMessage(hudButton, hudLabel(cfg));
-        }).dimensions(cx - w / 2, y, w / 2 - 4, 20).build();
+        hudShown = cfg.hudEnabled;
+        hudButton = Ui.button(hudLabel(), b -> {
+            hudShown = !hudShown;
+            Ui.setMessage(hudButton, hudLabel());
+        }).dimensions(x, y, W, 20).build();
+        hudButton.active = EtmcHud.isAvailable();
         add(hudButton);
+        y += 34;
 
-        reconnectButton = Ui.button(reconnectLabel(cfg), b -> {
-            cfg.autoReconnect = !cfg.autoReconnect;
-            Ui.setMessage(reconnectButton, reconnectLabel(cfg));
-        }).dimensions(cx + 4, y, w / 2 - 4, 20).build();
-        add(reconnectButton);
-        y += 30;
+        add(Ui.button(Txt.tr("etmc.settings.save", "Save"), b -> save())
+                .dimensions(x, y, W / 2 - 2, 20).build());
+        add(Ui.button(Txt.translatable("gui.cancel"), b -> this.close())
+                .dimensions(x + W / 2 + 2, y, W / 2 - 2, 20).build());
+    }
 
-        add(Ui.button(Txt.literal("Save"), b -> save())
-                .dimensions(cx - w / 2, y, w, 20).build());
-        y += 24;
-
-        add(Ui.button(Txt.literal("Back"), b -> this.close())
-                .dimensions(cx - w / 2, y, w, 20).build());
+    private int top() {
+        return Math.max(36, this.height / 2 - 96);
     }
 
     private void save() {
-        ModConfig cfg = EtmcManager.get().config();
-        cfg.setRelaysFromText(Ui.getText(relaysField));
-        try {
-            int p = Integer.parseInt(Ui.getText(portField).trim());
-            if (p > 0 && p <= 65535) cfg.defaultVirtualPort = p;
-        } catch (NumberFormatException ignored) {
+        List<String> relays = Relays.parse(Ui.getText(relaysField));
+        String bad = Relays.firstProblem(relays);
+        if (bad != null) {
+            setMessage(bad, COLOR_BAD);
+            return;
         }
+        Integer port = port(Ui.getText(portField), 1, Msg.tr("etmc.settings.port.hint", "Port inside the network"));
+        if (port == null) return;
+        Integer joinPort = port(Ui.getText(joinPortField), 0, Msg.tr("etmc.settings.join_port", "Join port"));
+        if (joinPort == null) return;
+
+        ModConfig cfg = EtmcManager.get().config();
+        cfg.relays = relays;
+        cfg.defaultVirtualPort = port;
+        cfg.joinLocalPort = joinPort;
+        cfg.hudEnabled = hudShown;
         cfg.save();
         this.close();
     }
 
+    /** Parses a port field, reporting a bad one in the status line; {@code null} = rejected. */
+    private Integer port(String text, int min, String what) {
+        try {
+            int p = Integer.parseInt(text.trim());
+            if (p >= min && p <= 65535) return p;
+        } catch (NumberFormatException ignored) {
+            // reported below
+        }
+        setMessage(Msg.tr("etmc.settings.bad_port", "%s must be a number from %s to 65535.", what, min), COLOR_BAD);
+        return null;
+    }
+
     @Override
     protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
-        Gfx.centered(ctx, font(), this.title, this.width / 2, 18, COLOR_TEXT);
         int cx = this.width / 2;
-        int w = 280;
-        Gfx.text(ctx, font(),
-                Txt.literal("Relay URIs (comma-separated, e.g. tcp://my.relay:11010)"),
-                cx - w / 2, this.height / 6 - 4, COLOR_MUTED);
-        Gfx.text(ctx, font(), Txt.literal("Host virtual port (default "
-                        + EtmcConfig.DEFAULT_VIRTUAL_PORT + ")"),
-                cx - w / 2, this.height / 6 + 34, COLOR_MUTED);
+        int x = cx - W / 2;
+        int y = top();
+        Gfx.centered(ctx, font(), this.title, cx, Math.max(8, y - 24), COLOR_TEXT);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.relays.hint", "Relays, for hosting (commas or spaces between them)"), x, y, COLOR_MUTED);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.relays.example", "e.g. tcp://relay.example.com:11010"), x, y + 32, 0xFF777777);
+        y += 44;
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.port.hint", "Port inside the network"), x, y, COLOR_MUTED);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.join_port.hint", "Join port (0 = any)"), x + W / 2 + 4, y, COLOR_MUTED);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.port.note", "advanced; default %s", EtmcConfig.DEFAULT_VIRTUAL_PORT),
+                x, y + 33, 0xFF777777);
+        Gfx.text(ctx, font(), Txt.tr("etmc.settings.join_port.note", "fixed helps ViaFabricPlus"), x + W / 2 + 4, y + 33, 0xFF777777);
+        if (!EtmcHud.isAvailable()) {
+            Gfx.centered(ctx, font(), Txt.tr("etmc.settings.no_overlay",
+                    "This Minecraft/Forge version has no overlay API, so there is no overlay."),
+                    cx, y + 70, 0xFF777777);
+        }
+        if (!message.isEmpty()) {
+            int my = this.height - 30;
+            for (String l : Wrap.lines(font(), message, Math.min(340, this.width - 20))) {
+                Gfx.centered(ctx, font(), Txt.literal(l), cx, my, messageColor);
+                my += 11;
+            }
+        }
     }
 
     //? if yarn {
-    private static Text hudLabel(ModConfig cfg) {
+    private Text hudLabel() {
     //?} else {
-    /*private static Component hudLabel(ModConfig cfg) {*/
+    /*private Component hudLabel() {*/
     //?}
-        return Txt.literal("HUD: " + (cfg.hudEnabled ? "ON" : "OFF"));
-    }
-
-    //? if yarn {
-    private static Text reconnectLabel(ModConfig cfg) {
-    //?} else {
-    /*private static Component reconnectLabel(ModConfig cfg) {*/
-    //?}
-        return Txt.literal("Auto-reconnect: " + (cfg.autoReconnect ? "ON" : "OFF"));
+        if (!EtmcHud.isAvailable()) {
+            return Txt.tr("etmc.settings.overlay.unavailable", "Top-left status overlay: not available here");
+        }
+        return Txt.tr("etmc.settings.overlay", "Top-left status overlay: %s", hudShown
+                ? Msg.tr("etmc.settings.overlay.shown", "Shown") : Msg.tr("etmc.settings.overlay.hidden", "Hidden"));
     }
 }

@@ -49,27 +49,37 @@ jobs:
       fail-fast: false   # a break in one era shouldn't hide the state of the others
       matrix:
         include:
+          # `launch`: the nodes whose client is actually started (see "Launch clients" below), one
+          # per version-guard tier etmc's source has in that range.
           - shard: fabric-legacy   # 1.14.4 – 1.20.4
             nodes: '1\.1[4-9](\..*)?-fabric,1\.20(\.[0-4])?-fabric'
             caches: fabric-loom
+            launch: '1.14.4-fabric 1.16.5-fabric 1.20.1-fabric'
           - shard: fabric-modern   # 1.20.5 – 26.2
             nodes: '1\.20\.[5-9]-fabric,1\.21(\..*)?-fabric,2[6-9]\..*-fabric'
             caches: fabric-loom
+            launch: '1.21.5-fabric 1.21.11-fabric 26.2-fabric'
+            gametest: '1.21.10-fabric'
           - shard: forge-legacy    # 1.17.1 – 1.20.6
             nodes: '1\.1[7-9](\..*)?-forge,1\.20(\..*)?-forge'
             caches: minecraftforge
+            # 1.17.1 and 1.18.x aren't launchable in a ForgeGradle 7 dev run (their BootstrapLauncher isn't
+            # accessible to FG7's launcher), so 1.19.2 stands in as the oldest Forge.
+            launch: '1.19.2-forge 1.20.1-forge'
           - shard: forge-modern    # 1.21 – 1.21.11
             nodes: '1\.21(\..*)?-forge,2[6-9]\..*-forge'
             caches: minecraftforge
+            launch: '1.21.1-forge 1.21.10-forge'
           - shard: neoforge
             nodes: '.*-neoforge'
             caches: neoformruntime
+            launch: '1.20.4-neoforge 1.21.1-neoforge 26.2-neoforge'
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download freshly-built natives (if any)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: native-*
           path: staging
@@ -91,19 +101,19 @@ jobs:
       # snapshot-Loom node); ForgeGradle's mavenizer needs JDK 8. setup-java exports JAVA_HOME_<ver>_X64
       # for each; we hand them all to Gradle's toolchain locator so no JDK is auto-downloaded.
       - name: Set up JDK 8 (Forge mavenizer)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '8'
 
       - name: Set up JDK 17 (Fabric 1.17.1–1.20.1)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up JDK 25 (Fabric 26.2)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
@@ -111,13 +121,13 @@ jobs:
       # JDK 21 is set up LAST on purpose: it stays JAVA_HOME, so the Gradle 9.5 daemon runs on 21 (the
       # proven runtime for every other node). The 17/25 toolchains are picked up from the paths below.
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: zulu
           java-version: '21'
 
       - name: Set up Gradle (with caching)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
         with:
           # WRITE the cache on PR branches too — the action is read-only off the default branch by
           # default, so PR reruns would otherwise start cold. This caches deps/build-cache (~2GB, well
@@ -248,12 +258,82 @@ jobs:
           exit 0
 
       - name: Upload mod jars
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: etmc-jars-${{ matrix.shard }}
           path: |
             versions/*/build/libs/*.jar
           if-no-files-found: error
+
+      # Building proves the code compiles, not that it runs: a mixin whose target or injection point
+      # is missing under a version's names, a screen that throws, a native that won't load on that
+      # Java all only show up in a running game. So start a real client for this shard's `launch`
+      # nodes, headless (Xvfb + Mesa's software OpenGL), with etmc's launch probe on: it checks the
+      # EasyTier library loaded, applies every mixin, opens the Multiplayer screen (etmc button) and
+      # every etmc screen, then quits; runClient fails unless it wrote OK (LaunchProbe.java,
+      # gradle/launch-probe.gradle). `gametest` nodes also run the Fabric client gametest, which
+      # hosts a real world over EasyTier and pings it (src/gametest).
+      - name: Launch clients (${{ matrix.launch }}${{ matrix.gametest && ' + gametest' || '' }})
+        env:
+          LAUNCH: ${{ matrix.launch }}
+          GAMETEST: ${{ matrix.gametest }}
+        run: |
+          if ! command -v xvfb-run >/dev/null || [ ! -d /usr/lib/x86_64-linux-gnu/dri ]; then
+            sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends xvfb libgl1-mesa-dri libglx-mesa0
+          fi
+          export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64,$JAVA_HOME_17_X64,$JAVA_HOME_21_X64,$JAVA_HOME_25_X64"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          tasks=""; nodes=""
+          for n in $LAUNCH; do tasks="$tasks :$n:runClient"; nodes="$nodes,$n"; done
+          for n in $GAMETEST; do tasks="$tasks :$n:runClientGameTest"; nodes="$nodes,$n"; done
+          nodes="${nodes#,}"
+          # Same network failures the build step retries on (timeouts, resets, truncated downloads).
+          netfail='ConnectTimeoutException|SocketTimeoutException|connect timed out|read timed out|UnknownHostException|connection reset|failed to download|Unexpected file length|status code (408|429|5[0-9]{2})'
+
+          # Fabric (Loom) nodes fetch Minecraft's assets in a downloadAssets task before the game starts.
+          # Fetch them up front, one node per Gradle run: nodes share most asset files, and Loom's
+          # downloads overlap across tasks even with --no-parallel, so two nodes fetching the same file
+          # at once left it truncated ("Unexpected file length"). Mojang's CDN also cuts a download
+          # short now and then, hence the retries.
+          for n in $(echo "$nodes" | tr ',' ' '); do
+            case "$n" in *-fabric) ;; *) continue ;; esac
+            for attempt in 1 2 3; do
+              ./gradlew ":$n:downloadAssets" "-Petmc.nodes=$n" --no-daemon -q && break
+              [ "$attempt" = 3 ] && { echo "::error::Couldn't download $n's assets."; exit 1; }
+              echo "::warning::Downloading $n's assets failed (attempt $attempt) — retrying."
+            done
+          done
+
+          # --continue: one node failing to launch shouldn't hide whether the others do. --no-parallel:
+          # concurrent games race on the shared asset store (and starve each other on software GL).
+          launch() {
+            xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew $tasks "-Petmc.nodes=$nodes" \
+              -Petmc.launchProbe=true --continue --no-parallel --no-daemon --stacktrace 2>&1 | tee /tmp/launch.log
+            return "${PIPESTATUS[0]}"
+          }
+          launch && exit 0
+          # A game that failed is a real failure; a download that failed (Forge/NeoForge fetch their
+          # assets as the game starts) gets one more go, which resumes from what's already on disk.
+          if grep -Eiq "$netfail" /tmp/launch.log; then
+            echo "::warning::Network failure while launching clients — retrying once."
+            launch
+          else
+            exit 1
+          fi
+
+      - name: Upload client logs and screenshots
+        if: always() && matrix.launch != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: client-runs-${{ matrix.shard }}
+          path: |
+            versions/*/build/launch-probe.txt
+            versions/*/run/logs/latest.log
+            versions/*/run/crash-reports/
+            versions/*/build/run/clientGameTest/logs/latest.log
+            versions/*/build/run/clientGameTest/crash-reports/
+            versions/*/build/run/clientGameTest/screenshots/
+          if-no-files-found: ignore
 
   # Guards the sharding: a node added to settings.gradle.kts that no shard matches would silently go
   # unbuilt (and unreleased), and one that two shards match would be built twice. Runs beside the
@@ -263,7 +343,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Every node matches exactly one shard
         run: bash tools/check_shards.sh
 
@@ -277,10 +357,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download freshly-built natives (if any)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: native-*
           path: staging
@@ -297,7 +377,7 @@ jobs:
           fi
 
       - name: Set up JDK 17 + 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: |
@@ -305,12 +385,25 @@ jobs:
             21
 
       - name: Set up Gradle (with caching)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
         with:
           # Persist the Gradle home (~/.gradle: downloaded deps + the expensive Loom/NeoForm/
           # ForgeGradle decompiles) AND write it on PR branches too — the action is read-only off the
           # default branch by default, so PR reruns would otherwise start cold every time.
           cache-read-only: false
+
+      # A host and a joiner over the real bundled EasyTier library (linux-x86_64), once per backend:
+      # JNA on Java 17, FFM on Java 21. This is what catches a library whose ABI or behaviour no
+      # longer matches etmc — see NativeSmokeTest and easytier-update.yml.
+      - name: Native smoke test (real EasyTier, JNA + FFM)
+        run: |
+          chmod +x ./gradlew
+          installs="-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64"
+          # Each JDK needs a paper-api it can compile against (1.20.5+ requires Java 21).
+          for pair in 17:1.20.4 21:1.21.10; do
+            ./gradlew $installs -p paper test --tests '*NativeSmokeTest' -Ppaper_java=${pair%%:*} \
+              -Ppaper_version=${pair#*:}-R0.1-SNAPSHOT -Petmc.nativeSmoke=true --stacktrace
+          done
 
       - name: Build every Paper jar
         run: |
@@ -328,7 +421,7 @@ jobs:
           done
 
       - name: Upload Paper jars
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: etmc-paper-jars
           path: paper/build/libs/*.jar

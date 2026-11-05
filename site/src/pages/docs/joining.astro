@@ -2,7 +2,7 @@
 import DocsLayout from '../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Joining" description="Join a hosted world with an etmc:// link or a join code.">
+<DocsLayout title="Joining" description="Join a hosted world with an etmc:// link.">
   <h2>With an <code>etmc://</code> link (recommended)</h2>
   <p>
     The host shares an <code>etmc://v1/…</code> link (from <strong>Session status → Copy etmc:// link</strong>,
@@ -19,19 +19,22 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <strong>Join now anyway</strong> to connect over the relay instead.
   </p>
 
-  <h2>With a join code</h2>
+  <h2>From etmc's menu</h2>
   <ol>
-    <li>Open the menu (<span class="kbd">G</span>) → <strong>Join with a code</strong>.</li>
-    <li>Paste the <code>ETMC1:…</code> code (or use <strong>Paste from clipboard</strong>).</li>
-    <li>etmc adds the server to your <strong>Multiplayer</strong> list — open it and click to connect.</li>
+    <li>Open the menu (the <strong>etmc</strong> button on the Multiplayer screen, or <span class="kbd">G</span>) →
+      <strong>Join with a link</strong>.</li>
+    <li>Paste the <code>etmc://…</code> link (or use <strong>Paste from clipboard</strong>).</li>
+    <li>From the title screen, etmc connects right away. From inside a world, it adds the server to your
+      <strong>Multiplayer</strong> list instead, to join once you've left.</li>
   </ol>
-  <p>Or via command: <code>/etmc join &lt;code&gt;</code>.</p>
+  <p>Or via command: <code>/etmc join &lt;link&gt;</code>.</p>
 
   <h2>What happens</h2>
   <ul>
     <li>etmc starts an EasyTier instance (no-TUN, DHCP) on the host's network;</li>
     <li>an <strong><code>etmc://</code> link</strong> rides the mesh's data plane directly — <em>no loopback socket, no port</em>;</li>
-    <li>a <strong>join code</strong> opens a loopback proxy at <code>127.0.0.1:&lt;port&gt;</code> and tunnels it to the host over the mesh.</li>
+    <li>joining from inside a world (or <code>/etmc join</code>) opens a loopback proxy at
+      <code>127.0.0.1:&lt;port&gt;</code> instead and tunnels it to the host over the mesh.</li>
   </ul>
   <p>
     Either way, from Minecraft's perspective it's a normal server connection, so resource packs, mods and the
@@ -41,13 +44,13 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 
   <h2>Joining a dedicated server</h2>
   <p>
-    A Paper server prints both a join code and an <code>etmc://</code> link on startup (and via <code>/etmc code</code>) —
-    paste the link into Add Server / Direct Connect, or use the code. If an admin published a config file instead,
+    A Paper server prints an <code>etmc://</code> link on startup (and via <code>/etmc link</code>) — paste it into
+    Add Server / Direct Connect. If an admin published a config file instead,
     use <a href="/docs/connect-url">Connect via config URL</a>.
   </p>
 
   <div class="note">
-    No access to the host's console? Build a link or code by hand at the
+    No access to the host's console? Build a link by hand at the
     <a href="/generator">generator</a> (<strong>Join link</strong> mode) — enter the network name, secret,
     relays, and the host's mesh IP/port, all in your browser.
   </div>
