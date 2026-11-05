@@ -12,6 +12,7 @@
     "sources": "https://github.com/L5Z12/etmc"
   },
   "license": "GPL-3.0-or-later",
+  "icon": "assets/etmc/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [

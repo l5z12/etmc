@@ -1,3 +1,5 @@
+<img src="site/public/icon-512.png" alt="" width="96" height="96" align="right">
+
 # etmc
 
 EasyTier P2P multiplayer, in-game. MCJE — **Fabric, NeoForge, Forge** (client) and **Paper** (server).
