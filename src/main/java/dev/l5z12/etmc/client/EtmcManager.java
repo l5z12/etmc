@@ -526,6 +526,7 @@ public final class EtmcManager {
 
     /** Called every client tick. Refreshes the cached status and drives a pending link join. */
     public void tick() {
+        LaunchProbe.tick();
         if (!isReady()) return;
         if (!serverListSwept) {
             // Entries a crashed/killed game left behind point at proxy ports that no longer exist.

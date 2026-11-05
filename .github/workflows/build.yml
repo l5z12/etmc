@@ -49,21 +49,29 @@ jobs:
       fail-fast: false   # a break in one era shouldn't hide the state of the others
       matrix:
         include:
+          # `launch`: the nodes whose client is actually started (see "Launch clients" below), one
+          # per version-guard tier etmc's source has in that range.
           - shard: fabric-legacy   # 1.14.4 – 1.20.4
             nodes: '1\.1[4-9](\..*)?-fabric,1\.20(\.[0-4])?-fabric'
             caches: fabric-loom
+            launch: '1.14.4-fabric 1.16.5-fabric 1.20.1-fabric'
           - shard: fabric-modern   # 1.20.5 – 26.2
             nodes: '1\.20\.[5-9]-fabric,1\.21(\..*)?-fabric,2[6-9]\..*-fabric'
             caches: fabric-loom
+            launch: '1.21.5-fabric 1.21.11-fabric 26.2-fabric'
+            gametest: '1.21.10-fabric'
           - shard: forge-legacy    # 1.17.1 – 1.20.6
             nodes: '1\.1[7-9](\..*)?-forge,1\.20(\..*)?-forge'
             caches: minecraftforge
+            launch: '1.17.1-forge 1.20.1-forge'
           - shard: forge-modern    # 1.21 – 1.21.11
             nodes: '1\.21(\..*)?-forge,2[6-9]\..*-forge'
             caches: minecraftforge
+            launch: '1.21.1-forge 1.21.10-forge'
           - shard: neoforge
             nodes: '.*-neoforge'
             caches: neoformruntime
+            launch: '1.20.4-neoforge 1.21.1-neoforge 26.2-neoforge'
     steps:
       - name: Checkout etmc
         uses: actions/checkout@v4
@@ -254,6 +262,45 @@ jobs:
           path: |
             versions/*/build/libs/*.jar
           if-no-files-found: error
+
+      # Building proves the code compiles, not that it runs: a mixin whose target or injection point
+      # is missing under a version's names, a screen that throws, a native that won't load on that
+      # Java all only show up in a running game. So start a real client for this shard's `launch`
+      # nodes, headless (Xvfb + Mesa's software OpenGL), with etmc's launch probe on: it checks the
+      # EasyTier library loaded, applies every mixin, opens the Multiplayer screen (etmc button) and
+      # every etmc screen, then quits; runClient fails unless it wrote OK (LaunchProbe.java,
+      # gradle/launch-probe.gradle). `gametest` nodes also run the Fabric client gametest, which
+      # hosts a real world over EasyTier and pings it (src/gametest).
+      - name: Launch clients (${{ matrix.launch }}${{ matrix.gametest && ' + gametest' || '' }})
+        env:
+          LAUNCH: ${{ matrix.launch }}
+          GAMETEST: ${{ matrix.gametest }}
+        run: |
+          if ! command -v xvfb-run >/dev/null || [ ! -d /usr/lib/x86_64-linux-gnu/dri ]; then
+            sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends xvfb libgl1-mesa-dri libglx-mesa0
+          fi
+          export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64,$JAVA_HOME_17_X64,$JAVA_HOME_21_X64,$JAVA_HOME_25_X64"
+          export LIBGL_ALWAYS_SOFTWARE=1
+          tasks=""; nodes=""
+          for n in $LAUNCH; do tasks="$tasks :$n:runClient"; nodes="$nodes,$n"; done
+          for n in $GAMETEST; do tasks="$tasks :$n:runClientGameTest"; nodes="$nodes,$n"; done
+          # --continue: one node failing to launch shouldn't hide whether the others do.
+          xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew $tasks "-Petmc.nodes=${nodes#,}" \
+            -Petmc.launchProbe=true --continue --no-daemon --stacktrace
+
+      - name: Upload client logs and screenshots
+        if: always() && matrix.launch != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-runs-${{ matrix.shard }}
+          path: |
+            versions/*/build/launch-probe.txt
+            versions/*/run/logs/latest.log
+            versions/*/run/crash-reports/
+            versions/*/build/run/clientGameTest/logs/latest.log
+            versions/*/build/run/clientGameTest/crash-reports/
+            versions/*/build/run/clientGameTest/screenshots/
+          if-no-files-found: ignore
 
   # Guards the sharding: a node added to settings.gradle.kts that no shard matches would silently go
   # unbuilt (and unreleased), and one that two shards match would be built twice. Runs beside the

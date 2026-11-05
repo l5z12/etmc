@@ -27,10 +27,17 @@ sourceSets {
     }
 }
 
+// CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
+apply(from = rootProject.file("gradle/launch-probe.gradle"))
+val launchProbeResult = extra["launchProbeResult"] as String?
+
 neoForge {
     version = property("deps.neoforge") as String
     runs {
-        create("client") { client() }
+        create("client") {
+            client()
+            if (launchProbeResult != null) systemProperty("etmc.launchProbe", launchProbeResult)
+        }
     }
     mods {
         create("etmc") { sourceSet(sourceSets["main"]) }

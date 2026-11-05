@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "etmc-gametest",
+  "version": "1",
+  "name": "etmc client gametests",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": ["dev.l5z12.etmc.gametest.EtmcClientGameTest"]
+  },
+  "depends": {
+    "etmc": "*",
+    "fabric-client-gametest-api-v1": "*"
+  }
+}

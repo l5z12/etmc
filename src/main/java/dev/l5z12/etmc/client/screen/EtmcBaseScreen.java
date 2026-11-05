@@ -1,5 +1,6 @@
 package dev.l5z12.etmc.client.screen;
 
+import dev.l5z12.etmc.client.LaunchProbe;
 import dev.l5z12.etmc.client.McScreens;
 //? if yarn {
 import net.minecraft.client.MinecraftClient;
@@ -150,6 +151,7 @@ abstract class EtmcBaseScreen extends Screen {
         //?}
         renderBackdrop(ctx, mouseX, mouseY, delta);
         draw(ctx, mouseX, mouseY, delta);
+        LaunchProbe.rendered(this);
     }
 
     /**

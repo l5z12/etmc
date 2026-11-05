@@ -63,9 +63,9 @@ public final class EtmcConfig {
         sb.append("network_secret = ").append(Toml.quote(secret)).append('\n');
         sb.append('\n');
 
+        // Deduplicated: the same URI listed twice would have EasyTier dial the relay twice.
+        Set<String> seen = new LinkedHashSet<>();
         if (relays != null) {
-            // Deduplicated: the same URI listed twice would have EasyTier dial the relay twice.
-            Set<String> seen = new LinkedHashSet<>();
             for (String relay : relays) {
                 String r = relay == null ? "" : relay.trim();
                 if (!r.isEmpty()) seen.add(r);
@@ -79,6 +79,24 @@ public final class EtmcConfig {
 
         sb.append("[flags]\n");
         sb.append("no_tun = true\n");
+        // EasyTier binds its outgoing sockets to the physical network interfaces, and a socket bound
+        // there can't reach this machine's loopback address (Windows refuses every such dial with
+        // WSAEADDRNOTAVAIL). So a relay running on the player's own machine was unreachable.
+        if (seen.stream().anyMatch(EtmcConfig::isLoopback)) sb.append("bind_device = false\n");
         return sb.toString();
+    }
+
+    /** Whether a relay URI points at this machine ({@code 127.x}, {@code localhost}, {@code ::1}). */
+    static boolean isLoopback(String uri) {
+        String host;
+        try {
+            host = java.net.URI.create(uri).getHost();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        if (host == null) return false;
+        host = host.toLowerCase(java.util.Locale.ROOT);
+        if (host.startsWith("[") && host.endsWith("]")) host = host.substring(1, host.length() - 1);
+        return host.equals("localhost") || host.startsWith("127.") || host.equals("::1");
     }
 }

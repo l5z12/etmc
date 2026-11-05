@@ -69,7 +69,9 @@ class NativeSmokeTest {
         et.parseConfig(hostToml);
         et.runNetworkInstance(hostToml);
 
-        String joinToml = loopbackOnly(EtmcConfig.joinToml(joinInst, network, secret, List.of(peer)));
+        // The joiner dials 127.0.0.1, which etmc's own config handles (no device binding for a local relay).
+        String joinToml = EtmcConfig.joinToml(joinInst, network, secret, List.of(peer));
+        assertTrue(joinToml.contains("bind_device = false"), "a loopback relay must turn device binding off");
         et.parseConfig(joinToml);
         et.runNetworkInstance(joinToml);
 
@@ -165,9 +167,9 @@ class NativeSmokeTest {
     // ------------------------------------------------------------------ helpers
 
     /**
-     * EasyTier binds its outgoing sockets to the physical interfaces, and a socket bound there can't
-     * reach 127.0.0.1 (Windows: WSAEADDRNOTAVAIL on every dial). A real session dials a real relay;
-     * this test dials localhost, so it turns that binding off.
+     * EasyTier binds its sockets to the physical interfaces, and a socket bound there can't reach
+     * 127.0.0.1 (Windows: WSAEADDRNOTAVAIL). The joiner's config turns that off by itself (its relay is
+     * on loopback); the host has no relays, only this test's localhost listener, so it's done here.
      */
     private static String loopbackOnly(String toml) {
         assertTrue(toml.contains("[flags]\n"), "TOML layout changed; update this test");

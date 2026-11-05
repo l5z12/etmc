@@ -39,13 +39,41 @@ sourceSets {
     }
 }
 
+// CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
+apply(from = rootProject.file("gradle/launch-probe.gradle"))
+val launchProbeResult = extra["launchProbeResult"] as String?
+
 loom {
     runs {
         named("client") {
             client()
             ideConfigGenerated(true)
             runDir("run")
+            if (launchProbeResult != null) property("etmc.launchProbe", launchProbeResult)
         }
+    }
+}
+
+// Client gametests (src/gametest, yarn 1.21.10 names): a real client that drives etmc's menu and hosts
+// a world over the bundled EasyTier library. Only on the node the source tree is checked out as; run
+// with `./gradlew :1.21.10-fabric:runClientGameTest` (CI puts it under xvfb).
+if (mcVersion == "1.21.10") {
+    fabricApi {
+        configureTests {
+            createSourceSet = true
+            modId = "etmc-gametest"
+            enableGameTests = false
+            enableClientGameTests = true
+            eula = true
+        }
+    }
+    sourceSets.named("gametest") {
+        java.setSrcDirs(listOf(rootProject.file("src/gametest/java")))
+        resources.setSrcDirs(listOf(rootProject.file("src/gametest/resources")))
+    }
+    loom.runs.named("clientGameTest") {
+        // etmc hooks the Netty pipeline itself (EtmcChannel), which the gametest packet sync can't follow.
+        property("fabric.client.gametest.disableNetworkSynchronizer", "true")
     }
 }
 

@@ -58,6 +58,22 @@ class EtmcConfigTest {
     }
 
     @Test
+    void aRelayOnThisMachineTurnsOffDeviceBinding() {
+        // Sockets bound to a physical interface can't reach loopback, so a local relay needs this off.
+        for (String relay : List.of("tcp://127.0.0.1:11010", "udp://localhost:11010", "tcp://[::1]:11010",
+                "TCP://LOCALHOST:1", "wg://127.8.9.10:11011")) {
+            String toml = EtmcConfig.hostToml("i", "n", "", List.of("tcp://relay.example:11010", relay));
+            assertEquals(1, count(toml, "bind_device = false"), relay);
+            assertTrue(toml.contains("[flags]\nno_tun = true\nbind_device = false\n"), relay);
+        }
+        for (String relay : List.of("tcp://relay.example:11010", "tcp://10.0.0.1:11010", "tcp://128.0.0.1:1",
+                "tcp://localhost.example:1", "not a uri")) {
+            assertFalse(EtmcConfig.joinToml("i", "n", "", List.of(relay)).contains("bind_device"), relay);
+        }
+        assertFalse(EtmcConfig.joinToml("i", "n", "", null).contains("bind_device"));
+    }
+
+    @Test
     void aMissingSecretIsAnEmptyStringNotNull() {
         assertTrue(EtmcConfig.joinToml("i", "n", null, null).contains("network_secret = \"\""));
     }

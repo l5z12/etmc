@@ -17,10 +17,15 @@ sourceSets.main.resources.srcDir("$rootDir/forge/src/main/resources")
 // This is the Forge node: drop the Fabric (EtmcClient) + NeoForge entry points.
 sourceSets.main.java.exclude('**/EtmcClient.java', '**/neoforge/**')
 
+// CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
+apply from: "$rootDir/gradle/launch-probe.gradle"
+
 minecraft {
     mappings channel: 'official', version: project.property('deps.minecraft')
     runs {
-        register('client')
+        register('client') {
+            if (launchProbeResult != null) systemProperty 'etmc.launchProbe', launchProbeResult
+        }
     }
 }
 

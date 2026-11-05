@@ -1,0 +1,32 @@
+// CI's launch test, applied by every loader buildscript (see dev.l5z12.etmc.client.LaunchProbe).
+//
+//   ./gradlew :1.21.10-fabric:runClient -Petmc.launchProbe=true
+//
+// starts the real game, which probes etmc (native library, mixins, every screen) and quits on its
+// own; runClient then fails unless the probe wrote OK. Each buildscript passes `launchProbeResult` to
+// the game as the system property etmc.launchProbe through its loader's run DSL; this script owns
+// the task side. Without the property nothing changes, and the game runs normally.
+if (findProperty('etmc.launchProbe') == 'true') {
+    def result = layout.buildDirectory.file('launch-probe.txt').get().asFile
+    ext.launchProbeResult = result.absolutePath
+    tasks.matching { it.name == 'runClient' }.configureEach { t ->
+        // The probe gives up by itself after 5 minutes; this only catches a game that hangs.
+        t.timeout = java.time.Duration.ofMinutes(12)
+        // A failing probe exits with 1; let doLast say why instead of only "exit value 1".
+        if (t instanceof JavaExec) t.ignoreExitValue = true
+        t.doFirst { result.delete() }
+        t.doLast {
+            if (!result.isFile()) {
+                throw new GradleException("launch probe (${project.name}): the game exited without a "
+                        + "result, so it crashed or quit early. See the game log above.")
+            }
+            def text = result.getText('UTF-8')
+            if (!text.startsWith('OK')) {
+                throw new GradleException("launch probe (${project.name}) failed:\n" + text)
+            }
+            logger.lifecycle("launch probe (${project.name}) passed:\n" + text)
+        }
+    }
+} else {
+    ext.launchProbeResult = null
+}

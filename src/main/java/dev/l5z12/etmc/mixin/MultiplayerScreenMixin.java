@@ -1,5 +1,6 @@
 package dev.l5z12.etmc.mixin;
 
+import dev.l5z12.etmc.client.LaunchProbe;
 import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
@@ -52,5 +53,6 @@ public abstract class MultiplayerScreenMixin extends Screen {
         //?} else {
         /*this.addRenderableWidget(button);*/
         //?}
+        LaunchProbe.multiplayerButtonAdded();
     }
 }
