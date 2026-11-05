@@ -44,7 +44,7 @@ jobs:
       contents: write   # create the release and upload assets
     steps:
       - name: Download built jars
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           # build.yml uploads one etmc-jars-<shard> artifact per loader shard, plus etmc-paper-jars
           # (the Paper plugin, one jar per Paper version).
@@ -53,7 +53,7 @@ jobs:
           path: jars
 
       - name: Publish to GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: jars/**/*.jar
           fail_on_unmatched_files: true

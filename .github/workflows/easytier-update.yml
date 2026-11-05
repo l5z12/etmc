@@ -10,8 +10,9 @@ name: easytier-update
 # never reaches a release. macOS natives aren't committed; releases build them from the pin.
 #
 # PRs opened with the default GITHUB_TOKEN don't trigger other workflows, so the PR shows no checks
-# of its own — this run is its check (linked in the PR body). Set an ETMC_BOT_TOKEN secret (a PAT or
-# app token with contents + pull-requests write) to have the PR's own CI run as well.
+# of its own — this run is its check (linked in the PR body). An ETMC_BOT_TOKEN secret (a classic
+# PAT with public_repo from the etmc-bot collaborator account) makes etmc-bot push and open the PR
+# instead, so the PR's own CI runs as well.
 on:
   schedule:
     - cron: '17 3 * * 1'   # Mondays, 03:17 UTC
@@ -38,7 +39,7 @@ jobs:
       changed: ${{ steps.c.outputs.changed }}
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Compare upstream with the pin
         id: c
         env:
@@ -88,17 +89,19 @@ jobs:
       GH_TOKEN: ${{ secrets.ETMC_BOT_TOKEN || github.token }}
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           token: ${{ secrets.ETMC_BOT_TOKEN || github.token }}
 
       - name: Download the rebuilt natives
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: native-*
           path: staging
 
       - name: Commit natives + pin to deps/easytier
+        env:
+          AS_BOT: ${{ secrets.ETMC_BOT_TOKEN != '' }}
         run: |
           for d in staging/native-*; do
             [ -e "$d" ] || continue
@@ -106,8 +109,14 @@ jobs:
             cp "$d"/* "common/src/main/resources/natives/$tag/"
           done
           echo "$COMMIT" > common/src/main/resources/natives/easytier.commit
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Authored as whoever pushes it: the etmc-bot account when its token is set.
+          if [ "$AS_BOT" = "true" ]; then
+            git config user.name "etmc-bot"
+            git config user.email "352687227+etmc-bot@users.noreply.github.com"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          fi
           git switch -c deps/easytier
           git add common/src/main/resources/natives
           git commit -m "deps: update EasyTier to ${COMMIT:0:7}" \

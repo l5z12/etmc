@@ -49,7 +49,7 @@ jobs:
       commit: ${{ steps.r.outputs.commit }}
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Resolve ref
         id: r
         env:
@@ -83,7 +83,7 @@ jobs:
           - { os: macos-15-intel, tag: macos-x86_64,   target: x86_64-apple-darwin,       lib: libeasytier_ffi.dylib }
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Reuse the committed native when it was built from the commit we're asked for; skip a platform
       # with no committed native when the caller only wants committed platforms refreshed.
@@ -108,7 +108,7 @@ jobs:
 
       - name: Checkout EasyTier (${{ env.EASYTIER_REF }})
         if: steps.have.outputs.committed != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: EasyTier/EasyTier
           ref: ${{ env.EASYTIER_REF }}
@@ -118,7 +118,7 @@ jobs:
       - name: Cache built native
         id: natcache
         if: steps.have.outputs.committed != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: common/src/main/resources/natives/${{ matrix.tag }}/${{ matrix.lib }}
           key: native-${{ matrix.tag }}-full-${{ env.EASYTIER_REF }}-${{ hashFiles('easytier/Cargo.lock') }}
@@ -203,7 +203,7 @@ jobs:
       # Uploads the whole tag dir so the Windows Packet.dll shim rides along with easytier_ffi.dll.
       - name: Upload native
         if: steps.have.outputs.committed != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-${{ matrix.tag }}
           path: common/src/main/resources/natives/${{ matrix.tag }}/

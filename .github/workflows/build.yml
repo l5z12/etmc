@@ -76,10 +76,10 @@ jobs:
             launch: '1.20.4-neoforge 1.21.1-neoforge 26.2-neoforge'
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download freshly-built natives (if any)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: native-*
           path: staging
@@ -101,19 +101,19 @@ jobs:
       # snapshot-Loom node); ForgeGradle's mavenizer needs JDK 8. setup-java exports JAVA_HOME_<ver>_X64
       # for each; we hand them all to Gradle's toolchain locator so no JDK is auto-downloaded.
       - name: Set up JDK 8 (Forge mavenizer)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '8'
 
       - name: Set up JDK 17 (Fabric 1.17.1–1.20.1)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
 
       - name: Set up JDK 25 (Fabric 26.2)
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '25'
@@ -121,13 +121,13 @@ jobs:
       # JDK 21 is set up LAST on purpose: it stays JAVA_HOME, so the Gradle 9.5 daemon runs on 21 (the
       # proven runtime for every other node). The 17/25 toolchains are picked up from the paths below.
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: zulu
           java-version: '21'
 
       - name: Set up Gradle (with caching)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
         with:
           # WRITE the cache on PR branches too — the action is read-only off the default branch by
           # default, so PR reruns would otherwise start cold. This caches deps/build-cache (~2GB, well
@@ -258,7 +258,7 @@ jobs:
           exit 0
 
       - name: Upload mod jars
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: etmc-jars-${{ matrix.shard }}
           path: |
@@ -323,7 +323,7 @@ jobs:
 
       - name: Upload client logs and screenshots
         if: always() && matrix.launch != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: client-runs-${{ matrix.shard }}
           path: |
@@ -343,7 +343,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Every node matches exactly one shard
         run: bash tools/check_shards.sh
 
@@ -357,10 +357,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout etmc
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Download freshly-built natives (if any)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: native-*
           path: staging
@@ -377,7 +377,7 @@ jobs:
           fi
 
       - name: Set up JDK 17 + 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: |
@@ -385,7 +385,7 @@ jobs:
             21
 
       - name: Set up Gradle (with caching)
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
         with:
           # Persist the Gradle home (~/.gradle: downloaded deps + the expensive Loom/NeoForm/
           # ForgeGradle decompiles) AND write it on PR branches too — the action is read-only off the
@@ -421,7 +421,7 @@ jobs:
           done
 
       - name: Upload Paper jars
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: etmc-paper-jars
           path: paper/build/libs/*.jar
