@@ -37,10 +37,8 @@ public final class StatusScreen extends EtmcBaseScreen {
 
         boolean host = m.session() != null && m.session().mode() == EtmcSession.Mode.HOST;
         if (host) {
-            add(Ui.button(Txt.tr("etmc.status.copy_link", "Copy invite link"), b -> copyCode(true))
-                    .dimensions(cx - W / 2, y, W / 2 - 2, 20).build());
-            add(Ui.button(Txt.tr("etmc.status.copy_code", "Copy ETMC1 code"), b -> copyCode(false))
-                    .dimensions(cx + 2, y, W / 2 - 2, 20).build());
+            add(Ui.button(Txt.tr("etmc.status.copy_link", "Copy invite link"), b -> copyLink())
+                    .dimensions(cx - W / 2, y, W, 20).build());
         }
         y += 24;
 
@@ -50,18 +48,16 @@ public final class StatusScreen extends EtmcBaseScreen {
                 .dimensions(cx + 2, y, W / 2 - 2, 20).build());
     }
 
-    private void copyCode(boolean link) {
+    private void copyLink() {
         EtmcSession s = EtmcManager.get().session();
         JoinCode code = s == null ? null : s.currentCode();
         if (code == null) {
             setMessage(Msg.tr("etmc.status.nothing_to_copy", "Nothing to copy: the session ended."), COLOR_WARN);
             return;
         }
-        McScreens.setClipboard(link ? code.encodeLink() : code.encode());
-        setMessage(link
-                ? Msg.tr("etmc.status.link_copied", "Invite link copied. It contains the secret: send it only to people you want in.")
-                : Msg.tr("etmc.status.code_copied", "Code copied. It contains the secret: send it only to people you want in."),
-                COLOR_GOOD);
+        McScreens.setClipboard(code.encodeLink());
+        setMessage(Msg.tr("etmc.status.link_copied",
+                "Invite link copied. It contains the secret: send it only to people you want in."), COLOR_GOOD);
     }
 
     private void leave() {

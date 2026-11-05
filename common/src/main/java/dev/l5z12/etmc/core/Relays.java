@@ -45,7 +45,7 @@ public final class Relays {
     public static String problem(String uri) {
         String u = uri == null ? "" : uri.trim();
         if (u.isEmpty()) return Msg.tr("etmc.relay.empty", "empty relay address");
-        if (JoinCode.isLink(u) || u.startsWith(JoinCode.PREFIX)) {
+        if (JoinCode.isLink(u)) {
             return Msg.tr("etmc.relay.is_link", "'%s' is an etmc join link, not a relay. A relay looks like "
                     + "tcp://relay.example.com:11010", abbreviate(u));
         }

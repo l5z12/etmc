@@ -18,8 +18,7 @@ label  = "My SMP"`;
 
 <DocsLayout title="Connect via config URL" description="Join an EasyTier-networked server from a hosted config file.">
   <p>
-    Server admins can publish a single config file over HTTP(S) so players join with just a link —
-    no join code. In the menu choose <strong>Connect via config URL</strong>, or run
+    Server admins can publish a single config file over HTTP(S) so players join with just its URL. In the menu choose <strong>Connect via config URL</strong>, or run
     <code>/etmc connect &lt;url&gt;</code>.
   </p>
 
@@ -30,7 +29,7 @@ label  = "My SMP"`;
 
   <p>etmc fetches it, forces <code>no_tun</code>, joins the mesh, and tunnels to <code>server</code>.
     If the file omits <code>[etmc] server</code>, fill the Server field (or pass <code>ip:port</code> to the
-    command). An <code>ETMC1:…</code> join code at the URL works too.</p>
+    command). An <code>etmc://</code> link at the URL works too.</p>
 
   <div class="note">
     The target server does <strong>not</strong> need to run etmc — it only needs to be reachable on the

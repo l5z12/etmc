@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
 
-/** {@code /etmc <status|code|config|reload>} — admin controls for the mesh. */
+/** {@code /etmc <status|link|config|reload>} — admin controls for the mesh. */
 public final class EtmcCommand implements CommandExecutor, TabCompleter {
 
     private final EtmcPlugin plugin;
@@ -27,13 +27,13 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         String sub = args.length == 0 ? "status" : args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
             case "status" -> status(sender);
-            case "code" -> code(sender);
+            case "link" -> link(sender);
             case "config" -> config(sender);
             case "reload" -> {
                 sender.sendMessage("[etmc] Restarting mesh from config.yml…");
                 plugin.restart();
             }
-            default -> sender.sendMessage("[etmc] Usage: /etmc <status|code|config|reload>");
+            default -> sender.sendMessage("[etmc] Usage: /etmc <status|link|config|reload>");
         }
         return true;
     }
@@ -62,16 +62,14 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    private void code(CommandSender sender) {
+    private void link(CommandSender sender) {
         JoinCode jc = plugin.joinCode();
         if (jc == null) {
-            sender.sendMessage("[etmc] No join code yet (mesh not started).");
+            sender.sendMessage("[etmc] No link yet (mesh not started).");
             return;
         }
-        sender.sendMessage("[etmc] These contain the network secret: anyone who has them can join.");
-        sender.sendMessage("[etmc] Join code (players paste in 'Join with a code'):");
-        sender.sendMessage(jc.encode());
-        sender.sendMessage("[etmc] …or link (paste into Add Server / Direct Connect):");
+        sender.sendMessage("[etmc] Players paste this into Add Server / Direct Connect. It contains the network"
+                + " secret: anyone who has it can join.");
         sender.sendMessage(jc.encodeLink());
     }
 
@@ -122,7 +120,7 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 1) {
             String p = args[0].toLowerCase(Locale.ROOT);
-            return Stream.of("status", "code", "config", "reload").filter(s -> s.startsWith(p)).toList();
+            return Stream.of("status", "link", "config", "reload").filter(s -> s.startsWith(p)).toList();
         }
         return List.of();
     }

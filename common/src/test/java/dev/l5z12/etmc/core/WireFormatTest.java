@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Golden vectors for the two formats that leave this codebase and come back in someone else's hands:
- * the {@code etmc://} link / {@code ETMC1:} code, and the TOML string escaping.
+ * the {@code etmc://} link, and the TOML string escaping.
  *
  * <p>{@link JoinCodeTest} proves those round-trip through <em>this</em> implementation, which a
  * change of field order or encoder would keep doing while producing entirely different bytes. That
@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  * ({@code bun test} in {@code site/}). Either side drifting — a renamed JSON field, a reordered
  * declaration, a different base64 alphabet, a missed escape — fails a test instead of silently
  * shipping links that decode into something subtly different. Update both files together, and only
- * on a deliberate format change (which needs a new {@code ETMC1}/{@code v1} version anyway).
+ * on a deliberate format change (which needs a new {@code etmc://v2/} version anyway).
  */
 class WireFormatTest {
 
@@ -42,11 +42,6 @@ class WireFormatTest {
     @Test
     void linkFormIsFrozen() {
         assertEquals("etmc://v1/" + PAYLOAD, vector().encodeLink());
-    }
-
-    @Test
-    void codeFormIsFrozen() {
-        assertEquals("ETMC1:" + PAYLOAD, vector().encode());
     }
 
     @Test

@@ -12,7 +12,7 @@ import java.time.Duration;
 /**
  * Fetches an etmc/EasyTier config from an HTTP(S) URL. Used by "connect via config URL": a server
  * admin hosts a small config file (an EasyTier TOML, optionally with an {@code [etmc] server} line,
- * or an {@code ETMC1:} join code) and players paste the link.
+ * or an {@code etmc://} link) and players paste the link.
  */
 public final class RemoteConfig {
 

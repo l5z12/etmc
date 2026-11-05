@@ -31,7 +31,6 @@ describe('relays', () => {
 
   test('a join link pasted as a relay is caught', () => {
     expect(relayProblem('etmc://v1/eyJuZXR3b3JrTmFtZSI6Im4ifQ')).toContain('join link');
-    expect(relayProblem('ETMC1:abc')).toContain('join link');
   });
 
   test('common mistakes are explained', () => {

@@ -78,7 +78,7 @@ public final class EtmcSession {
 
     /**
      * Starts hosting: runs the EasyTier instance and begins forwarding mesh connections to the
-     * already-open LAN server on {@code 127.0.0.1:lanPort}. Returns the join code to share.
+     * already-open LAN server on {@code 127.0.0.1:lanPort}. Returns what goes into the invite link.
      *
      * <p>Blocking; call off the render thread.
      */

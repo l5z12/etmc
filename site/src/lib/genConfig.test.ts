@@ -1,7 +1,7 @@
 /**
  * Golden vectors for the wire formats this module re-implements.
  *
- * `genConfig.ts` writes the `etmc://` link, the `ETMC1:` code and TOML string escaping by hand, in
+ * `genConfig.ts` writes the `etmc://` link and TOML string escaping by hand, in
  * the browser, so a player can build a link without running the mod. The mod writes the same formats
  * in `dev.l5z12.etmc.core.JoinCode` / `Toml.quote`. They are only interchangeable if they agree byte
  * for byte — and nothing but this file and its Java twin says so.
@@ -10,13 +10,13 @@
  * `common/src/test/java/dev/l5z12/etmc/core/WireFormatTest.java`. Either side drifting — a renamed
  * JSON field, a reordered declaration, a different base64 alphabet, a missed escape — fails a test
  * instead of silently shipping links that decode into something subtly different. Update both files
- * together, and only on a deliberate format change (which needs a new `ETMC1`/`v1` version anyway).
+ * together, and only on a deliberate format change (which needs a new `etmc://v2/` version anyway).
  *
  * Run with `bun test` from `site/`.
  */
 /// <reference types="bun" />
 import { describe, expect, test } from 'bun:test';
-import { buildJoinCode, buildJoinLink, buildToml, type GenInput } from './genConfig';
+import { buildJoinLink, buildToml, type GenInput } from './genConfig';
 
 /** The shared payload: base64url (no padding) of the JoinCode JSON, in field-declaration order. */
 const PAYLOAD =
@@ -40,18 +40,9 @@ const vector: GenInput = {
   virtualPort: 25565,
 };
 
-describe('join link + code', () => {
+describe('join link', () => {
   test('link form is frozen', () => {
     expect(buildJoinLink(vector)).toBe('etmc://v1/' + PAYLOAD);
-  });
-
-  test('code form is frozen', () => {
-    expect(buildJoinCode(vector)).toBe('ETMC1:' + PAYLOAD);
-  });
-
-  test('both forms share one payload', () => {
-    expect(buildJoinLink(vector).slice('etmc://v1/'.length))
-      .toBe(buildJoinCode(vector).slice('ETMC1:'.length));
   });
 
   test('blank host details fall back to the same defaults as the mod', () => {

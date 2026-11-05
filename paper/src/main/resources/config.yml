@@ -1,5 +1,5 @@
 # etmc — expose this server over an EasyTier P2P mesh (no port-forwarding).
-# Players connect with the etmc client mod using the join code (/etmc code) or a
+# Players connect with the etmc client mod using the etmc:// link (/etmc link) or a
 # hosted config file (/etmc config).
 
 # EasyTier network identity. Players must use the same name + secret.

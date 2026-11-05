@@ -253,7 +253,7 @@ public final class EtmcManager {
     }
 
     /**
-     * Fetches an EasyTier config (or {@code ETMC1:} code) from an HTTP(S) URL and connects to the
+     * Fetches an EasyTier config (or an {@code etmc://} link) from an HTTP(S) URL and connects to the
      * Minecraft server it describes. {@code overrideServer} (nullable, {@code ip:port}) is used when
      * the config has no {@code [etmc] server} line.
      */
@@ -269,7 +269,7 @@ public final class EtmcManager {
                 throw new java.util.concurrent.CompletionException(e);
             }
             String trimmed = body.trim();
-            if (trimmed.startsWith(JoinCode.PREFIX)) {
+            if (JoinCode.isLink(trimmed)) {
                 return session.join(JoinCode.decode(trimmed));
             }
             ImportedConfig cfg = ImportedConfig.parse(body, "etmc-cfg-" + shortId(), overrideServer);
@@ -283,7 +283,7 @@ public final class EtmcManager {
     }
 
     /**
-     * Handles an {@code etmc://} link (or {@code ETMC1:} code) from Add Server / Direct Connect / the
+     * Handles an {@code etmc://} link from Add Server / Direct Connect / the
      * Join screen: starts the EasyTier instance (no proxy/port), waits until the host is actually
      * reachable, then triggers a vanilla connect that the ClientConnection mixin reroutes through an
      * {@link dev.l5z12.etmc.core.EtmcChannel} riding the data plane. Client thread, no world loaded.

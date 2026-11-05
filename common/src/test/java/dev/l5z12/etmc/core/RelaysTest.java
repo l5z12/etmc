@@ -32,7 +32,6 @@ class RelaysTest {
         String p = Relays.problem(link);
         assertNotNull(p);
         assertTrue(p.contains("join link"), p);
-        assertNotNull(Relays.problem("ETMC1:abc"));
     }
 
     @Test

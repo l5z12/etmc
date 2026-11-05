@@ -38,7 +38,7 @@ public final class EtmcScreen extends EtmcBaseScreen {
         add(host);
         y += 24;
 
-        var join = Ui.button(Txt.tr("etmc.menu.join", "Join with a link or code"),
+        var join = Ui.button(Txt.tr("etmc.menu.join", "Join with a link"),
                 b -> goTo(new JoinScreen(this)))
                 .dimensions(cx - w / 2, y, w, 20).build();
         join.active = ready && !active;

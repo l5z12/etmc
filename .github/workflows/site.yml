@@ -5,7 +5,7 @@ name: site
 # spin up bun. Cheap: install, test, typecheck, build (~1 min, one runner).
 #
 # The test that matters here is the wire-format one: site/src/lib/genConfig.ts re-implements the
-# etmc:// link, the ETMC1: code and the TOML escaping in the browser, and only stays interchangeable
+# etmc:// link and the TOML escaping in the browser, and only stays interchangeable
 # with the mod's JoinCode/Toml if it agrees byte for byte. Its Java twin (WireFormatTest) runs in the
 # paper job of build.yml; this is the other half of that pair.
 on:

@@ -14,12 +14,11 @@ import java.util.Base64;
  * join a host: the network identity, the user-provided relay(s), and where the host's data-plane
  * listener lives.
  *
- * <p>Wire form is {@code ETMC1:<base64url(json)>} so it survives copy/paste in chat and can be
- * imported/exported as a single string or file.
+ * <p>Shared as an {@code etmc://v1/<base64url(json)>} link: one string that survives copy/paste and
+ * goes straight into Minecraft's Add Server / Direct Connect field.
  */
 public final class JoinCode {
 
-    public static final String PREFIX = "ETMC1:";
     /** URL form usable in Minecraft's Add Server / Direct Connect address field: {@code etmc://v1/<b64>}. */
     public static final String LINK_PREFIX = "etmc://v1/";
     /** Scheme every link form shares; {@link #decode} accepts any {@code etmc://<version>/<b64>}. */
@@ -46,11 +45,6 @@ public final class JoinCode {
         this.label = label == null ? "" : label;
     }
 
-    /** Serializes to the {@code ETMC1:...} wire form. */
-    public String encode() {
-        return PREFIX + payload();
-    }
-
     /** Serializes to the {@code etmc://v1/<b64>} URL form (pasteable into Add Server / Direct Connect). */
     public String encodeLink() {
         return LINK_PREFIX + payload();
@@ -67,35 +61,33 @@ public final class JoinCode {
     }
 
     /**
-     * Parses a join code. Tolerates surrounding whitespace and a missing/extra prefix.
+     * Parses an {@code etmc://} link. Tolerates surrounding whitespace and a bare payload (no prefix).
      *
-     * @throws IllegalArgumentException if the code is malformed
+     * @throws IllegalArgumentException if the link is malformed
      */
     public static JoinCode decode(String code) {
-        if (code == null) throw new IllegalArgumentException(Msg.tr("etmc.code.empty", "empty join code"));
+        if (code == null) throw new IllegalArgumentException(Msg.tr("etmc.link.empty", "empty etmc link"));
         String s = code.trim();
         if (isLink(s)) {
             // etmc://v1/<b64> (or any etmc://<ver>/<b64>) — the payload is the segment after the last '/'.
             int slash = s.lastIndexOf('/');
             s = slash >= 0 ? s.substring(slash + 1) : s;
-        } else if (s.startsWith(PREFIX)) {
-            s = s.substring(PREFIX.length());
         }
         s = s.trim();
         byte[] raw;
         try {
             raw = Base64.getUrlDecoder().decode(s);
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException(Msg.tr("etmc.code.invalid", "not a valid etmc join code"));
+            throw new IllegalArgumentException(Msg.tr("etmc.link.invalid", "not a valid etmc link"));
         }
         JoinCode jc;
         try {
             jc = GSON.fromJson(new String(raw, StandardCharsets.UTF_8), JoinCode.class);
         } catch (JsonSyntaxException e) {
-            throw new IllegalArgumentException(Msg.tr("etmc.code.corrupt", "corrupt etmc join code"));
+            throw new IllegalArgumentException(Msg.tr("etmc.link.corrupt", "corrupt etmc link"));
         }
         if (jc == null || jc.networkName == null || jc.networkName.isBlank()) {
-            throw new IllegalArgumentException(Msg.tr("etmc.code.no_network", "join code missing network name"));
+            throw new IllegalArgumentException(Msg.tr("etmc.link.no_network", "etmc link without a network name"));
         }
         if (jc.relays == null) jc.relays = new ArrayList<>();
         if (jc.hostIp == null || jc.hostIp.isBlank()) jc.hostIp = EtmcConfig.HOST_VIRTUAL_IP;
@@ -154,7 +146,7 @@ public final class JoinCode {
                     if ("server".equals(key)) applyServer(jc, val);
                     else if ("label".equals(key)) jc.label = val == null ? "" : val;
                 }
-                default -> { /* any other table is irrelevant to a join code */ }
+                default -> { /* any other table is irrelevant to an etmc link */ }
             }
         }
         // No [etmc] server line: derive from the root ipv4 (host's fixed virtual IP), stripping /cidr.

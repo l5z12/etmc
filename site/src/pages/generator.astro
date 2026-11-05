@@ -14,19 +14,18 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     <p class="lead paper-only" style="max-width:760px">
       Build <code>plugins/etmc/config.yml</code> for a Paper server. Drop it in, restart (or
-      <code>/etmc reload</code>), and the server joins the mesh — players connect with the join code
-      it prints. Everything below runs in your browser.
+      <code>/etmc reload</code>), and the server joins the mesh — players connect with the
+      <code>etmc://</code> link it prints. Everything below runs in your browser.
     </p>
     <p class="lead client-only" style="max-width:760px">
       Build the config file players join with. Host the result at any HTTP(S) URL, then players use
-      <strong>Connect via config URL</strong> (or <code>/etmc connect &lt;url&gt;</code>) — no join code needed.
+      <strong>Connect via config URL</strong> (or <code>/etmc connect &lt;url&gt;</code>) — no join link needed.
       Everything below runs in your browser.
     </p>
     <p class="lead link-only" style="max-width:760px">
-      Build a shareable <code>etmc://</code> link and <code>ETMC1:</code> join code from the network
-      details. Players paste the link straight into <strong>Add Server</strong> /
-      <strong>Direct Connect</strong>, or import the code — no hosted file needed. Everything below
-      runs in your browser.
+      Build a shareable <code>etmc://</code> link from the network details. Players paste it straight
+      into <strong>Add Server</strong> / <strong>Direct Connect</strong> — no hosted file needed.
+      Everything below runs in your browser.
     </p>
 
     <div class="gen" id="gen" data-mode="paper">
@@ -77,7 +76,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           </div>
           <div class="btn-row link-only" id="acts-link" style="margin-top:8px">
             <button id="copy-link" class="btn btn-primary" type="button">Copy etmc:// link</button>
-            <button id="copy-code" class="btn" type="button">Copy ETMC1 code</button>
           </div>
           <p id="toast" class="toast">&nbsp;</p>
           <p id="errs" class="err"></p>
@@ -89,8 +87,8 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <ol>
           <li>Save the file as <code>plugins/etmc/config.yml</code> on the server.</li>
           <li>Restart the server, or run <code>/etmc reload</code>.</li>
-          <li>Copy the join code it logs (or <code>/etmc code</code>) and share it with players.</li>
-          <li>Players paste <code>etmc://…</code> into <strong>Add Server</strong> / <strong>Direct Connect</strong>, or use the join code.</li>
+          <li>Copy the <code>etmc://</code> link it logs (or <code>/etmc link</code>) and share it with players.</li>
+          <li>Players paste it into <strong>Add Server</strong> / <strong>Direct Connect</strong>.</li>
         </ol>
         <p class="muted">The server's own port is read from <code>server.properties</code> automatically — only the mesh
           <em>virtual port</em> lives in this file.</p>
@@ -111,9 +109,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         <ol>
           <li>Make sure the host is reachable on the mesh at the <em>Server mesh IP</em> and port (the etmc
             host, or any EasyTier peer serving Minecraft there).</li>
-          <li>Send players the <code>etmc://</code> link, or the <code>ETMC1:</code> code.</li>
-          <li>They paste the link into <strong>Add Server</strong> / <strong>Direct Connect</strong>, or
-            import the code from the <strong>Join</strong> screen.</li>
+          <li>Send players the <code>etmc://</code> link.</li>
+          <li>They paste it into <strong>Add Server</strong> / <strong>Direct Connect</strong>, or into
+            etmc's <strong>Join</strong> screen.</li>
         </ol>
         <p class="muted">The link carries the network name, secret, relays, and host address — anyone with
           it can join, so share it like a password.</p>
@@ -142,7 +140,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
   <script>
     import { buildToml, buildPaperYaml, validate, validatePaper, splitList,
-             buildJoinLink, buildJoinCode, validateJoinLink, type GenInput } from '../lib/genConfig';
+             buildJoinLink, validateJoinLink, type GenInput } from '../lib/genConfig';
 
     const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -168,7 +166,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const copyBtn = $<HTMLButtonElement>('copy');
     const dlBtn = $<HTMLButtonElement>('download');
     const copyLinkBtn = $<HTMLButtonElement>('copy-link');
-    const copyCodeBtn = $<HTMLButtonElement>('copy-code');
 
     type Mode = 'paper' | 'player' | 'link';
     let mode: Mode = 'paper';
@@ -190,7 +187,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     let current = '';       // paper/player output (Copy + Download)
     let currentLink = '';   // link mode: the etmc:// link
-    let currentCode = '';   // link mode: the ETMC1 code
     function render() {
       ipv4.disabled = dhcp.checked;
       const input = read();
@@ -198,14 +194,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       if (mode === 'link') {
         const problems = validateJoinLink(input);
         currentLink = buildJoinLink(input);
-        currentCode = buildJoinCode(input);
-        out.textContent = currentLink + '\n\n' + currentCode;
+        out.textContent = currentLink;
         errs.textContent = problems.length ? '⚠ ' + problems.join('  ') : '';
         const ok = problems.length === 0;
         copyLinkBtn.disabled = !ok;
-        copyCodeBtn.disabled = !ok;
         lblPort.textContent = 'Host port';
-        lblOut.textContent = 'Join link + ETMC1 code';
+        lblOut.textContent = 'Join link';
         return;
       }
 
@@ -257,7 +251,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 
     copyBtn.addEventListener('click', () => copyText(current, 'Copied to clipboard ✓'));
     copyLinkBtn.addEventListener('click', () => copyText(currentLink, 'Copied etmc:// link ✓'));
-    copyCodeBtn.addEventListener('click', () => copyText(currentCode, 'Copied ETMC1 code ✓'));
 
     dlBtn.addEventListener('click', () => {
       const paper = mode === 'paper';

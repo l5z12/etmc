@@ -20,7 +20,7 @@ import net.minecraft.client.gui.screens.Screen;*/
 //?}
 
 /**
- * Join a hosted world from the {@code etmc://} link (or {@code ETMC1:} code — the same thing) the
+ * Join a hosted world from the {@code etmc://} link the
  * host shared.
  *
  * <p>Outside a world this takes the same path as pasting the link into Direct Connect: it waits for
@@ -47,7 +47,7 @@ public final class JoinScreen extends EtmcBaseScreen {
         int w = 260;
         int y = this.height / 4 + 12;
 
-        codeField = Ui.textField(font(), cx - w / 2, y, w, 20, Txt.tr("etmc.join.field", "etmc:// link or code"));
+        codeField = Ui.textField(font(), cx - w / 2, y, w, 20, Txt.tr("etmc.join.field", "etmc:// link"));
         codeField.setMaxLength(4096);
         add(codeField);
         //? if >=1.17 {
@@ -79,7 +79,7 @@ public final class JoinScreen extends EtmcBaseScreen {
             jc = JoinCode.decode(text);
         } catch (IllegalArgumentException e) {
             setMessage(Msg.tr("etmc.join.not_a_link",
-                    "That isn't an etmc link or code (%s). Copy it from the host again.", e.getMessage()), COLOR_BAD);
+                    "That isn't an etmc link (%s). Copy it from the host again.", e.getMessage()), COLOR_BAD);
             return;
         }
         if (!McScreens.inWorld()) {
@@ -103,7 +103,7 @@ public final class JoinScreen extends EtmcBaseScreen {
     protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
         int cx = this.width / 2;
         Gfx.centered(ctx, font(), this.title, cx, 24, COLOR_TEXT);
-        Gfx.centered(ctx, font(), Txt.tr("etmc.join.hint", "Paste the etmc:// link (or ETMC1: code) your host shared"),
+        Gfx.centered(ctx, font(), Txt.tr("etmc.join.hint", "Paste the etmc:// link your host shared"),
                 cx, this.height / 4 - 4, COLOR_MUTED);
         if (McScreens.inWorld()) {
             Gfx.centered(ctx, font(),

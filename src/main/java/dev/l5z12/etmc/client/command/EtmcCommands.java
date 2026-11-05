@@ -68,8 +68,8 @@ public final class EtmcCommands {
                                                 StringArgumentType.getString(ctx, "network"),
                                                 StringArgumentType.getString(ctx, "secret"))))))
                 .then(lit("join")
-                        .then(arg("code", StringArgumentType.greedyString())
-                                .executes(ctx -> join(src(ctx), StringArgumentType.getString(ctx, "code")))))
+                        .then(arg("link", StringArgumentType.greedyString())
+                                .executes(ctx -> join(src(ctx), StringArgumentType.getString(ctx, "link")))))
                 .then(lit("connect")
                         .then(arg("url", StringArgumentType.word())
                                 .executes(ctx -> connect(src(ctx), StringArgumentType.getString(ctx, "url"), null))
@@ -138,7 +138,7 @@ public final class EtmcCommands {
         try {
             jc = JoinCode.decode(code);
         } catch (IllegalArgumentException e) {
-            src.error(Msg.tr("etmc.cmd.join.bad_code", "Bad join code: %s", e.getMessage()));
+            src.error(Msg.tr("etmc.cmd.join.bad_link", "Bad etmc link: %s", e.getMessage()));
             return 0;
         }
         src.feedback(Msg.tr("etmc.join.starting", "Starting the network for '%s'…", jc.displayLabel()));
@@ -176,7 +176,7 @@ public final class EtmcCommands {
         EtmcManager m = EtmcManager.get();
         EtmcSession s = m.session();
         if (s == null || !s.isActive()) {
-            src.feedback(Msg.tr("etmc.cmd.status.idle", "etmc idle. /etmc host <network> or /etmc join <code>."));
+            src.feedback(Msg.tr("etmc.cmd.status.idle", "etmc idle. /etmc host <network> or /etmc join <link>."));
             return 1;
         }
         NetworkStatus st = m.cachedStatus();

@@ -8,7 +8,7 @@ website: https://github.com/L5Z12/etmc
 commands:
   etmc:
     description: etmc mesh controls
-    usage: /etmc <status|code|config|reload>
+    usage: /etmc <status|link|config|reload>
     permission: etmc.admin
 permissions:
   etmc.admin:

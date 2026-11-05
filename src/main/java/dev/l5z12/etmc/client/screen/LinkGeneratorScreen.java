@@ -20,7 +20,7 @@ import net.minecraft.client.gui.screens.Screen;*/
 //?}
 
 /**
- * Build a shareable {@code etmc://} link (and {@code ETMC1:} code) from raw fields — network name,
+ * Build a shareable {@code etmc://} link from raw fields — network name,
  * secret, relay URI, host virtual ip:port, label. "Load config from clipboard" pastes an EasyTier
  * TOML and auto-fills the fields via {@link JoinCode#fromToml}.
  *
@@ -92,10 +92,8 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
                 .dimensions(cx - w / 2, y, w, 20).build());
         y += 24;
 
-        add(Ui.button(Txt.tr("etmc.gen.copy_link", "Copy etmc:// link"), b -> copy(true))
-                .dimensions(cx - w / 2, y, w / 2 - 4, 20).build());
-        add(Ui.button(Txt.tr("etmc.status.copy_code", "Copy ETMC1 code"), b -> copy(false))
-                .dimensions(cx + 4, y, w / 2 - 4, 20).build());
+        add(Ui.button(Txt.tr("etmc.gen.copy_link", "Copy etmc:// link"), b -> copy())
+                .dimensions(cx - w / 2, y, w, 20).build());
         y += 24;
 
         add(Ui.button(Txt.translatable("gui.back"), b -> this.close())
@@ -109,13 +107,13 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
             return;
         }
         String s = clip.trim();
-        // Accept an existing join code / etmc:// link too — no reason to force a fresh TOML paste.
-        if (JoinCode.isLink(s) || s.startsWith(JoinCode.PREFIX)) {
+        // Accept an existing etmc:// link too — no reason to force a fresh TOML paste.
+        if (JoinCode.isLink(s)) {
             try {
                 fillFrom(JoinCode.decode(s));
-                setMessage(Msg.tr("etmc.gen.loaded_code", "Loaded from join code."), COLOR_GOOD);
+                setMessage(Msg.tr("etmc.gen.loaded_link", "Loaded from the etmc:// link."), COLOR_GOOD);
             } catch (IllegalArgumentException e) {
-                setMessage(Msg.tr("etmc.gen.bad_code", "Bad code: %s", e.getMessage()), COLOR_BAD);
+                setMessage(Msg.tr("etmc.gen.bad_link", "Bad link: %s", e.getMessage()), COLOR_BAD);
             }
             return;
         }
@@ -175,15 +173,12 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         return new JoinCode(network, secret, relays, ip, port, Ui.getText(labelField).trim());
     }
 
-    private void copy(boolean link) {
+    private void copy() {
         JoinCode code = buildCode();
         if (code == null) return;
-        String s = link ? code.encodeLink() : code.encode();
-        McScreens.setClipboard(s);
-        setMessage(link
-                ? Msg.tr("etmc.gen.link_copied", "Copied etmc:// link. It contains the secret: share it only with people you want in.")
-                : Msg.tr("etmc.gen.code_copied", "Copied ETMC1 code. It contains the secret: share it only with people you want in."),
-                COLOR_GOOD);
+        McScreens.setClipboard(code.encodeLink());
+        setMessage(Msg.tr("etmc.gen.link_copied",
+                "Copied etmc:// link. It contains the secret: share it only with people you want in."), COLOR_GOOD);
     }
 
     private static String safe(String s) {

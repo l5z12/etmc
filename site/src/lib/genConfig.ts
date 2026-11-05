@@ -48,7 +48,7 @@ const RELAY_NEEDS_PORT = ['tcp', 'udp', 'wg', 'quic', 'faketcp'];
 export function relayProblem(uri: string): string | null {
   const u = (uri || '').trim();
   if (!u) return 'Empty relay address.';
-  if (/^etmc:\/\//i.test(u) || u.startsWith('ETMC1:')) {
+  if (/^etmc:\/\//i.test(u)) {
     return `"${u.slice(0, 40)}…" is an etmc join link, not a relay. A relay looks like tcp://relay.example.com:11010.`;
   }
   const sep = u.indexOf('://');
@@ -148,7 +148,7 @@ export function buildPaperYaml(i: GenInput): string {
   const lines: string[] = [];
   lines.push('# etmc — expose this server over an EasyTier P2P mesh (no port-forwarding).');
   lines.push('# Drop this in plugins/etmc/config.yml, then restart or run /etmc reload.');
-  lines.push('# Players connect with the etmc client using the join code (/etmc code) or a config URL.');
+  lines.push('# Players connect with the etmc client using the etmc:// link (/etmc link) or a config URL.');
   lines.push('');
   lines.push('# EasyTier network identity. Players must use the same name + secret.');
   lines.push(`network: ${tstr(i.network.trim())}`);
@@ -172,17 +172,16 @@ export function buildPaperYaml(i: GenInput): string {
 }
 
 /* ---------------------------------------------------------------------------
- * Join link / code (etmc:// and ETMC1:)
+ * Join link (etmc://)
  *
  * Mirrors dev.l5z12.etmc.core.JoinCode: a JSON descriptor, base64url-encoded
- * (no padding), behind either the `etmc://v1/` URL prefix (pasteable into Add
- * Server / Direct Connect) or the `ETMC1:` code prefix. Field names + order
- * match JoinCode's Gson serialization so both wire forms are byte-identical to
- * the ones the mod produces. Everything runs in the browser.
+ * (no padding), behind the `etmc://v1/` URL prefix (pasteable into Add Server /
+ * Direct Connect). Field names + order match JoinCode's Gson serialization so
+ * the link is byte-identical to the one the mod produces. Everything runs in
+ * the browser.
  * ------------------------------------------------------------------------- */
 
 const LINK_PREFIX = 'etmc://v1/';
-const CODE_PREFIX = 'ETMC1:';
 const HOST_VIRTUAL_IP = '10.126.126.1';
 const DEFAULT_VIRTUAL_PORT = 25565;
 
@@ -205,7 +204,7 @@ export function validateJoinLink(i: GenInput): string[] {
   return errs;
 }
 
-/** The shared base64url payload — same bytes for both the link and the code form. */
+/** The link's base64url payload. */
 function joinPayload(i: GenInput): string {
   // Key order mirrors JoinCode's field declaration order (networkName … label).
   const jc = {
@@ -222,11 +221,6 @@ function joinPayload(i: GenInput): string {
 /** `etmc://v1/<b64>` — pasteable into Minecraft's Add Server / Direct Connect. */
 export function buildJoinLink(i: GenInput): string {
   return LINK_PREFIX + joinPayload(i);
-}
-
-/** `ETMC1:<b64>` — the chat-friendly join code. */
-export function buildJoinCode(i: GenInput): string {
-  return CODE_PREFIX + joinPayload(i);
 }
 
 /** Splits a list on commas, semicolons, spaces or newlines (as the mod does) into trimmed entries. */
