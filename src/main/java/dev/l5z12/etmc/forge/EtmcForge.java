@@ -87,7 +87,10 @@ public final class EtmcForge {
                 e.getLayeredDraw().add(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));
         //?} else if >=1.21.6 {
-        /*CustomizeGuiOverlayEvent.Chat.BUS.addListener(e -> EtmcHud.render(e.getGuiGraphics()));*/
+        /*// A block body: this bus also takes Predicate listeners, which an expression lambda can't rule out.
+        CustomizeGuiOverlayEvent.Chat.BUS.addListener(e -> {
+            EtmcHud.render(e.getGuiGraphics());
+        });*/
         //?} else if >=1.21.1 {
         /*modBus.addListener((AddGuiOverlayLayersEvent e) ->
                 e.getLayeredDraw().add(ResourceLocation.fromNamespaceAndPath("etmc", "status"),
