@@ -71,7 +71,7 @@ public final class NativeLoader {
         byte[] data = readResource(resource);
         if (data == null) {
             throw new IOException("bundled native library not found on classpath: " + resource
-                    + " (build the native lib and run :copyNatives)");
+                    + " (this jar has no EasyTier native for your platform)");
         }
 
         String digest = shortHash(data);
