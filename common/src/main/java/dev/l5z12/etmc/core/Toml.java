@@ -71,20 +71,56 @@ public final class Toml {
     }
 
     /**
-     * The value of a {@code key = value} line as a plain string: quotes stripped (without
-     * un-escaping — etmc only reads names, URIs and addresses), trailing comments dropped.
+     * The value of a {@code key = value} line as a plain string: quotes stripped, a basic string's
+     * escapes decoded (a secret can hold any character), trailing comments dropped.
      */
     static String stringValue(String trimmedLine) {
         int eq = trimmedLine.indexOf('=');
         if (eq < 0) return "";
         String v = trimmedLine.substring(eq + 1).trim();
-        if (v.startsWith("\"") || v.startsWith("'")) {
-            char quote = v.charAt(0);
-            int end = v.indexOf(quote, 1);
+        if (v.startsWith("\"")) return unescape(v);
+        if (v.startsWith("'")) {
+            int end = v.indexOf('\'', 1);
             return end > 0 ? v.substring(1, end) : v.substring(1);
         }
         int hash = v.indexOf('#');
         if (hash >= 0) v = v.substring(0, hash).trim();
         return v;
+    }
+
+    /** Reads the basic string that opens {@code v}, stopping at its closing quote. */
+    private static String unescape(String v) {
+        StringBuilder b = new StringBuilder(v.length());
+        for (int i = 1; i < v.length(); i++) {
+            char c = v.charAt(i);
+            if (c == '"') break;
+            if (c != '\\' || i + 1 == v.length()) {
+                b.append(c);
+                continue;
+            }
+            char e = v.charAt(++i);
+            switch (e) {
+                case 'b' -> b.append('\b');
+                case 't' -> b.append('\t');
+                case 'n' -> b.append('\n');
+                case 'f' -> b.append('\f');
+                case 'r' -> b.append('\r');
+                case 'u' -> i = unicode(v, i, 4, b);
+                case 'U' -> i = unicode(v, i, 8, b);
+                default -> b.append(e);
+            }
+        }
+        return b.toString();
+    }
+
+    /** Appends the code point after the {@code u} at {@code i}, and returns the last index it used. */
+    private static int unicode(String v, int i, int digits, StringBuilder b) {
+        try {
+            b.appendCodePoint(Integer.parseInt(v.substring(i + 1, i + 1 + digits), 16));
+            return i + digits;
+        } catch (IndexOutOfBoundsException | IllegalArgumentException e) {
+            b.append(v.charAt(i));
+            return i;
+        }
     }
 }

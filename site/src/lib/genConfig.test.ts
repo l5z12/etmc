@@ -90,6 +90,8 @@ describe('decoding a join link', () => {
 
   test('rejects anything that is not a usable link', () => {
     expect(() => decodeJoinLink('   ')).toThrow('Paste');
+    expect(() => decodeJoinLink('ETMC://v1/config/https://example.com/etmc.toml')).toThrow('config URL');
+    expect(() => decodeJoinLink('etmc://v2/config/https://example.com/etmc.toml')).toThrow('newer version');
     expect(() => decodeJoinLink('etmc://v1/not+base64!')).toThrow('valid');
     expect(() => decodeJoinLink('etmc://v1/a')).toThrow('valid');
     expect(() => decodeJoinLink('etmc://v1/' + b64url('{oops'))).toThrow('damaged');

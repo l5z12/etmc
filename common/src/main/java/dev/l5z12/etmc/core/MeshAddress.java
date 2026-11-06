@@ -1,11 +1,29 @@
 package dev.l5z12.etmc.core;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * An {@code ip:port} pair on the EasyTier mesh — where a Minecraft server is reachable once the
  * network is up. Parsed from the {@code [etmc] server = "…"} config extension and from the
  * user-supplied override on the "connect via config URL" screen.
  */
 public record MeshAddress(String ip, int port) {
+
+    private static final String OCTET = "(?:25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)";
+    private static final Pattern IPV4_AND_PORT =
+            Pattern.compile(OCTET + "(?:\\." + OCTET + "){3}(?::(\\d{1,5}))?");
+
+    /**
+     * Whether {@code s} is exactly {@code ipv4[:port]}. Stricter than {@link #parse}, which keeps any
+     * host and replaces a bad port: peers are matched by their IPv4 text, so anything else never connects.
+     */
+    public static boolean isValid(String s) {
+        if (s == null) return false;
+        Matcher m = IPV4_AND_PORT.matcher(s.trim());
+        if (!m.matches()) return false;
+        return m.group(1) == null || parsePort(m.group(1), -1) > 0;
+    }
 
     /**
      * Parses {@code ip[:port]}, falling back to {@code defaultPort} when the port is absent or

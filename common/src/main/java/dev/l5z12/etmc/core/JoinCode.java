@@ -8,6 +8,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Base64;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A portable descriptor of "a Minecraft server driven by EasyTier" — everything a peer needs to
@@ -15,12 +17,18 @@ import java.util.Base64;
  * listener lives.
  *
  * <p>Shared as an {@code etmc://v1/<base64url(json)>} link: one string that survives copy/paste and
- * goes straight into Minecraft's Add Server / Direct Connect field.
+ * goes straight into Minecraft's Add Server / Direct Connect field. An admin who hosts a config can
+ * share {@code etmc://v1/config/<url>} instead, which goes in the same field and is read on each join.
  */
 public final class JoinCode {
 
     /** URL form usable in Minecraft's Add Server / Direct Connect address field: {@code etmc://v1/<b64>}. */
     public static final String LINK_PREFIX = "etmc://v1/";
+    /** Link that loads a hosted config when joined: {@code etmc://v1/config/https://example.com/etmc.toml}. */
+    public static final String CONFIG_PREFIX = LINK_PREFIX + "config/";
+    /** A config link of any version: unlike the JSON payload, a newer form can't be read as this one. */
+    private static final Pattern CONFIG_LINK =
+            Pattern.compile("etmc://([^/]+)/config/(.*)", Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
     /** Scheme every link form shares; {@link #decode} accepts any {@code etmc://<version>/<b64>}. */
     private static final String SCHEME = "etmc://";
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
@@ -61,6 +69,59 @@ public final class JoinCode {
     }
 
     /**
+     * The URL in an {@code etmc://v1/config/<url>} link, or {@code null} for any other text. A config
+     * link of another version is {@code null} too, so {@link #decode} can say what's wrong with it.
+     */
+    public static String configUrl(String s) {
+        if (s == null) return null;
+        String t = s.trim();
+        return t.regionMatches(true, 0, CONFIG_PREFIX, 0, CONFIG_PREFIX.length())
+                ? t.substring(CONFIG_PREFIX.length()) : null;
+    }
+
+    /**
+     * Reads what an {@code etmc://v1/config/} link points at: an {@code etmc://} link, or an EasyTier
+     * config that names its server. Only the join details are kept, so a link saved in the server
+     * list can't set other EasyTier options on the player's client.
+     *
+     * @throws IllegalArgumentException if the body can't be joined, including another config link
+     */
+    public static JoinCode fromConfig(String body) {
+        String s = body == null ? "" : body.trim();
+        JoinCode jc = isLink(s) ? decode(s) : fromHostedToml(s);
+        if (jc.relays.isEmpty()) {
+            throw new IllegalArgumentException(Msg.tr("etmc.link.config_no_relay",
+                    "the config has no relay, so there's no way to reach the server. "
+                            + "Ask the server admin to add a [[peer]] line"));
+        }
+        return jc;
+    }
+
+    private static JoinCode fromHostedToml(String s) {
+        ImportedConfig cfg;
+        try {
+            cfg = ImportedConfig.parse(s, "etmc", null);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(Msg.tr("etmc.link.config_no_server",
+                    "the config doesn't name a server. Ask the server admin to add an [etmc] server line"));
+        }
+        if (!MeshAddress.isValid(cfg.server())) {
+            throw new IllegalArgumentException(Msg.tr("etmc.link.config_bad_server",
+                    "the config's server '%s' isn't an IPv4 address and port. "
+                            + "Ask the server admin to fix its [etmc] server line", cfg.server()));
+        }
+        JoinCode jc = fromToml(s);
+        if (!jc.isValidCandidate()) {
+            throw new IllegalArgumentException(Msg.tr("etmc.link.no_network", "etmc link without a network name"));
+        }
+        if (jc.networkSecret == null) jc.networkSecret = "";
+        jc.hostIp = cfg.serverIp();
+        jc.hostPort = cfg.serverPort();
+        jc.label = cfg.label();
+        return jc;
+    }
+
+    /**
      * Parses an {@code etmc://} link. Tolerates surrounding whitespace and a bare payload (no prefix).
      *
      * @throws IllegalArgumentException if the link is malformed
@@ -68,6 +129,15 @@ public final class JoinCode {
     public static JoinCode decode(String code) {
         if (code == null) throw new IllegalArgumentException(Msg.tr("etmc.link.empty", "empty etmc link"));
         String s = code.trim();
+        if (configUrl(s) != null) {
+            throw new IllegalArgumentException(Msg.tr("etmc.link.is_config",
+                    "this link loads a config from a URL, so it has no details of its own"));
+        }
+        Matcher config = CONFIG_LINK.matcher(s);
+        if (config.matches()) {
+            throw new IllegalArgumentException(Msg.tr("etmc.link.config_version",
+                    "this link needs a newer version of etmc"));
+        }
         if (isLink(s)) {
             // etmc://v1/<b64> (or any etmc://<ver>/<b64>) — the payload is the segment after the last '/'.
             int slash = s.lastIndexOf('/');
