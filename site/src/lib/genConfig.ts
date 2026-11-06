@@ -238,6 +238,12 @@ export type JoinLinkFields = Pick<GenInput, 'network' | 'secret' | 'relays' | 's
 export function decodeJoinLink(text: string): JoinLinkFields {
   let s = (text ?? '').trim();
   if (!s) throw new Error('Paste an etmc:// link.');
+  const config = /^etmc:\/\/([^/]+)\/config\//i.exec(s);
+  if (config) {
+    throw new Error(config[1].toLowerCase() === 'v1'
+      ? 'This link loads its details from a config URL, so there\'s nothing in it to read.'
+      : 'This link needs a newer version of etmc.');
+  }
   if (/^etmc:\/\//i.test(s)) s = s.slice(s.lastIndexOf('/') + 1).trim();
   if (!/^[A-Za-z0-9_-]*={0,2}$/.test(s)) throw new Error('This isn\'t a valid etmc:// link.');
 
