@@ -215,6 +215,7 @@
   "etmc.url.field": "配置 URL",
   "etmc.url.field.hint": "配置 URL（指向 EasyTier 配置的 http/https 地址）",
   "etmc.url.http_error": "服务器返回 HTTP %s",
+  "etmc.url.https_only": "此链接必须使用 https://。http:// 请改用“通过配置 URL 连接”",
   "etmc.url.invalid": "URL 无效",
   "etmc.url.need_url": "请输入配置 URL。",
   "etmc.url.not_http": "URL 必须以 http:// 或 https:// 开头",

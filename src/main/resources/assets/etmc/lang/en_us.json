@@ -215,6 +215,7 @@
   "etmc.url.field": "Config URL",
   "etmc.url.field.hint": "Config URL (http/https to an EasyTier config)",
   "etmc.url.http_error": "server returned HTTP %s",
+  "etmc.url.https_only": "this link must use https://. Use Connect via config URL for http://",
   "etmc.url.invalid": "Invalid URL",
   "etmc.url.need_url": "Enter a config URL.",
   "etmc.url.not_http": "URL must be http(s)://",

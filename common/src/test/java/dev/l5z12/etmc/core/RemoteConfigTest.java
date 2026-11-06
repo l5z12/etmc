@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Timeout;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -17,6 +18,8 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -123,8 +126,34 @@ class RemoteConfigTest {
     }
 
     @Test
+    void configLinksNeedHttps() {
+        for (String url : List.of("http://example.com/etmc.toml", "HTTP://127.0.0.1:1/x")) {
+            IOException e = assertThrows(IOException.class, () -> RemoteConfig.fetchPublic(url), url);
+            assertTrue(e.getMessage().contains("must use https://"), e.getMessage());
+        }
+    }
+
+    /** The address check has passed, and the name now points at a local service that doesn't speak TLS. */
+    @Test
+    void aReboundNameNeverGetsARequest() throws Exception {
+        server = new ServerSocket(0, 50, InetAddress.getLoopbackAddress());
+        CompletableFuture<byte[]> firstBytes = CompletableFuture.supplyAsync(() -> {
+            try (Socket s = server.accept()) {
+                return s.getInputStream().readNBytes(3);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
+
+        assertThrows(IOException.class,
+                () -> RemoteConfig.fetch("https://127.0.0.1:" + server.getLocalPort() + "/x", uri -> { }, LONG));
+
+        assertEquals(0x16, firstBytes.get(10, TimeUnit.SECONDS)[0], "only a TLS handshake record reaches the service");
+    }
+
+    @Test
     void configLinksRefuseLocalAddresses() {
-        for (String url : List.of("http://127.0.0.1:1/x", "http://[::1]:1/x", "http://localhost:1/x")) {
+        for (String url : List.of("https://127.0.0.1:1/x", "https://[::1]:1/x", "https://localhost:1/x")) {
             IOException e = assertThrows(IOException.class, () -> RemoteConfig.fetchPublic(url), url);
             assertTrue(e.getMessage().contains("private address"), e.getMessage());
         }

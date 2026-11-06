@@ -41,7 +41,9 @@ public final class RemoteConfig {
     /**
      * Downloads a config for an {@code etmc://v1/config/} link, refusing private and local addresses.
      * A player only pastes or clicks such a link, so it shouldn't be able to reach their own network.
-     * The check resolves the name separately from the request, so it can't stop DNS rebinding.
+     * Only https is allowed, because the address check resolves the name apart from the request, so
+     * the name could change to a private address in between (DNS rebinding). A private service can't
+     * present a certificate for that name, so the handshake fails before any request is sent.
      * Blocking; call off the render thread.
      */
     public static String fetchPublic(String url) throws IOException, InterruptedException {
@@ -137,6 +139,10 @@ public final class RemoteConfig {
     }
 
     static void requirePublic(URI uri) throws IOException {
+        if (!"https".equalsIgnoreCase(uri.getScheme())) {
+            throw new IOException(Msg.tr("etmc.url.https_only",
+                    "this link must use https://. Use Connect via config URL for http://"));
+        }
         String host = uri.getHost();
         if (host == null) throw new IllegalArgumentException(Msg.tr("etmc.url.invalid", "Invalid URL"));
         for (InetAddress address : InetAddress.getAllByName(host)) {

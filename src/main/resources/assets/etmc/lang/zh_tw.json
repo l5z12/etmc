@@ -215,6 +215,7 @@
   "etmc.url.field": "設定檔 URL",
   "etmc.url.field.hint": "設定檔 URL（指向 EasyTier 設定檔的 http/https 位址）",
   "etmc.url.http_error": "伺服器返回 HTTP %s",
+  "etmc.url.https_only": "此連結必須使用 https://。http:// 請改用「透過設定檔 URL 連線」",
   "etmc.url.invalid": "URL 無效",
   "etmc.url.need_url": "請輸入設定檔 URL。",
   "etmc.url.not_http": "URL 必須以 http:// 或 https:// 開頭",
