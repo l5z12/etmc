@@ -18,7 +18,7 @@ const games: Row[] = [
   {
     name: 'etmc', url: '/docs/getting-started', ours: true,
     runs: 'Mod', route: 'Direct, or through a relay', friends: 'etmc and your link',
-    free: 'Free, with community nodes', account: 'None', code: 'GPL-3.0',
+    free: 'Free, with community nodes', account: 'None of its own', code: 'GPL-3.0',
   },
   {
     name: 'e4mc', url: 'https://modrinth.com/mod/e4mc',
@@ -68,7 +68,7 @@ const networks: Row[] = [
 const picks = [
   ['The lowest ping', 'Use a tool that can connect players directly, like etmc, EasyTier, ZeroTier or Tailscale. Direct connections need networks that allow them.'],
   ['Friends who won\'t install anything', 'Use e4mc or playit.gg, and accept higher ping. Friends join from plain Minecraft, but all traffic takes a detour through a tunnel.'],
-  ['Everything inside the game', 'Use etmc or Essential. There\'s no separate app to run. etmc also needs no account.'],
+  ['Everything inside the game', 'Use etmc or Essential. There\'s no separate app to run. etmc also needs no account of its own.'],
   ['One network for more than Minecraft', 'Use EasyTier, ZeroTier or Tailscale. They connect whole devices, so they work with other games and tools.'],
   ['No company in the middle', 'Use etmc or EasyTier. Pick a community node or run your own relay, with no account to sign up for.'],
 ];
@@ -145,6 +145,8 @@ const sources = [
         <ul>
           <li><strong>Everyone needs the mod.</strong> Friends can't join from plain Minecraft.</li>
           <li><strong>You have to add a relay.</strong> It isn't built in, but a free community node works.</li>
+          <li><strong>Hosted worlds need real Minecraft accounts.</strong> Minecraft checks each player's account, and
+            etmc doesn't change that.</li>
           <li><strong>It's only for Minecraft.</strong> It won't connect anything else.</li>
           <li><strong>Your secret isn't protected.</strong> It's plain text, so keep it random.</li>
         </ul>
