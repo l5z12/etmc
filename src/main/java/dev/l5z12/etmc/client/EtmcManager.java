@@ -91,6 +91,8 @@ public final class EtmcManager {
     private final AtomicBoolean statusPollInFlight = new AtomicBoolean();
     /** In-progress {@code etmc://} link join (null when none). Client thread only. */
     private LinkAttempt linkAttempt;
+    /** Marks the {@code etmc://v1/config/} fetch in progress (null when none). Client thread only. */
+    private Object configFetch;
 
     // Session-lifetime bookkeeping for tick(); client thread only.
     /** The hosted world has been seen running, so its disappearing means the player left it. */
@@ -255,6 +257,22 @@ public final class EtmcManager {
                 }, McScreens.mc());
     }
 
+    /** Joins from an {@code etmc://v1/config/} link while in a world, as {@link #joinAsync} does. */
+    public CompletableFuture<Integer> joinConfigAsync(String url) {
+        if (!isReady()) return notLoaded();
+        return fetchConfig(url).thenComposeAsync(this::joinAsync, McScreens.mc());
+    }
+
+    private CompletableFuture<JoinCode> fetchConfig(String url) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return JoinCode.fromConfig(RemoteConfig.fetch(url));
+            } catch (Exception e) {
+                throw new java.util.concurrent.CompletionException(e);
+            }
+        }, worker);
+    }
+
     /**
      * Fetches an EasyTier config (or an {@code etmc://} link) from an HTTP(S) URL and connects to the
      * Minecraft server it describes. {@code overrideServer} (nullable, {@code ip:port}) is used when
@@ -296,6 +314,11 @@ public final class EtmcManager {
             showError(parent, Msg.tr("etmc.join.cant_join", "Can't join"), nativeError != null
                     ? Msg.tr("etmc.error.no_native", "etmc couldn't load its EasyTier library: %s", nativeError)
                     : Msg.tr("etmc.error.no_native_log", "etmc couldn't load its EasyTier library (see the game log)."));
+            return;
+        }
+        String configUrl = JoinCode.configUrl(link);
+        if (configUrl != null) {
+            connectViaConfig(parent, configUrl);
             return;
         }
         JoinCode code;
@@ -351,6 +374,27 @@ public final class EtmcManager {
                             inst, code.hostIp, P2P_WAIT_TIMEOUT_MS / 1000);
                     if (a.proceedRequested) linkDoProceed(a); // user already hit "Join now anyway"
                 }));
+    }
+
+    /** Fetches an {@code etmc://v1/config/} link's config, then carries on as an ordinary link join. */
+    private void connectViaConfig(Screen parent, String url) {
+        Object fetch = new Object();
+        configFetch = fetch;
+        String fetching = Msg.tr("etmc.url.fetching", "Fetching config…");
+        McScreens.goTo(new EtmcConnectingScreen(parent, null, null, () -> {
+            if (configFetch == fetch) configFetch = null;
+        }, () -> fetching));
+        fetchConfig(url).whenComplete((code, err) -> McScreens.mc().execute(() -> {
+            if (configFetch != fetch) return; // cancelled while fetching
+            configFetch = null;
+            if (err != null) {
+                LOGGER.warn("[etmc] couldn't load config link {}: {}", url, Errors.message(err));
+                showError(parent, Msg.tr("etmc.join.bad_link.title", "That etmc link doesn't work"),
+                        Msg.tr("etmc.join.config_failed", "Couldn't load its config: %s", Errors.message(err)));
+                return;
+            }
+            connectViaLink(parent, code.encodeLink());
+        }));
     }
 
     /**

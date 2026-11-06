@@ -74,13 +74,16 @@ public final class JoinScreen extends EtmcBaseScreen {
     private void startJoining() {
         EtmcManager m = EtmcManager.get();
         String text = Ui.getText(codeField).trim();
-        JoinCode jc;
-        try {
-            jc = JoinCode.decode(text);
-        } catch (IllegalArgumentException e) {
-            setMessage(Msg.tr("etmc.join.not_a_link",
-                    "That isn't an etmc link (%s). Copy it from the host again.", e.getMessage()), COLOR_BAD);
-            return;
+        String configUrl = JoinCode.configUrl(text);
+        JoinCode jc = null;
+        if (configUrl == null) {
+            try {
+                jc = JoinCode.decode(text);
+            } catch (IllegalArgumentException e) {
+                setMessage(Msg.tr("etmc.join.not_a_link",
+                        "That isn't an etmc link (%s). Copy it from the host again.", e.getMessage()), COLOR_BAD);
+                return;
+            }
         }
         if (!McScreens.inWorld()) {
             // Same path as Direct Connect: waits for the host, then connects by itself.
@@ -88,8 +91,9 @@ public final class JoinScreen extends EtmcBaseScreen {
             return;
         }
         joinButton.active = false;
-        setMessage(Msg.tr("etmc.join.starting", "Starting the network for '%s'…", jc.displayLabel()), COLOR_BUSY);
-        m.joinAsync(jc).whenComplete((port, err) ->
+        setMessage(jc == null ? Msg.tr("etmc.url.fetching", "Fetching config…")
+                : Msg.tr("etmc.join.starting", "Starting the network for '%s'…", jc.displayLabel()), COLOR_BUSY);
+        (jc == null ? m.joinConfigAsync(configUrl) : m.joinAsync(jc)).whenComplete((port, err) ->
                 mc().execute(() -> {
                     if (err != null) {
                         setMessage(Msg.tr("etmc.join.failed", "Couldn't join: %s", Errors.message(err)), COLOR_BAD);

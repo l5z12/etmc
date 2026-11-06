@@ -127,6 +127,14 @@ public final class EtmcCommands {
 
     private static int join(Src src, String code) {
         if (!checkReady(src)) return 0;
+        String configUrl = JoinCode.configUrl(code);
+        if (configUrl != null) {
+            src.feedback(Msg.tr("etmc.cmd.connect.fetching", "Fetching config from %s …", configUrl));
+            EtmcManager.get().joinConfigAsync(configUrl).whenComplete((port, err) -> {
+                if (err != null) reply(Msg.tr("etmc.join.failed", "Couldn't join: %s", Errors.message(err)));
+            });
+            return 1;
+        }
         JoinCode jc;
         try {
             jc = JoinCode.decode(code);

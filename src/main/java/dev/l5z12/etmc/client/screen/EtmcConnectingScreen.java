@@ -18,7 +18,8 @@ import java.util.function.Supplier;
  * relay answering, the host turning up, then a few seconds' chance at a direct (P2P) link. The line
  * under the title says which of those it is actually waiting on, so "it's stuck" has a reason.
  * The manager joins on its own when ready (or gives up with an explanation); <b>Join now anyway</b>
- * skips the wait, and Cancel/Esc aborts via {@code onCancel}.
+ * skips the wait, and Cancel/Esc aborts via {@code onCancel}. With no {@code onProceed} there is
+ * nothing to skip yet, so that button and its hint stay hidden.
  */
 public final class EtmcConnectingScreen extends EtmcBaseScreen {
 
@@ -38,10 +39,10 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
 
     @Override
     protected void init() {
-        add(Ui.button(Txt.tr("etmc.connecting.now", "Join now anyway"), b -> {
-                    if (onProceed != null) onProceed.run();
-                })
-                .dimensions(this.width / 2 - 100, this.height / 2 + 24, 200, 20).build());
+        if (onProceed != null) {
+            add(Ui.button(Txt.tr("etmc.connecting.now", "Join now anyway"), b -> onProceed.run())
+                    .dimensions(this.width / 2 - 100, this.height / 2 + 24, 200, 20).build());
+        }
         add(Ui.button(Txt.translatable("gui.cancel"), b -> this.close())
                 .dimensions(this.width / 2 - 100, this.height / 2 + 48, 200, 20).build());
     }
@@ -61,10 +62,12 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
             Gfx.centered(ctx, font(), Txt.literal(l), this.width / 2, y, COLOR_MUTED);
             y += 11;
         }
-        Gfx.centered(ctx, font(),
-                Txt.tr("etmc.connecting.now.hint",
-                        "\"Join now anyway\" skips the wait (it may fail if the host isn't reachable yet)."),
-                this.width / 2, this.height / 2 + 8, 0xFF777777);
+        if (onProceed != null) {
+            Gfx.centered(ctx, font(),
+                    Txt.tr("etmc.connecting.now.hint",
+                            "\"Join now anyway\" skips the wait (it may fail if the host isn't reachable yet)."),
+                    this.width / 2, this.height / 2 + 8, 0xFF777777);
+        }
     }
 
     /** Esc / Cancel aborts the pending join before returning to the parent screen. */

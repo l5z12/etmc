@@ -6,6 +6,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -117,6 +118,99 @@ class JoinCodeTest {
     void fromTomlOfNonsenseIsNotAValidCandidate() {
         assertFalse(JoinCode.fromToml(null).isValidCandidate());
         assertFalse(JoinCode.fromToml("not a config").isValidCandidate());
+    }
+
+    @Test
+    void configLinksGiveTheirUrlAndCountAsLinks() {
+        String link = "  ETMC://v1/config/https://example.com/Etmc.toml?v=1\n";
+        assertTrue(JoinCode.isLink(link));
+        assertEquals("https://example.com/Etmc.toml?v=1", JoinCode.configUrl(link));
+        assertNull(JoinCode.configUrl(sample().encodeLink()));
+        assertNull(JoinCode.configUrl(null));
+    }
+
+    @Test
+    void decodeSaysAConfigLinkHasNoDetailsOfItsOwn() {
+        var e = assertThrows(IllegalArgumentException.class,
+                () -> JoinCode.decode("etmc://v1/config/https://example.com/etmc.toml"));
+        assertTrue(e.getMessage().contains("loads a config"), e.getMessage());
+    }
+
+    @Test
+    void aConfigLinkFromANewerVersionAsksForAnUpdate() {
+        String link = "etmc://v2/config/https://example.com/etmc.toml";
+        assertTrue(JoinCode.isLink(link));
+        assertNull(JoinCode.configUrl(link));
+        var e = assertThrows(IllegalArgumentException.class, () -> JoinCode.decode(link));
+        assertTrue(e.getMessage().contains("newer version"), e.getMessage());
+    }
+
+    @Test
+    void aConfigLinkNeedsItsVersion() {
+        String link = "etmc://config/https://example.com/etmc.toml";
+        assertNull(JoinCode.configUrl(link));
+        assertThrows(IllegalArgumentException.class, () -> JoinCode.decode(link));
+    }
+
+    @Test
+    void fromConfigKeepsOnlyTheJoinDetails() {
+        JoinCode jc = JoinCode.fromConfig("""
+                dhcp = true
+                listeners = ["tcp://0.0.0.0:11010"]
+
+                [network_identity]
+                network_name = "my-smp"
+                network_secret = "abc"
+
+                [[peer]]
+                uri = "tcp://relay.example.com:11010"
+
+                [etmc]
+                server = "10.144.144.1:25566"
+                label = "My SMP"
+                """);
+
+        assertEquals("my-smp", jc.networkName);
+        assertEquals("abc", jc.networkSecret);
+        assertEquals(List.of("tcp://relay.example.com:11010"), jc.relays);
+        assertEquals("10.144.144.1", jc.hostIp);
+        assertEquals(25566, jc.hostPort);
+        assertEquals("My SMP", jc.label);
+    }
+
+    @Test
+    void fromConfigAcceptsAHostedLink() {
+        assertEquals("my-net", JoinCode.fromConfig("\n" + sample().encodeLink() + "\n").networkName);
+    }
+
+    @Test
+    void fromConfigKeepsABlankSecretForPublicServers() {
+        JoinCode jc = JoinCode.fromConfig("""
+                [network_identity]
+                network_name = "public"
+
+                [etmc]
+                server = "10.144.144.1:25565"
+                """);
+        assertEquals("", jc.networkSecret);
+        assertEquals("10.144.144.1:25565", jc.label);
+    }
+
+    @Test
+    void fromConfigRejectsWhatItCantJoin() {
+        var noServer = assertThrows(IllegalArgumentException.class, () -> JoinCode.fromConfig("""
+                [network_identity]
+                network_name = "my-smp"
+                """));
+        assertTrue(noServer.getMessage().contains("[etmc] server"), noServer.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> JoinCode.fromConfig("""
+                [etmc]
+                server = "10.144.144.1:25565"
+                """));
+        assertThrows(IllegalArgumentException.class, () -> JoinCode.fromConfig(null));
+        // A hosted config link would make one join fetch again, so it stops at the first hop.
+        assertThrows(IllegalArgumentException.class,
+                () -> JoinCode.fromConfig("etmc://v1/config/https://example.com/etmc.toml"));
     }
 
     @Test
