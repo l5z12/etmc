@@ -189,11 +189,30 @@ class JoinCodeTest {
                 [network_identity]
                 network_name = "public"
 
+                [[peer]]
+                uri = "tcp://relay.example.com:11010"
+
                 [etmc]
                 server = "10.144.144.1:25565"
                 """);
         assertEquals("", jc.networkSecret);
         assertEquals("10.144.144.1:25565", jc.label);
+    }
+
+    @Test
+    void fromConfigDecodesEscapedValues() {
+        JoinCode jc = JoinCode.fromConfig("""
+                [network_identity]
+                network_name = "my-smp"
+                network_secret = "a\\"b\\\\c"
+
+                [[peer]]
+                uri = "tcp://relay.example.com:11010"
+
+                [etmc]
+                server = "10.144.144.1:25565"
+                """);
+        assertEquals("a\"b\\c", jc.networkSecret);
     }
 
     @Test
@@ -203,6 +222,16 @@ class JoinCodeTest {
                 network_name = "my-smp"
                 """));
         assertTrue(noServer.getMessage().contains("[etmc] server"), noServer.getMessage());
+        var noRelay = assertThrows(IllegalArgumentException.class, () -> JoinCode.fromConfig("""
+                [network_identity]
+                network_name = "my-smp"
+
+                [etmc]
+                server = "10.144.144.1:25565"
+                """));
+        assertTrue(noRelay.getMessage().contains("no relay"), noRelay.getMessage());
+        assertThrows(IllegalArgumentException.class, () -> JoinCode.fromConfig(new JoinCode(
+                "my-net", "", List.of(), "10.126.126.1", 25565, "").encodeLink()));
         assertThrows(IllegalArgumentException.class, () -> JoinCode.fromConfig("""
                 [etmc]
                 server = "10.144.144.1:25565"

@@ -31,18 +31,20 @@ label = "My SMP"`;
   <h2>For server admins</h2>
   <ol>
     <li>Create the file with the <a href="/generator">generator</a>, or write it by hand.</li>
-    <li>Host it at any HTTP or HTTPS URL.</li>
+    <li>Host it at a public HTTP or HTTPS URL.</li>
     <li>Put <code>etmc://v1/config/</code> in front of the URL and share that link, for example
       <code>etmc://v1/config/https://example.com/etmc.toml</code>.</li>
   </ol>
   <p>When you change the file, players who saved the link get the change the next time they join, so you don't need
     to send a new link. Use HTTPS, so nobody can swap the file on its way to your players.</p>
+  <p>These links can't load from a private or local address. For a file on your own network, share the plain URL
+    instead.</p>
   <p>The file is a normal EasyTier config, plus an <code>[etmc]</code> section that names the server:</p>
   <pre><code>{toml}</code></pre>
   <p>
     If you leave out <code>server</code>, players need the plain URL and enter the address themselves. An
-    <code>etmc://v1/config/</code> link needs <code>server</code>, and only reads the network, secret, relays, server and
-    label from the file. The URL can also serve an <code>etmc://</code> link instead of a config.
+    <code>etmc://v1/config/</code> link needs <code>server</code> and at least one relay, and only reads the network,
+    secret, relays, server and label from the file. The URL can also serve an <code>etmc://</code> link instead of a config.
   </p>
   <div class="warn"><strong>Your secret isn't protected.</strong> It's plain text in this file, and anyone with the URL can read it and join. Keep it random, and never use a password you
     use anywhere else.</div>

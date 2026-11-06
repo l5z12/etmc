@@ -47,6 +47,25 @@ class TomlTest {
     }
 
     @Test
+    void stringValueDecodesWhatQuoteWrites() {
+        for (String s : new String[] {"a\"b", "back\\slash", "tab\tnew\nline\rend", "bell\u0007", "héllo ✓", "a # b"}) {
+            assertEquals(s, Toml.stringValue("k = " + Toml.quote(s)), s);
+        }
+    }
+
+    @Test
+    void stringValueReadsTomlEscapes() {
+        assertEquals("é", Toml.stringValue("k = \"\\u00e9\""));
+        assertEquals("😀", Toml.stringValue("k = \"\\U0001F600\""));
+        assertEquals("a", Toml.stringValue("k = \"a\" # \"not this\""));
+        assertEquals("uzz", Toml.stringValue("k = \"\\uzz\""), "a broken escape stays readable");
+    }
+
+    @Test
+    void literalStringsKeepTheirBackslashes() {
+        assertEquals("a\\nb", Toml.stringValue("k = 'a\\nb'"));
+    }
+
     void stringValueUnwrapsQuotesAndDropsTrailingComments() {
         assertEquals("tcp://x:1", Toml.stringValue("uri = \"tcp://x:1\""));
         assertEquals("tcp://x:1", Toml.stringValue("uri = 'tcp://x:1'"));

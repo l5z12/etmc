@@ -266,7 +266,7 @@ public final class EtmcManager {
     private CompletableFuture<JoinCode> fetchConfig(String url) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                return JoinCode.fromConfig(RemoteConfig.fetch(url));
+                return JoinCode.fromConfig(RemoteConfig.fetchPublic(url));
             } catch (Exception e) {
                 throw new java.util.concurrent.CompletionException(e);
             }
@@ -388,7 +388,7 @@ public final class EtmcManager {
             if (configFetch != fetch) return; // cancelled while fetching
             configFetch = null;
             if (err != null) {
-                LOGGER.warn("[etmc] couldn't load config link {}: {}", url, Errors.message(err));
+                LOGGER.warn("[etmc] couldn't load config link from {}: {}", RemoteConfig.hostOf(url), Errors.message(err));
                 showError(parent, Msg.tr("etmc.join.bad_link.title", "That etmc link doesn't work"),
                         Msg.tr("etmc.join.config_failed", "Couldn't load its config: %s", Errors.message(err)));
                 return;

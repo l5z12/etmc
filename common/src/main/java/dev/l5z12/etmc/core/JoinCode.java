@@ -88,7 +88,16 @@ public final class JoinCode {
      */
     public static JoinCode fromConfig(String body) {
         String s = body == null ? "" : body.trim();
-        if (isLink(s)) return decode(s);
+        JoinCode jc = isLink(s) ? decode(s) : fromHostedToml(s);
+        if (jc.relays.isEmpty()) {
+            throw new IllegalArgumentException(Msg.tr("etmc.link.config_no_relay",
+                    "the config has no relay, so there's no way to reach the server. "
+                            + "Ask the server admin to add a [[peer]] line"));
+        }
+        return jc;
+    }
+
+    private static JoinCode fromHostedToml(String s) {
         ImportedConfig cfg;
         try {
             cfg = ImportedConfig.parse(s, "etmc", null);
