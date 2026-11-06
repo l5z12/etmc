@@ -296,8 +296,8 @@ public class EtmcClientGameTest implements FabricClientGameTest {
                 waitForTheJoin(ctx);
                 check(ctx.computeOnClient(c -> c.world != null), "joining anyway ended on "
                         + ctx.computeOnClient(c -> describe(c.currentScreen)) + " instead of the world");
-                try (TestServerConnection connection = new TestServerConnectionImpl(ctx, new TestClientWorldContextImpl(ctx))) {
-                    connection.getClientWorld().waitForChunksRender();
+                try (TestServerConnection anyway = new TestServerConnectionImpl(ctx, new TestClientWorldContextImpl(ctx))) {
+                    anyway.getClientWorld().waitForChunksRender();
                 }
                 ctx.waitFor(c -> !etmc.session().isActive(), 30 * SECONDS);
                 ctx.setScreen(() -> null);
