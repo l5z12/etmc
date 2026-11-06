@@ -17,6 +17,7 @@ import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.core.Relays;
+import dev.l5z12.etmc.core.Secrets;
 //? if fabric && >=26 {
 /*import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;*/
@@ -104,7 +105,7 @@ public final class EtmcCommands {
             return 0;
         }
         // No secret given: make one up rather than host an open network anyone can stumble into.
-        String sec = secret == null || secret.isBlank() ? randomSecret() : secret;
+        String sec = secret == null || secret.isBlank() ? Secrets.random() : secret;
         ModConfig cfg = m.config();
         String label = cfg.lastLabel == null || cfg.lastLabel.isBlank() 
                 ? Msg.tr("etmc.host.default_label", "%s's world", m.playerName()) : cfg.lastLabel;
@@ -122,14 +123,6 @@ public final class EtmcCommands {
                     + "friends you want in (it contains the secret). /etmc invite copies it again."));
         });
         return 1;
-    }
-
-    private static String randomSecret() {
-        String alphabet = "abcdefghijkmnpqrstuvwxyz23456789";
-        java.security.SecureRandom r = new java.security.SecureRandom();
-        StringBuilder b = new StringBuilder(12);
-        for (int i = 0; i < 12; i++) b.append(alphabet.charAt(r.nextInt(alphabet.length())));
-        return b.toString();
     }
 
     private static int join(Src src, String code) {
