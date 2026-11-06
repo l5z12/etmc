@@ -21,6 +21,24 @@ class JoinCodeTest {
     }
 
     @Test
+    void aHostLinkWithoutAKeyIsOld() {
+        JoinCode code = from(null);
+        assertFalse(code.isOldHostLink());
+
+        code.hostKey = null;
+
+        assertTrue(code.isOldHostLink());
+        assertTrue(JoinCode.decode(code.encodeLink()).isOldHostLink());
+    }
+
+    @Test
+    void aLinkToAnotherServerCanGoWithoutAKey() {
+        JoinCode code = new JoinCode("net", "s", List.of("tcp://r:1"), "10.144.144.1", 25565, "");
+
+        assertFalse(code.isOldHostLink());
+    }
+
+    @Test
     void aNameWithoutAHostKeyIsNeverShown() {
         JoinCode code = from("Steve");
         code.hostKey = null;

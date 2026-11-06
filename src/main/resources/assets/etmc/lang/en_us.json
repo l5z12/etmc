@@ -1,5 +1,7 @@
 {
   "etmc.ask.continue": "Join anyway",
+  "etmc.ask.old_link": "It has no host key, so anyone on this network could pose as the host. Ask the host for a new link, or join anyway if you trust everyone who has this one.",
+  "etmc.ask.old_link.title": "This link can't check the host",
   "etmc.ask.unconfirmed.title": "Couldn't confirm who's hosting",
   "etmc.cmd.connect.failed": "Connect failed: %s",
   "etmc.cmd.connect.fetching": "Fetching config from %s …",

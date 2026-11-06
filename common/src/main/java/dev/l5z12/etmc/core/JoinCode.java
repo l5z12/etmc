@@ -199,6 +199,15 @@ public final class JoinCode {
         return Boolean.TRUE.equals(direct);
     }
 
+    /**
+     * Whether this is an etmc host's link from before host keys, so nothing can check who a join
+     * reaches. A link to any other address may be for a server that can't have a key at all, and
+     * the player couldn't get a better one, so only the etmc host address counts.
+     */
+    public boolean isOldHostLink() {
+        return hostKey == null && EtmcConfig.HOST_VIRTUAL_IP.equals(hostIp);
+    }
+
     public boolean isValidCandidate() {
         return networkName != null && !networkName.isBlank();
     }

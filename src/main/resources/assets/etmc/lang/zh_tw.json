@@ -1,5 +1,7 @@
 {
   "etmc.ask.continue": "仍然加入",
+  "etmc.ask.old_link": "此連結沒有主機金鑰，因此該網路中的任何人都可能冒充主機。請向主機索取新連結；如果你信任所有擁有此連結的人，也可以仍然加入。",
+  "etmc.ask.old_link.title": "此連結無法驗證主機",
   "etmc.ask.unconfirmed.title": "無法確認主機身分",
   "etmc.cmd.connect.failed": "連線失敗：%s",
   "etmc.cmd.connect.fetching": "正在從 %s 取得設定檔……",

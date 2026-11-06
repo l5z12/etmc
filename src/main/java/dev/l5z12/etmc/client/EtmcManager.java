@@ -277,15 +277,22 @@ public final class EtmcManager {
      * to click once the player has left it). Outside a world, {@link #connectViaLink} is the better path.
      */
     public CompletableFuture<Integer> joinAsync(JoinCode code) {
+        return joinAsync(code, code.isOldHostLink());
+    }
+
+    private CompletableFuture<Integer> joinAsync(JoinCode code, boolean askFirst) {
         if (!isReady()) return notLoaded();
         String bad = Relays.firstProblem(code.relays);
         if (bad != null) {
             return CompletableFuture.failedFuture(new IllegalArgumentException(
                     Msg.tr("etmc.join.bad_relay", "This link's relay is wrong: %s", bad)));
         }
-        syncPlayerName();
-        session.setPreferredLocalPort(config.joinLocalPort);
-        return CompletableFuture.supplyAsync(() -> session.join(code), worker)
+        return (askFirst ? askAboutOldLink() : CompletableFuture.<Void>completedFuture(null))
+                .thenComposeAsync(v -> {
+                    syncPlayerName();
+                    session.setPreferredLocalPort(config.joinLocalPort);
+                    return CompletableFuture.supplyAsync(() -> session.join(code), worker);
+                }, McScreens.mc())
                 .thenCompose(this::checkNamedHost)
                 .thenApplyAsync(localPort -> {
                     proxyJoinPlayed = false;
@@ -293,6 +300,30 @@ public final class EtmcManager {
                     McNet.presentJoin(code.displayLabel(), localPort);
                     return localPort;
                 }, McScreens.mc());
+    }
+
+    /**
+     * Asks before a proxy join on an old link. The screen opens from the worker because this can run
+     * inside {@code /etmc join}: chat closes right after a command, and on some versions that would
+     * replace a screen opened any sooner, leaving this unanswered.
+     */
+    private CompletableFuture<Void> askAboutOldLink() {
+        CompletableFuture<Void> answer = new CompletableFuture<>();
+        worker.execute(() -> McScreens.mc().execute(() -> McScreens.goTo(oldLinkScreen(McScreens.current(),
+                () -> answer.complete(null),
+                () -> answer.completeExceptionally(new IllegalStateException(declined()))))));
+        return answer;
+    }
+
+    private static EtmcAskScreen oldLinkScreen(Screen parent, Runnable onContinue, Runnable onCancel) {
+        return new EtmcAskScreen(parent, Msg.tr("etmc.ask.old_link.title", "This link can't check the host"),
+                Msg.tr("etmc.ask.old_link", "It has no host key, so anyone on this network could pose as the host. "
+                        + "Ask the host for a new link, or join anyway if you trust everyone who has this one."),
+                onContinue, onCancel);
+    }
+
+    private static String declined() {
+        return Msg.tr("etmc.join.declined", "you chose not to join");
     }
 
     /**
@@ -324,8 +355,7 @@ public final class EtmcManager {
                             },
                             () -> {
                                 leaveAsync();
-                                answer.completeExceptionally(new IllegalStateException(
-                                        Msg.tr("etmc.join.declined", "you chose not to join")));
+                                answer.completeExceptionally(new IllegalStateException(declined()));
                             })));
                     return answer;
                 });
@@ -345,7 +375,7 @@ public final class EtmcManager {
                 return CompletableFuture.<Integer>failedFuture(new IllegalStateException(
                         Msg.tr("etmc.join.superseded", "a newer join replaced this one")));
             }
-            return joinAsync(code);
+            return joinAsync(code, false);
         }, McScreens.mc()).whenCompleteAsync((port, err) -> {
             if (configFetch == fetch) configFetch = null;
         }, McScreens.mc());
@@ -399,6 +429,14 @@ public final class EtmcManager {
      * {@link dev.l5z12.etmc.core.EtmcChannel} riding the data plane. Client thread, no world loaded.
      */
     public void connectViaLink(Screen parent, String link) {
+        connectViaLink(parent, link, true);
+    }
+
+    /**
+     * @param askIfOld whether an old link needs the player's say-so. A hosted config doesn't: it's the
+     *                 owner's to change, and it has no key if the server can't have one.
+     */
+    private void connectViaLink(Screen parent, String link, boolean askIfOld) {
         if (!isReady()) {
             showError(parent, Msg.tr("etmc.join.cant_join", "Can't join"), nativeError != null
                     ? Msg.tr("etmc.error.no_native", "etmc couldn't load its EasyTier library: %s", nativeError)
@@ -434,6 +472,14 @@ public final class EtmcManager {
                             "Leave the current etmc network first (etmc menu → Session status → Leave network)."));
             return;
         }
+        if (askIfOld && code.isOldHostLink()) {
+            McScreens.goTo(oldLinkScreen(parent, () -> startLinkJoin(parent, code), () -> { }));
+            return;
+        }
+        startLinkJoin(parent, code);
+    }
+
+    private void startLinkJoin(Screen parent, JoinCode code) {
         syncPlayerName();
         LinkAttempt a = new LinkAttempt(parent, code, code.displayLabel());
         this.linkAttempt = a;
@@ -482,7 +528,7 @@ public final class EtmcManager {
                         Msg.tr("etmc.join.config_failed", "Couldn't load its config: %s", Errors.message(err)));
                 return;
             }
-            connectViaLink(parent, code.encodeLink());
+            connectViaLink(parent, code.encodeLink(), false);
         }));
     }
 

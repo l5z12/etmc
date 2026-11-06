@@ -1,5 +1,7 @@
 {
   "etmc.ask.continue": "仍然加入",
+  "etmc.ask.old_link": "此链接没有主机密钥，因此该网络中的任何人都可能冒充主机。请向主机索要新链接；如果你信任所有拥有此链接的人，也可以仍然加入。",
+  "etmc.ask.old_link.title": "此链接无法验证主机",
   "etmc.ask.unconfirmed.title": "无法确认主机身份",
   "etmc.cmd.connect.failed": "连接失败：%s",
   "etmc.cmd.connect.fetching": "正在从 %s 获取配置……",
