@@ -174,10 +174,12 @@ public class EtmcClientGameTest implements FabricClientGameTest {
             check(ctx.computeOnClient(c -> etmc.hostBlocker()) == null,
                     "hosting is blocked in a singleplayer world: " + ctx.computeOnClient(c -> etmc.hostBlocker()));
 
+            check(ctx.computeOnClient(c -> c.getServer().isOnlineMode()), "a new world doesn't check accounts");
             AtomicReference<CompletableFuture<JoinCode>> hosting = new AtomicReference<>();
-            ctx.runOnClient(c -> hosting.set(etmc.hostAsync(network, secret, "gametest", null, false)));
+            ctx.runOnClient(c -> hosting.set(etmc.hostAsync(network, secret, "gametest", null, false, true)));
             ctx.waitFor(c -> hosting.get().isDone(), 60 * SECONDS);
             JoinCode code = hosting.get().join();
+            check(!ctx.computeOnClient(c -> c.getServer().isOnlineMode()), "the offline accounts switch had no effect");
             check(network.equals(code.networkName), "the invite link names another network: " + code.networkName);
             check(code.relays.contains(relay), "the invite link lacks the relay: " + code.relays);
 
@@ -213,6 +215,8 @@ public class EtmcClientGameTest implements FabricClientGameTest {
             ctx.waitFor(c -> leaving.get().isDone(), 30 * SECONDS);
             leaving.get().join();
             check(!etmc.session().isActive(), "still in a session after leaving");
+            // Leaving puts the check back on the client thread, and the world stays open to LAN.
+            ctx.waitFor(c -> c.getServer().isOnlineMode(), 5 * SECONDS);
         } finally {
             et.deleteNetworkInstance(peer);
         }
