@@ -96,6 +96,9 @@ export function buildToml(i: GenInput): string {
   lines.push('# etmc / EasyTier server config.');
   lines.push('# Host this over HTTP(S); players connect with "Connect via config URL"');
   lines.push('# or:  /etmc connect <url>');
+  lines.push('#');
+  lines.push('# WARNING: the secret below is plain text, and anyone with this file can read it and join.');
+  lines.push('# Keep it random. Never use a password you use anywhere else.');
   lines.push('');
 
   if (i.dhcp) {
@@ -151,6 +154,8 @@ export function buildPaperYaml(i: GenInput): string {
   lines.push('# Players connect with the etmc client using the etmc:// link (/etmc link) or a config URL.');
   lines.push('');
   lines.push('# EasyTier network identity. Players must use the same name + secret.');
+  lines.push('# WARNING: the secret is plain text here, and anyone with your etmc:// link can read it.');
+  lines.push('# Keep it random. Never use a password you use anywhere else.');
   lines.push(`network: ${tstr(i.network.trim())}`);
   lines.push(`secret: ${tstr(i.secret)}`);
   lines.push('');
@@ -221,6 +226,66 @@ function joinPayload(i: GenInput): string {
 /** `etmc://v1/<b64>` — pasteable into Minecraft's Add Server / Direct Connect. */
 export function buildJoinLink(i: GenInput): string {
   return LINK_PREFIX + joinPayload(i);
+}
+
+export type JoinLinkFields = Pick<GenInput, 'network' | 'secret' | 'relays' | 'serverIp' | 'serverPort' | 'label'>;
+
+/**
+ * Reads an `etmc://` link back into form fields. Mirrors `JoinCode.decode`: it tolerates surrounding
+ * whitespace, a bare payload and any `etmc://<version>/` prefix, and falls back to the same host
+ * defaults. Throws an Error with a message fit to show the user.
+ */
+export function decodeJoinLink(text: string): JoinLinkFields {
+  let s = (text ?? '').trim();
+  if (!s) throw new Error('Paste an etmc:// link.');
+  if (/^etmc:\/\//i.test(s)) s = s.slice(s.lastIndexOf('/') + 1).trim();
+  if (!/^[A-Za-z0-9_-]*={0,2}$/.test(s)) throw new Error('This isn\'t a valid etmc:// link.');
+
+  const b64 = s.replace(/=+$/, '').replace(/-/g, '+').replace(/_/g, '/');
+  let json: string;
+  try {
+    const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
+    json = new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
+  } catch {
+    throw new Error('This isn\'t a valid etmc:// link.');
+  }
+
+  let jc: unknown = null;
+  if (json.trim()) {
+    try {
+      jc = JSON.parse(json);
+    } catch {
+      throw new Error('This link is damaged. Ask for a new one.');
+    }
+  }
+  if (jc !== null && (typeof jc !== 'object' || Array.isArray(jc))) {
+    throw new Error('This link is damaged. Ask for a new one.');
+  }
+
+  const f = (jc ?? {}) as Record<string, unknown>;
+  const text_ = (v: unknown) => (typeof v === 'string' ? v : '');
+  const network = text_(f.networkName);
+  if (!network.trim()) throw new Error('This link has no network name.');
+
+  const relays = Array.isArray(f.relays) ? f.relays.filter((r): r is string => typeof r === 'string') : [];
+  const port = f.hostPort;
+  return {
+    network,
+    secret: text_(f.networkSecret),
+    relays,
+    serverIp: text_(f.hostIp).trim() ? text_(f.hostIp) : HOST_VIRTUAL_IP,
+    serverPort: typeof port === 'number' && Number.isInteger(port) && port > 0 && port <= 65535 ? port : DEFAULT_VIRTUAL_PORT,
+    label: text_(f.label),
+  };
+}
+
+/**
+ * A random network secret, in the same form the mod generates: 12 characters from an alphabet with
+ * no look-alikes. The alphabet has 32 letters, so masking a random byte stays unbiased.
+ */
+export function randomSecret(): string {
+  const alphabet = 'abcdefghijkmnpqrstuvwxyz23456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => alphabet[b & 31]).join('');
 }
 
 /** Splits a list on commas, semicolons, spaces or newlines (as the mod does) into trimmed entries. */
