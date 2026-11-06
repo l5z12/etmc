@@ -18,6 +18,7 @@ const path = Astro.url.pathname.replace(/(index)?\.html$/, '').replace(/\/$/, ''
     <nav aria-label="Main">
       <a href="/docs/getting-started" aria-current={path.startsWith('/docs') ? 'page' : undefined}>Docs</a>
       <a href="/generator" aria-current={path === '/generator' ? 'page' : undefined}>Generator</a>
+      <a href="/compare" aria-current={path === '/compare' ? 'page' : undefined}>Compare</a>
       <a class="github" href="https://github.com/L5Z12/etmc">GitHub</a>
       <a class="btn primary small" href="https://github.com/L5Z12/etmc/releases">Download</a>
     </nav>
