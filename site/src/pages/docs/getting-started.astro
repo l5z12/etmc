@@ -2,35 +2,32 @@
 import DocsLayout from '../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Getting started" description="Install etmc, add a relay, and play.">
+<DocsLayout title="Getting started" description="Install etmc, add a relay and start playing.">
+  <p>Everyone who plays needs etmc installed, whether they're hosting or joining.</p>
+
   <h2>Install</h2>
   <ol>
-    <li>Install <a href="https://fabricmc.net/" target="_blank" rel="noopener">Fabric Loader</a> (or NeoForge / Forge)
-      for your Minecraft version — Fabric covers 1.17.1 through 26.x, NeoForge 1.20.4 through 1.21.11 (and 26.2),
-      Forge 1.17.1 through 1.21.11.</li>
-    <li>Drop the etmc jar into your <code>mods/</code> folder; on Fabric also add
-      <a href="https://modrinth.com/mod/fabric-api" target="_blank" rel="noopener">Fabric API</a>.</li>
-    <li>Launch the game — Java 17 for 1.17.1 – 1.20.4, Java 21 for 1.20.5 – 1.21.11, Java 25 for 26.x.</li>
+    <li>Install <a href="https://fabricmc.net/">Fabric</a>, <a href="https://neoforged.net/">NeoForge</a> or
+      <a href="https://files.minecraftforge.net/">Forge</a>.</li>
+    <li>Download the etmc jar for your loader and Minecraft version from
+      <a href="https://github.com/L5Z12/etmc/releases">Releases</a>.</li>
+    <li>Put it in your <code>mods</code> folder. On Fabric, add
+      <a href="https://modrinth.com/mod/fabric-api">Fabric API</a> too.</li>
   </ol>
-  <p class="muted">etmc also ships for <strong>NeoForge</strong> and <strong>Forge</strong> clients, and a
-    <strong>Paper</strong> plugin for dedicated servers — grab the matching jar from
-    <a href="https://github.com/L5Z12/etmc/releases" target="_blank" rel="noopener">Releases</a>.</p>
-
-  <h2>Open the menu</h2>
-  <p>Press <span class="kbd">G</span> (rebindable under <em>Controls → Misc</em>) or run <code>/etmc menu</code>.</p>
 
   <h2>Add a relay</h2>
   <p>
-    etmc ships no public relay — you provide one. In <strong>Settings</strong>, add an EasyTier node, for example
-    <code>tcp://my.relay:11010</code>. The relay coordinates peer discovery and NAT traversal. You can run your own
-    EasyTier public node or use one you trust.
+    A relay helps players find each other, and carries the game when they can't connect directly. Any EasyTier node
+    works, so you can use a free <a href="https://github.com/EasyTier/EasyTier">community node</a> or run your own.
   </p>
-  <div class="note">No relay = no connections. This is the one piece of setup etmc can't do for you.</div>
+  <ol>
+    <li>Press <kbd>G</kbd> or run <code>/etmc menu</code> to open the menu.</li>
+    <li>Open <strong>Settings</strong> and add your relay, such as <code>tcp://my.relay:11010</code>.</li>
+  </ol>
+  <p>If you're joining with an invite link, you can skip this step, because the link includes the relay.</p>
+  <div class="note">Community nodes are shared with strangers. Anyone using the same network name and secret lands on
+    the same network, so keep the random ones etmc gives you.</div>
 
   <h2>Play</h2>
-  <ul>
-    <li><strong>Host this world</strong> → pick a network name (+ optional secret) → share the <code>etmc://</code> link.</li>
-    <li>Friends paste the <code>etmc://</code> link into <strong>Multiplayer → Add Server</strong>, or into etmc's <strong>Join with a link</strong>.</li>
-  </ul>
-  <p>See <a href="/docs/hosting">Hosting</a> and <a href="/docs/joining">Joining</a> for details.</p>
+  <p>Next, <a href="/docs/hosting">host a world</a> or <a href="/docs/joining">join one</a>.</p>
 </DocsLayout>

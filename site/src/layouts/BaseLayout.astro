@@ -1,6 +1,8 @@
 ---
+import '@fontsource-variable/bricolage-grotesque';
+import '@fontsource-variable/instrument-sans';
+import '@fontsource-variable/jetbrains-mono';
 import '../styles/global.css';
-import { ClientRouter } from 'astro:transitions';
 import TopNav from '../components/TopNav.astro';
 import Footer from '../components/Footer.astro';
 
@@ -11,39 +13,29 @@ interface Props {
 
 const {
   title,
-  description = 'etmc — EasyTier P2P multiplayer for Minecraft, in-game. Host or join over a peer-to-peer mesh: no port-forwarding, no TUN driver, no admin.',
+  description = 'Play Minecraft with friends over a peer-to-peer connection. No port forwarding, no drivers, no admin rights.',
 } = Astro.props;
 
-const fullTitle = title === 'etmc' ? 'etmc — P2P Minecraft multiplayer' : `${title} · etmc`;
-const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://etmc.l5z12.dev').toString();
+const fullTitle = title === 'etmc' ? 'etmc: Minecraft multiplayer without port forwarding' : `${title} · etmc`;
+const canonical = new URL(Astro.url.pathname.replace(/(index)?\.html$/, ''), Astro.site ?? 'https://etmc.l5z12.dev').toString();
 ---
 
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="generator" content={Astro.generator} />
-    <meta name="theme-color" content="#15151a" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#15151b" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icon-512.png" />
-    <link
-      rel="preload"
-      href="/fonts/Mojangles.woff2"
-      as="font"
-      type="font/woff2"
-      crossorigin
-    />
-
     <meta property="og:type" content="website" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-
-    <ClientRouter />
+    <meta property="og:image" content={new URL('/icon-512.png', Astro.site).toString()} />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>

@@ -16,7 +16,7 @@
  */
 /// <reference types="bun" />
 import { describe, expect, test } from 'bun:test';
-import { buildJoinLink, buildToml, type GenInput } from './genConfig';
+import { buildJoinLink, buildPaperYaml, buildToml, decodeJoinLink, randomSecret, type GenInput } from './genConfig';
 
 /** The shared payload: base64url (no padding) of the JoinCode JSON, in field-declaration order. */
 const PAYLOAD =
@@ -50,6 +50,65 @@ describe('join link', () => {
     const json = JSON.parse(atob(link.slice('etmc://v1/'.length).replace(/-/g, '+').replace(/_/g, '/')));
     expect(json.hostIp).toBe('10.126.126.1');
     expect(json.hostPort).toBe(25565);
+  });
+});
+
+describe('decoding a join link', () => {
+  const b64url = (s: string) =>
+    btoa(String.fromCharCode(...new TextEncoder().encode(s)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const fields = {
+    network: 'my-smp',
+    secret: 's3cret',
+    relays: ['tcp://relay.example:11010'],
+    serverIp: '10.126.126.1',
+    serverPort: 25565,
+    label: 'My Server',
+  };
+
+  test('the frozen link decodes (twin of WireFormatTest.frozenLinkStillDecodesHere)', () => {
+    expect(decodeJoinLink('etmc://v1/' + PAYLOAD)).toEqual(fields);
+  });
+
+  test('round-trips non-ASCII text', () => {
+    const out = decodeJoinLink(buildJoinLink({ ...vector, label: 'héllo — ✓', secret: 'пароль' }));
+    expect(out.label).toBe('héllo — ✓');
+    expect(out.secret).toBe('пароль');
+  });
+
+  test('accepts what the mod accepts', () => {
+    expect(decodeJoinLink(`  etmc://v1/${PAYLOAD}\n`)).toEqual(fields);
+    expect(decodeJoinLink(PAYLOAD)).toEqual(fields);
+    expect(decodeJoinLink('ETMC://v2/' + PAYLOAD)).toEqual(fields);
+  });
+
+  test('falls back to the same host defaults as the mod', () => {
+    const out = decodeJoinLink(b64url(JSON.stringify({ networkName: 'n', hostIp: ' ', hostPort: 70000 })));
+    expect(out).toEqual({ network: 'n', secret: '', relays: [], serverIp: '10.126.126.1', serverPort: 25565, label: '' });
+  });
+
+  test('rejects anything that is not a usable link', () => {
+    expect(() => decodeJoinLink('   ')).toThrow('Paste');
+    expect(() => decodeJoinLink('etmc://v1/not+base64!')).toThrow('valid');
+    expect(() => decodeJoinLink('etmc://v1/a')).toThrow('valid');
+    expect(() => decodeJoinLink('etmc://v1/' + b64url('{oops'))).toThrow('damaged');
+    expect(() => decodeJoinLink('etmc://v1/' + b64url('[1]'))).toThrow('damaged');
+    expect(() => decodeJoinLink('etmc://v1/' + b64url('{"relays":[]}'))).toThrow('network name');
+    expect(() => decodeJoinLink('etmc://v1/')).toThrow('network name');
+  });
+});
+
+describe('network secrets', () => {
+  test('random secrets match the form the mod generates', () => {
+    const secrets = Array.from({ length: 200 }, randomSecret);
+    for (const s of secrets) expect(s).toMatch(/^[a-km-np-z2-9]{12}$/);
+    expect(new Set(secrets).size).toBe(secrets.length);
+  });
+
+  test('generated files warn that the secret is plain text', () => {
+    expect(buildToml(vector)).toContain('WARNING: the secret below is plain text');
+    expect(buildPaperYaml(vector)).toContain('WARNING: the secret is plain text');
   });
 });
 

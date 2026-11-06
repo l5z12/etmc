@@ -2,29 +2,38 @@
 import DocsLayout from '../../layouts/DocsLayout.astro';
 ---
 
-<DocsLayout title="Hosting a world" description="Share your singleplayer world over the mesh.">
-  <p>Open a singleplayer world, then host it:</p>
+<DocsLayout title="Hosting" description="Share your singleplayer world or a Paper server.">
+  <h2>Host a singleplayer world</h2>
   <ol>
-    <li>Open the menu (<span class="kbd">G</span>) → <strong>Host this world</strong>.</li>
-    <li>Enter a <strong>network name</strong> and optional <strong>secret</strong> (peers must match both).</li>
+    <li>Open your world, then press <kbd>G</kbd> and choose <strong>Host this world</strong>.</li>
+    <li>etmc fills in a random network name and secret, so leave them as they are.</li>
     <li>Click <strong>Start hosting</strong>.</li>
+    <li>Open <strong>Session status</strong> and click <strong>Copy invite link</strong>, or run
+      <code>/etmc invite</code>.</li>
+    <li>Send the link to your friends.</li>
   </ol>
+  <div class="warn"><strong>Your secret isn't protected.</strong> It's saved as plain text in <code>config/etmc.json</code>, and anyone with your link can read it and join. Keep it random, and never use a password you
+    use anywhere else.</div>
+  <p>Keep the world open while friends are playing. Leaving the world stops hosting.</p>
 
-  <h2>What happens</h2>
-  <p>etmc:</p>
-  <ul>
-    <li>starts an EasyTier instance (no-TUN) with a fixed virtual IP <code>10.126.126.1</code>;</li>
-    <li>runs Minecraft's <em>Open to LAN</em> on a loopback port;</li>
-    <li>forwards each peer that connects over the mesh to that local port.</li>
-  </ul>
+  <h2>Let offline accounts join</h2>
+  <p>Minecraft checks each player's account. To let offline accounts join your world, turn on
+    <strong>Offline accounts</strong> before you click <strong>Start hosting</strong>. Stopping hosting turns the
+    check back on. On a Paper server, set <code>online-mode=false</code> in <code>server.properties</code> instead.</p>
+  <div class="warn"><strong>Names aren't checked with this on.</strong> Anyone with your link can join under any name.
+    Friends with real accounts start with a new inventory, and get their old one back when it's off.</div>
 
-  <h2>Invite</h2>
-  <p>
-    etmc generates an <strong><code>etmc://</code> link</strong> carrying the network name, secret, relays and
-    host address. It pastes straight into a friend's <strong>Add Server</strong> / <strong>Direct Connect</strong>
-    (no menu needed), or into etmc's <strong>Join with a link</strong>. <code>/etmc invite</code> copies it to
-    your clipboard, and <strong>Session status</strong> has a copy button.
-  </p>
-
-  <div class="note">Keep the world open while friends are connected — leaving stops the mesh instance.</div>
+  <h2>Host a Paper server</h2>
+  <ol>
+    <li>Download the etmc Paper jar from <a href="https://github.com/L5Z12/etmc/releases">Releases</a> and put it in
+      your <code>plugins</code> folder.</li>
+    <li>Create a config with the <a href="/generator">generator</a>, which suggests a random secret, and save it as
+      <code>plugins/etmc/config.yml</code>.</li>
+    <li>Restart the server, or run <code>/etmc reload</code>.</li>
+    <li>Copy the <code>etmc://</code> link from the server log, or run <code>/etmc link</code>.</li>
+    <li>Share the link with your players.</li>
+  </ol>
+  <div class="warn"><strong>Your secret isn't protected.</strong> It's plain text in <code>config.yml</code>, and anyone with your link can read it and join. If you leave the default <code>change-me</code>, etmc replaces it with a random one. Keep it random, and never use a password you
+    use anywhere else.</div>
+  <p>Running a public server that anyone can join? Leave the secret empty.</p>
 </DocsLayout>

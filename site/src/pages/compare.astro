@@ -1,0 +1,165 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const CHECKED = '5 November 2026';
+
+const columns = [
+  ['runs', 'Runs as'],
+  ['route', 'Game traffic goes'],
+  ['friends', 'Friends need'],
+  ['free', 'Free plan'],
+  ['account', 'Account'],
+  ['code', 'Code'],
+] as const;
+
+type Row = { name: string; url: string; ours?: boolean } & Record<(typeof columns)[number][0], string>;
+
+const games: Row[] = [
+  {
+    name: 'etmc', url: '/docs/getting-started', ours: true,
+    runs: 'Mod', route: 'Direct, or through a relay', friends: 'etmc and your link',
+    free: 'Free, with community nodes', account: 'None. Offline accounts work', code: 'GPL-3.0',
+  },
+  {
+    name: 'e4mc', url: 'https://modrinth.com/mod/e4mc',
+    runs: 'Mod, host only', route: 'Always through a reverse tunnel', friends: 'Nothing',
+    free: 'Free, no limit listed', account: 'None listed', code: 'MIT',
+  },
+  {
+    name: 'Essential', url: 'https://essential.gg/wiki/start-hosting',
+    runs: 'Mod', route: 'Peer-to-peer, with the host as the server', friends: 'The same mods as the host',
+    free: 'Free, 8 players at once', account: 'Minecraft account', code: 'Source available, all rights reserved',
+  },
+  {
+    name: 'playit.gg', url: 'https://playit.gg/pricing',
+    runs: 'App, host only', route: "Always through playit's tunnel", friends: 'Nothing',
+    free: 'Free for Minecraft. Premium from $3 a month', account: 'Host needs one', code: '—',
+  },
+];
+
+const networks: Row[] = [
+  {
+    name: 'EasyTier', url: 'https://github.com/EasyTier/EasyTier',
+    runs: 'App', route: 'Direct, or through a shared node', friends: 'EasyTier',
+    free: 'Free, with community nodes', account: 'None', code: 'LGPL-3.0',
+  },
+  {
+    name: 'ZeroTier', url: 'https://www.zerotier.com/pricing',
+    runs: 'App', route: 'Direct, with relaying as a fallback', friends: 'ZeroTier, and your approval',
+    free: '10 devices, 1 network, non-commercial', account: 'Needed to create a network', code: 'MPL, plus source-available parts',
+  },
+  {
+    name: 'Tailscale', url: 'https://tailscale.com/pricing',
+    runs: 'App', route: "Direct, or through Tailscale's relays", friends: 'Tailscale and a login',
+    free: '6 users, non-commercial', account: 'Login needed', code: 'Client is BSD-3-Clause',
+  },
+  {
+    name: 'Cloudflare Mesh', url: 'https://blog.cloudflare.com/mesh/',
+    runs: 'App', route: "Always through Cloudflare's network", friends: 'Cloudflare One Client',
+    free: '50 users and 50 nodes', account: 'Cloudflare account', code: '—',
+  },
+  {
+    name: 'Hamachi', url: 'https://www.vpn.net/',
+    runs: 'App', route: 'Direct mesh, or a central gateway', friends: 'Hamachi',
+    free: '5 computers per network', account: 'Account needed', code: '—',
+  },
+];
+
+const picks = [
+  ['The lowest ping', 'Use a tool that can connect players directly, like etmc, EasyTier, ZeroTier or Tailscale. Direct connections need networks that allow them.'],
+  ['Friends who won\'t install anything', 'Use e4mc or playit.gg, and accept higher ping. Friends join from plain Minecraft, but all traffic takes a detour through a tunnel.'],
+  ['Everything inside the game', 'Use etmc or Essential. There\'s no separate app to run. etmc also needs no account of its own.'],
+  ['One network for more than Minecraft', 'Use EasyTier, ZeroTier or Tailscale. They connect whole devices, so they work with other games and tools.'],
+  ['No company in the middle', 'Use etmc or EasyTier. Pick a community node or run your own relay, with no account to sign up for.'],
+];
+
+const sources = [
+  ['Cloudflare Mesh', [['Launch post', 'https://blog.cloudflare.com/mesh/'], ['Client', 'https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/download/']]],
+  ['e4mc', [['Project page', 'https://modrinth.com/mod/e4mc']]],
+  ['EasyTier', [['Repository', 'https://github.com/EasyTier/EasyTier']]],
+  ['Essential', [['Hosting guide', 'https://essential.gg/wiki/start-hosting'], ['Project page', 'https://modrinth.com/mod/essential']]],
+  ['Hamachi', [['Product page', 'https://www.vpn.net/']]],
+  ['playit.gg', [['Pricing', 'https://playit.gg/pricing']]],
+  ['Tailscale', [['Pricing', 'https://tailscale.com/pricing'], ['Connections', 'https://tailscale.com/kb/1257/connection-types'], ['Windows setup', 'https://tailscale.com/kb/1022/install-windows'], ['Repository', 'https://github.com/tailscale/tailscale']]],
+  ['ZeroTier', [['Pricing', 'https://www.zerotier.com/pricing'], ['Getting started', 'https://docs.zerotier.com/start/'], ['FAQ', 'https://docs.zerotier.com/faq/'], ['Licence', 'https://github.com/zerotier/ZeroTierOne/blob/dev/LICENSE.txt']]],
+] as const;
+---
+
+<BaseLayout title="Compare" description="How etmc compares with EasyTier, ZeroTier, Tailscale, Cloudflare Mesh, Hamachi, e4mc, Essential and playit.gg.">
+  <div class="ink">
+    <div class="wrap page-title">
+      <h1>How etmc compares</h1>
+      <p>There are plenty of ways to play with friends. Here's where etmc fits, and when something else suits you better.</p>
+    </div>
+  </div>
+
+  <div class="wrap compare-page">
+    <table class="versus">
+      <thead>
+        <tr>
+          <th scope="col">Tool</th>
+          {columns.map(([, label]) => <th scope="col">{label}</th>)}
+        </tr>
+      </thead>
+      {[['Made for games', games], ['General networks', networks]].map(([group, rows]) => (
+        <tbody>
+          <tr class="group"><th colspan={columns.length + 1} scope="colgroup">{group as string}</th></tr>
+          {(rows as Row[]).map((row) => (
+            <tr class={row.ours ? 'ours' : undefined}>
+              <th scope="row"><a href={row.url}>{row.name}</a></th>
+              {columns.map(([key, label]) => <td data-label={label}>{row[key]}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      ))}
+    </table>
+    <p class="muted table-note">Checked on {CHECKED}. A dash means we couldn't confirm it from the project's own pages.
+      Prices and limits change, so check each project's site before you decide.</p>
+
+    <h2 class="big">Which one should you use?</h2>
+    <div class="picks">
+      {picks.map(([title, body]) => (
+        <div class="tile">
+          <h3>{title}</h3>
+          <p>{body}</p>
+        </div>
+      ))}
+    </div>
+
+    <div class="compare-notes">
+      <section>
+        <h2>etmc and EasyTier</h2>
+        <p>
+          etmc is built on <a href="https://github.com/EasyTier/EasyTier">EasyTier</a>, so they're the same network
+          underneath. EasyTier is a general tool that you run yourself. etmc puts it inside Minecraft and handles the
+          setup, with no adapter to create and no app to keep open.
+        </p>
+        <p>
+          They also work together. An etmc player can join a server that runs plain EasyTier, using a
+          <a href="/docs/connect-url">config URL</a>.
+        </p>
+      </section>
+
+      <section>
+        <h2>Where etmc falls short</h2>
+        <ul>
+          <li><strong>Everyone needs the mod.</strong> Friends can't join from plain Minecraft.</li>
+          <li><strong>You have to add a relay.</strong> It isn't built in, but a free community node works.</li>
+          <li><strong>It's only for Minecraft.</strong> It won't connect anything else.</li>
+          <li><strong>Your secret isn't protected.</strong> It's plain text, so keep it random.</li>
+        </ul>
+      </section>
+    </div>
+
+    <h2>Sources</h2>
+    <ul class="sources">
+      {sources.map(([name, links]) => (
+        <li>
+          <strong>{name}:</strong>{' '}
+          {links.map(([label, url], i) => <>{i > 0 && ', '}<a href={url}>{label}</a></>)}
+        </li>
+      ))}
+    </ul>
+    <p class="muted table-note">All product names belong to their owners. etmc isn't affiliated with any of them.</p>
+  </div>
+</BaseLayout>

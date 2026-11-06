@@ -213,9 +213,10 @@ public final class EtmcManager {
      *
      * @param gameMode joiners' game mode name ({@code SURVIVAL}, ...), or {@code null} for the host's own
      * @param cheats   whether cheats are allowed (for everyone, the host included — as in vanilla)
+     * @param allowOffline whether joiners can skip Minecraft's account check
      */
     public CompletableFuture<JoinCode> hostAsync(String networkName, String secret, String label,
-                                                 String gameMode, boolean cheats) {
+                                                 String gameMode, boolean cheats, boolean allowOffline) {
         String blocker = hostBlocker();
         if (blocker != null) return CompletableFuture.failedFuture(new IllegalStateException(blocker));
         syncPlayerName();
@@ -225,7 +226,7 @@ public final class EtmcManager {
         config.lastSecret = secret;
         config.lastLabel = label;
         config.save();
-        return McNet.ensureOpenToLan(gameMode, cheats)
+        return McNet.ensureOpenToLan(gameMode, cheats, allowOffline)
                 .thenApplyAsync(lanPort -> session.host(lanPort, networkName, secret, relays, vport, label), worker)
                 .whenComplete((code, err) -> McScreens.mc().execute(() -> {
                     hostWorldSeen = err == null;
@@ -551,6 +552,7 @@ public final class EtmcManager {
                         hostWorldSeen = false;
                         proxyJoinPlayed = false;
                         hostFailureNotified = false;
+                        McNet.requireAccounts();
                         // The proxy's server-list entry points at a port that just closed.
                         if (hadProxy) McNet.removeJoinEntries();
                     });

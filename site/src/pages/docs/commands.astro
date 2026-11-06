@@ -1,25 +1,43 @@
 ---
 import DocsLayout from '../../layouts/DocsLayout.astro';
 
-const cmds = [
+const client = [
   ['/etmc menu', 'Open the etmc menu.'],
-  ['/etmc host <network> [secret]', 'Host the current world on a network.'],
-  ['/etmc join <link>', 'Join from an etmc:// link.'],
-  ['/etmc connect <url> [ip:port]', 'Fetch a config URL and connect to the server.'],
-  ['/etmc status', 'Show role, virtual IP, peers and latency.'],
-  ['/etmc invite', 'Copy the etmc:// link to the clipboard.'],
-  ['/etmc leave', 'Leave the network and tear down the instance.'],
-  ['/etmc relay add|list|clear', 'Manage your relay nodes.'],
-  ['/etmc hud', 'Toggle the status HUD.'],
+  ['/etmc host <network> [secret]', 'Host the current world. Leave out the secret to get a random one.'],
+  ['/etmc invite', 'Copy your invite link.'],
+  ['/etmc join <link>', 'Join with an etmc:// link.'],
+  ['/etmc connect <url> [ip:port]', 'Join with a config URL.'],
+  ['/etmc status', 'Show your connection and players.'],
+  ['/etmc leave', 'Leave the network.'],
+  ['/etmc relay add|list|clear', 'Manage your relays.'],
+  ['/etmc hud', 'Show or hide the status overlay.'],
+];
+
+const server = [
+  ['/etmc status', 'Show the server\'s connection and players.'],
+  ['/etmc link', 'Show the invite link.'],
+  ['/etmc config', 'Write a player config to join-config.toml in the plugin folder.'],
+  ['/etmc reload', 'Reload config.yml and reconnect.'],
 ];
 ---
 
-<DocsLayout title="Commands" description="The /etmc client commands.">
-  <p>All commands are client-side; they work the same as the GUI.</p>
-  <div class="panel slot">
-    {cmds.map(([c, d]) => (
-      <p style="margin:6px 0"><code>{c}</code><br /><span class="muted">{d}</span></p>
-    ))}
-  </div>
-  <p>The keybind <span class="kbd">G</span> opens the menu (rebindable under <em>Controls → Misc</em>).</p>
+<DocsLayout title="Commands" description="Every /etmc command.">
+  <h2>In game</h2>
+  <p>Most of these are also in the menu, which opens with <kbd>G</kbd>. You can change that key under
+    <em>Controls</em>. The oldest Fabric versions don't have these commands, so use the menu there.</p>
+  <table class="commands">
+    <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+    <tbody>
+      {client.map(([c, d]) => <tr><td><code>{c}</code></td><td>{d}</td></tr>)}
+    </tbody>
+  </table>
+
+  <h2>Paper server</h2>
+  <p>These need operator permission (<code>etmc.admin</code>).</p>
+  <table class="commands">
+    <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+    <tbody>
+      {server.map(([c, d]) => <tr><td><code>{c}</code></td><td>{d}</td></tr>)}
+    </tbody>
+  </table>
 </DocsLayout>

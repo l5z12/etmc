@@ -4,6 +4,7 @@ import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
+import dev.l5z12.etmc.core.Secrets;
 import dev.l5z12.etmc.ffi.EasyTier;
 import dev.l5z12.etmc.ffi.NativeLoader;
 import dev.l5z12.etmc.ffi.Panama;
@@ -11,6 +12,8 @@ import lombok.Getter;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
@@ -74,11 +77,31 @@ public final class EtmcPlugin extends JavaPlugin {
         }
     }
 
+    /**
+     * Replaces the shipped default, which anyone could look up. A blank secret is left alone, because
+     * that's how a public server is set up. The new one is set in memory first, so /etmc config stays
+     * right even if the file can't be written.
+     */
+    private String generateSecret() {
+        String secret = Secrets.random();
+        getConfig().set("secret", secret);
+        Path file = getDataFolder().toPath().resolve("config.yml");
+        try {
+            Files.writeString(file, Secrets.withSecret(Files.readString(file), secret));
+            getLogger().info("Generated a random secret and saved it to plugins/etmc/config.yml.");
+        } catch (IOException e) {
+            getLogger().warning("Generated a random secret but couldn't save it, so it will change on restart"
+                    + " and old links will stop working: " + e.getMessage());
+        }
+        return secret;
+    }
+
     private void doStartMesh() {
         try {
             reloadConfig();
             network = getConfig().getString("network", "etmc-server");
             String secret = getConfig().getString("secret", "");
+            if (Secrets.isDefault(secret)) secret = generateSecret();
             // Frozen: this list is published to the command thread via relays().
             relays = List.copyOf(getConfig().getStringList("relays"));
             virtualPort = getConfig().getInt("virtual-port", EtmcConfig.DEFAULT_VIRTUAL_PORT);
