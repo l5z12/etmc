@@ -4,7 +4,8 @@
 
 # EasyTier network identity. Players must use the same name + secret.
 # WARNING: the secret is plain text here, and anyone with your etmc:// link can read it.
-# Left blank or as "change-me", etmc replaces it with a random one on startup.
+# Leave it empty ("") for a public server anyone can join.
+# Left as "change-me", etmc replaces it with a random one on startup.
 # Never use a password you use anywhere else.
 network: "my-server"
 secret: "change-me"

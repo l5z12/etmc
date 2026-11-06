@@ -78,8 +78,9 @@ public final class EtmcPlugin extends JavaPlugin {
     }
 
     /**
-     * Replaces a blank or default secret, which anyone who knows the defaults could join with. It is
-     * set in memory first, so /etmc config stays right even if the file can't be written.
+     * Replaces the shipped default, which anyone could look up. A blank secret is left alone, because
+     * that's how a public server is set up. The new one is set in memory first, so /etmc config stays
+     * right even if the file can't be written.
      */
     private String generateSecret() {
         String secret = Secrets.random();
@@ -100,7 +101,7 @@ public final class EtmcPlugin extends JavaPlugin {
             reloadConfig();
             network = getConfig().getString("network", "etmc-server");
             String secret = getConfig().getString("secret", "");
-            if (Secrets.isUnset(secret)) secret = generateSecret();
+            if (Secrets.isDefault(secret)) secret = generateSecret();
             // Frozen: this list is published to the command thread via relays().
             relays = List.copyOf(getConfig().getStringList("relays"));
             virtualPort = getConfig().getInt("virtual-port", EtmcConfig.DEFAULT_VIRTUAL_PORT);

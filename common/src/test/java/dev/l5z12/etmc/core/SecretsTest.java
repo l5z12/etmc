@@ -23,12 +23,14 @@ class SecretsTest {
     }
 
     @Test
-    void blankAndDefaultSecretsCountAsUnset() {
-        assertTrue(Secrets.isUnset(null));
-        assertTrue(Secrets.isUnset(""));
-        assertTrue(Secrets.isUnset("   "));
-        assertTrue(Secrets.isUnset("change-me"));
-        assertFalse(Secrets.isUnset("x7k2m9qpv4ta"));
+    void onlyTheShippedDefaultCounts() {
+        assertTrue(Secrets.isDefault("change-me"));
+        assertFalse(Secrets.isDefault("x7k2m9qpv4ta"));
+    }
+
+    @Test
+    void aBlankSecretIsAChoiceForPublicServers() {
+        assertFalse(Secrets.isDefault(""));
     }
 
     @Test

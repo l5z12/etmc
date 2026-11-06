@@ -20,7 +20,7 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   <ol>
     <li>Download the etmc Paper jar from <a href="https://github.com/L5Z12/etmc/releases">Releases</a> and put it in
       your <code>plugins</code> folder.</li>
-    <li>Create a config with the <a href="/generator">generator</a>, which picks a random secret, and save it as
+    <li>Create a config with the <a href="/generator">generator</a>, which suggests a random secret, and save it as
       <code>plugins/etmc/config.yml</code>.</li>
     <li>Restart the server, or run <code>/etmc reload</code>.</li>
     <li>Copy the <code>etmc://</code> link from the server log, or run <code>/etmc link</code>.</li>
@@ -28,4 +28,5 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   </ol>
   <div class="warn"><strong>Your secret isn't protected.</strong> It's plain text in <code>config.yml</code>, and anyone with your link can read it and join. If you leave the default <code>change-me</code>, etmc replaces it with a random one. Keep it random, and never use a password you
     use anywhere else.</div>
+  <p>Running a public server that anyone can join? Leave the secret empty.</p>
 </DocsLayout>

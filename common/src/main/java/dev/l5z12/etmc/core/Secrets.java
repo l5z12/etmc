@@ -23,9 +23,12 @@ public final class Secrets {
         return b.toString();
     }
 
-    /** True if nobody chose this secret, so anyone who knows the defaults could join with it. */
-    public static boolean isUnset(String secret) {
-        return secret == null || secret.isBlank() || DEFAULT.equals(secret);
+    /**
+     * True if this is still the shipped default, which nobody chose. A blank secret is not: that is
+     * how a public server lets anyone in.
+     */
+    public static boolean isDefault(String secret) {
+        return DEFAULT.equals(secret);
     }
 
     /**

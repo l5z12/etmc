@@ -38,7 +38,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         </label>
 
         <div class="field">
-          <label class="field-label" for="f-secret">Secret</label>
+          <label class="field-label" for="f-secret">Secret <span class="hint">(leave empty for a public server)</span></label>
           <div class="with-button">
             <input id="f-secret" type="text" autocomplete="off" spellcheck="false" />
             <button id="new-secret" class="btn small" type="button">New random secret</button>
