@@ -216,6 +216,24 @@ class JoinCodeTest {
     }
 
     @Test
+    void fromConfigNamesAServerItCantUse() {
+        for (String server : new String[] {"not an ip", "example.com:25565", "10.144.144.1:abc"}) {
+            var e = assertThrows(IllegalArgumentException.class, () -> JoinCode.fromConfig("""
+                    [network_identity]
+                    network_name = "my-smp"
+
+                    [[peer]]
+                    uri = "tcp://relay.example.com:11010"
+
+                    [etmc]
+                    server = "%s"
+                    """.formatted(server)));
+            assertTrue(e.getMessage().contains(server), e.getMessage());
+            assertTrue(e.getMessage().contains("isn't an IPv4"), e.getMessage());
+        }
+    }
+
+    @Test
     void fromConfigRejectsWhatItCantJoin() {
         var noServer = assertThrows(IllegalArgumentException.class, () -> JoinCode.fromConfig("""
                 [network_identity]

@@ -28,8 +28,10 @@ import java.util.List;
  * @param serverIp     the Minecraft server's address on the mesh
  * @param serverPort   the Minecraft server's port on the mesh
  * @param label        what to call this server in the UI; never blank
+ * @param server       the server address as it was written, before any defaults
  */
-public record ImportedConfig(String toml, String instanceName, String serverIp, int serverPort, String label) {
+public record ImportedConfig(String toml, String instanceName, String serverIp, int serverPort, String label,
+                             String server) {
 
     /**
      * Parses and normalizes a raw EasyTier TOML config.
@@ -89,6 +91,6 @@ public record ImportedConfig(String toml, String instanceName, String serverIp, 
         }
 
         String label = labelFromCfg != null && !labelFromCfg.isBlank() ? labelFromCfg : addr.toString();
-        return new ImportedConfig(sb.toString(), instanceName, addr.ip(), addr.port(), label);
+        return new ImportedConfig(sb.toString(), instanceName, addr.ip(), addr.port(), label, server);
     }
 }

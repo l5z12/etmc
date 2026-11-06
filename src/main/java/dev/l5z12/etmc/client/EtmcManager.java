@@ -91,7 +91,7 @@ public final class EtmcManager {
     private final AtomicBoolean statusPollInFlight = new AtomicBoolean();
     /** In-progress {@code etmc://} link join (null when none). Client thread only. */
     private LinkAttempt linkAttempt;
-    /** Marks the {@code etmc://v1/config/} fetch in progress (null when none). Client thread only. */
+    /** Marks the newest {@code etmc://v1/config/} fetch (null when none), so it beats older ones. Client thread only. */
     private Object configFetch;
 
     // Session-lifetime bookkeeping for tick(); client thread only.
@@ -260,7 +260,17 @@ public final class EtmcManager {
     /** Joins from an {@code etmc://v1/config/} link while in a world, as {@link #joinAsync} does. */
     public CompletableFuture<Integer> joinConfigAsync(String url) {
         if (!isReady()) return notLoaded();
-        return fetchConfig(url).thenComposeAsync(this::joinAsync, McScreens.mc());
+        Object fetch = new Object();
+        configFetch = fetch;
+        return fetchConfig(url).thenComposeAsync(code -> {
+            if (configFetch != fetch) {
+                return CompletableFuture.<Integer>failedFuture(new IllegalStateException(
+                        Msg.tr("etmc.join.superseded", "a newer join replaced this one")));
+            }
+            return joinAsync(code);
+        }, McScreens.mc()).whenCompleteAsync((port, err) -> {
+            if (configFetch == fetch) configFetch = null;
+        }, McScreens.mc());
     }
 
     private CompletableFuture<JoinCode> fetchConfig(String url) {

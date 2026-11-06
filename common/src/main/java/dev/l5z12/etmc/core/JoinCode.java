@@ -105,6 +105,11 @@ public final class JoinCode {
             throw new IllegalArgumentException(Msg.tr("etmc.link.config_no_server",
                     "the config doesn't name a server. Ask the server admin to add an [etmc] server line"));
         }
+        if (!MeshAddress.isValid(cfg.server())) {
+            throw new IllegalArgumentException(Msg.tr("etmc.link.config_bad_server",
+                    "the config's server '%s' isn't an IPv4 address and port. "
+                            + "Ask the server admin to fix its [etmc] server line", cfg.server()));
+        }
         JoinCode jc = fromToml(s);
         if (!jc.isValidCandidate()) {
             throw new IllegalArgumentException(Msg.tr("etmc.link.no_network", "etmc link without a network name"));
