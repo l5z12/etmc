@@ -110,6 +110,21 @@ public final class StatusScreen extends EtmcBaseScreen {
             lines.add(new Line(Msg.tr("etmc.status.host_failed",
                     "Joiners can't connect any more (%s). Stop hosting and host again.", failure), COLOR_BAD));
         }
+        if (s.joinFailure() != null) lines.add(new Line(s.joinFailure(), COLOR_BAD));
+        if (!hosting && code != null) {
+            String confirmed = s.confirmedHost();
+            if (confirmed != null) {
+                lines.add(new Line(Msg.tr("etmc.status.host_confirmed", "Host: %s, confirmed by Mojang", confirmed), COLOR_GOOD));
+            } else if (code.namedHost() != null) {
+                lines.add(new Line(Msg.tr("etmc.status.host_name_unconfirmed", "Host: checked with the key in your "
+                        + "link, but Mojang couldn't be reached to confirm they're %s", code.namedHost()), COLOR_WARN));
+            } else {
+                lines.add(code.hostKey != null
+                        ? new Line(Msg.tr("etmc.status.host_checked", "Host: checked with the key in your link"), COLOR_TEXT)
+                        : new Line(Msg.tr("etmc.status.host_unchecked", "Host: not checked, because your link has no "
+                                + "host key. Ask the host for a new link."), COLOR_WARN));
+            }
+        }
         if (hosting && st.peerAt(EtmcConfig.HOST_VIRTUAL_IP) != null) {
             lines.add(new Line(Msg.tr("etmc.status.ip_clash", "Another host on this network uses the same address, "
                     + "so joiners may reach the wrong world. Stop and host with a different network name."), COLOR_BAD));

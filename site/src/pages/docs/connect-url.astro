@@ -13,7 +13,9 @@ uri = "tcp://relay.example.com:11010"
 # The Minecraft server's address on the network
 [etmc]
 server = "10.144.144.1:25565"
-label = "My SMP"`;
+label = "My SMP"
+# Only on etmc servers: lets players confirm they reached yours
+host_key = "from-etmc-status"`;
 ---
 
 <DocsLayout title="Config URLs" description="Let players join from a config file you host.">
@@ -45,7 +47,12 @@ label = "My SMP"`;
   <p>
     If you leave out <code>server</code>, players need the plain URL and enter the address themselves. An
     <code>etmc://v1/config/</code> link needs <code>server</code> and at least one relay, and only reads the network,
-    secret, relays, server and label from the file. The URL can also serve an <code>etmc://</code> link instead of a config.
+    secret, relays, server, label and host key from the file. The URL can also serve an <code>etmc://</code> link instead of a config.
+  </p>
+  <p>
+    On a Paper server running etmc, <code>/etmc config</code> writes this file with its <code>host_key</code> filled in.
+    Leave <code>host_key</code> out for any other server, because players can't connect to a server that can't prove
+    it holds the key. Without one, etmc can't check who players reached.
   </p>
   <div class="warn"><strong>Your secret isn't protected.</strong> It's plain text in this file, and anyone with the URL can read it and join. Keep it random, and never use a password you
     use anywhere else.</div>

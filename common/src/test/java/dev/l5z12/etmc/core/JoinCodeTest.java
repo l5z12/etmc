@@ -13,6 +13,68 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The etmc:// link is the mod's wire format: players copy/paste it, so it must round-trip. */
 class JoinCodeTest {
 
+    private static JoinCode from(String hostName) {
+        JoinCode code = new JoinCode("net", "s", List.of("tcp://r:1"), "10.126.126.1", 25565, "");
+        code.hostName = hostName;
+        code.hostKey = HostKey.generate().publicText();
+        return code;
+    }
+
+    @Test
+    void aNameWithoutAHostKeyIsNeverShown() {
+        JoinCode code = from("Steve");
+        code.hostKey = null;
+
+        assertNull(code.invite(), "nothing could hold the host to this name");
+        assertNull(JoinCode.inviteIn(code.encodeLink()));
+    }
+
+    @Test
+    void aPlayersLinkInvitesInTheirName() {
+        assertEquals("Steve invites you to join their world", from("Steve").invite());
+        assertEquals("Steve invites you to join their world", JoinCode.inviteIn(from("Steve").encodeLink()));
+    }
+
+    @Test
+    void theLongestAccountNameIsShown() {
+        assertEquals("Steve_Alex_12345 invites you to join their world", from("Steve_Alex_12345").invite());
+    }
+
+    @Test
+    void aLinkWithoutANameInvitesNobody() {
+        assertNull(from(null).invite());
+        assertFalse(from(null).encodeLink().contains("hostName"), "the field shouldn't change older links");
+    }
+
+    @Test
+    void aNameThatIsReallySomethingElseIsNotShown() {
+        assertNull(from("").invite());
+        assertNull(from("\u00a7kSteve").invite(), "formatting codes");
+        assertNull(from("Your account was hacked, click Join").invite(), "a sentence");
+        assertNull(from("Steve\nAlex").invite(), "a line break");
+        assertNull(from("\u202eevetS").invite(), "text direction overrides");
+        assertNull(from("St\u0435ve").invite(), "a look-alike letter");
+        assertNull(from("Steve-Alex").invite(), "not allowed in an account name");
+        assertNull(from("x".repeat(17)).invite(), "too long");
+    }
+
+    @Test
+    void aBadNameDoesNotStopTheLinkWorking() {
+        JoinCode decoded = JoinCode.decode(from("\u00a7kSteve").encodeLink());
+
+        assertEquals("net", decoded.networkName);
+        assertNull(decoded.invite());
+    }
+
+    @Test
+    void textThatIsNotAPlainLinkHasNoInvite() {
+        assertNull(JoinCode.inviteIn(null));
+        assertNull(JoinCode.inviteIn(""));
+        assertNull(JoinCode.inviteIn("etmc://v1/%%%"));
+        assertNull(JoinCode.inviteIn("etmc://v1/config/https://example.com/etmc.toml"));
+        assertNull(JoinCode.inviteIn("etmc://v9/config/https://example.com/etmc.toml"));
+    }
+
     private static JoinCode sample() {
         return new JoinCode("my-net", "s3cret", List.of("tcp://relay.example:11010"),
                 "10.126.126.1", 25577, "My SMP");

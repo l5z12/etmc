@@ -23,6 +23,17 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   <div class="warn"><strong>Names aren't checked with this on.</strong> Anyone with your link can join under any name.
     Friends with real accounts start with a new inventory, and get their old one back when it's off.</div>
 
+  <h2>Show who's inviting</h2>
+  <p>
+    Turn on <strong>Sign as me</strong> before you click <strong>Start hosting</strong>, and your link shows
+    "&lt;your name&gt; invites you to join their world". Players can confirm that with Mojang, so nobody else can use
+    your name on a link. It's off unless you turn it on.
+  </p>
+  <p>
+    etmc signs each player's connection with the key Minecraft uses for your chat, and players see your account. It
+    needs a real Minecraft account, and a recent version of the game.
+  </p>
+
   <h2>Host a Paper server</h2>
   <ol>
     <li>Download the etmc Paper jar from <a href="https://github.com/L5Z12/etmc/releases">Releases</a> and put it in
@@ -36,4 +47,22 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
   <div class="warn"><strong>Your secret isn't protected.</strong> It's plain text in <code>config.yml</code>, and anyone with your link can read it and join. If you leave the default <code>change-me</code>, etmc replaces it with a random one. Keep it random, and never use a password you
     use anywhere else.</div>
   <p>Running a public server that anyone can join? Leave the secret empty.</p>
+
+  <h2>Keep your host key</h2>
+  <p>
+    Everyone with your link can read the secret, so the secret can't prove who the host is. Your link also holds a
+    host key, which lets players check they've reached you and not someone posing as you. etmc makes the key the first
+    time you host, and saves it in <code>config/etmc/host-key</code>, or <code>plugins/etmc/host-key</code> on a Paper
+    server.
+  </p>
+  <p>
+    Your links keep working as long as you keep that file, so back it up. If you lose it, or someone else gets a copy,
+    delete it, host again and share a new link.
+  </p>
+  <div class="warn"><strong>Never share the host-key file.</strong> Anyone who has it can pose as you. Leave it out of
+    modpacks and shared config folders.</div>
+  <p>
+    If someone takes your address on the network, your players will refuse to connect to them, but they may not be
+    able to reach you either. Move to a new network name and secret, and share a new link.
+  </p>
 </DocsLayout>

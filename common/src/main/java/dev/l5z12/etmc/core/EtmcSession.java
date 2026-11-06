@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 /**
  * Central state machine for an etmc session. Knows nothing about Minecraft: the client layer feeds
@@ -40,6 +41,8 @@ public final class EtmcSession {
 
     private volatile HostShare hostShare;
     private volatile JoinProxy joinProxy;
+    /** What this join talks to the host through: {@link #et}, or a {@link HostTunnel} if the link has a key. */
+    private volatile EasyTier joinTransport;
     @Getter private volatile JoinCode currentCode;
     /** Port the LAN world is served on locally (host), and the loopback port to point MC at (join). */
     @Getter private volatile int lanPort;
@@ -52,6 +55,12 @@ public final class EtmcSession {
      * server (Paper), where there is no player — the host device is then just {@code server}.
      */
     private volatile String playerName = null;
+    /** Proves this node is the host to joiners; {@code null} gives them nothing to check. */
+    private volatile HostKey hostKey = null;
+    /** The account hosting proves itself with, if the player opted in; {@code null} signs nothing. */
+    private volatile Supplier<PlayerCert> accountProof = null;
+    /** Where a join checks a host's account. Only contacted for a link that names its host. */
+    private volatile AccountDirectory directory = new MojangDirectory();
 
     public EtmcSession(EasyTier et) {
         this.et = et;
@@ -72,6 +81,25 @@ public final class EtmcSession {
         if (name != null && !name.isBlank()) {
             this.playerName = name;
         }
+    }
+
+    /** Sets the key subsequent hosting proves itself with, which goes in the invite link. */
+    public void setHostKey(HostKey key) {
+        this.hostKey = key;
+    }
+
+    /**
+     * Opts subsequent hosting in to proving the player's Minecraft account, by signing each joiner's
+     * connection. {@code null} opts out: nothing is signed, and the link names nobody.
+     *
+     * @param cert the current certificate, asked for each connection; may answer {@code null}
+     */
+    public void setAccountProof(Supplier<PlayerCert> cert) {
+        this.accountProof = cert;
+    }
+
+    void setDirectory(AccountDirectory directory) {
+        this.directory = directory;
     }
 
     // ------------------------------------------------------------------ host
@@ -101,13 +129,17 @@ public final class EtmcSession {
             String toml = EtmcConfig.hostToml(instName, hostname, networkName, secret, relays);
             et.runNetworkInstance(toml);
 
-            HostShare share = new HostShare(et, instName, this.virtualPort, lanPort);
+            HostKey key = hostKey;
+            Supplier<PlayerCert> proof = key == null ? null : accountProof;
+            HostShare share = new HostShare(et, instName, this.virtualPort, lanPort, key, proof);
             share.start();
             this.hostShare = share;
 
             this.currentCode = new JoinCode(networkName, secret, relays,
                     EtmcConfig.HOST_VIRTUAL_IP, this.virtualPort,
                     label == null || label.isBlank() ? networkName : label.trim());
+            if (key != null) currentCode.hostKey = key.publicText();
+            if (proof != null) currentCode.hostName = playerName; // a name is a promise to prove it
             this.mode = Mode.HOST;
             this.state = State.HOSTING;
             return currentCode;
@@ -144,8 +176,10 @@ public final class EtmcSession {
             String inst = newInstanceName("join");
             this.hostname = joinerHostname();
             String toml = EtmcConfig.joinToml(inst, hostname, code.networkName, code.networkSecret, code.relays);
+            EasyTier transport = transportFor(code);
             et.runNetworkInstance(toml);
             this.instName = inst;
+            this.joinTransport = transport;
             this.linkJoin = true;
             this.currentCode = code;
             this.mode = Mode.JOIN;
@@ -157,9 +191,19 @@ public final class EtmcSession {
         }
     }
 
-    /** The underlying EasyTier binding (for {@link EtmcChannel} data-plane connects). */
+    /**
+     * The EasyTier binding for reaching the host (for {@link EtmcChannel} data-plane connects). During
+     * a join whose link names a host key, its streams refuse anything that can't prove it holds that key.
+     */
     public EasyTier easyTier() {
-        return et;
+        EasyTier transport = joinTransport;
+        return transport != null ? transport : et;
+    }
+
+    /** @throws IllegalArgumentException if the key is damaged: that must stop the join, not skip the check */
+    private EasyTier transportFor(JoinCode code) {
+        return code.hostKey == null ? et
+                : HostTunnel.dialing(et, code.hostKey, code.namedHost(), directory);
     }
 
     /**
@@ -169,6 +213,7 @@ public final class EtmcSession {
     public synchronized int joinWithConfig(ImportedConfig cfg) {
         JoinCode display = new JoinCode(cfg.label(), "", List.of(),
                 cfg.serverIp(), cfg.serverPort(), cfg.label());
+        display.hostKey = cfg.hostKey();
         return startJoin(cfg.toml(), cfg.instanceName(), cfg.serverIp(), cfg.serverPort(), display);
     }
 
@@ -178,11 +223,13 @@ public final class EtmcSession {
         try {
             this.instName = inst;
             if (this.hostname == null) this.hostname = joinerHostname();
+            EasyTier transport = transportFor(display);
             et.runNetworkInstance(toml);
 
-            JoinProxy proxy = new JoinProxy(et, inst, serverIp, serverPort, preferredLocalPort);
+            JoinProxy proxy = new JoinProxy(transport, inst, serverIp, serverPort, preferredLocalPort);
             this.localPort = proxy.start();
             this.joinProxy = proxy;
+            this.joinTransport = transport;
 
             this.currentCode = display;
             this.mode = Mode.JOIN;
@@ -216,6 +263,7 @@ public final class EtmcSession {
         } finally {
             hostShare = null;
             joinProxy = null;
+            joinTransport = null;
             currentCode = null;
             instName = null;
             hostname = null;
@@ -254,6 +302,17 @@ public final class EtmcSession {
     public String hostFailure() {
         HostShare hs = hostShare;
         return hs == null ? null : hs.failure();
+    }
+
+    /** The host's name once Mojang has confirmed it for this join, or {@code null}. */
+    public String confirmedHost() {
+        return joinTransport instanceof HostTunnel tunnel ? tunnel.confirmedName() : null;
+    }
+
+    /** Why this join refused the far end as the host, or {@code null} if it hasn't. */
+    public String joinFailure() {
+        JoinProxy jp = joinProxy;
+        return jp == null ? null : jp.failure();
     }
 
     // ------------------------------------------------------------------ getters

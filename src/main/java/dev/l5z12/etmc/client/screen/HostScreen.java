@@ -2,6 +2,7 @@ package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.Gfx;
+import dev.l5z12.etmc.client.McIdentity;
 import dev.l5z12.etmc.client.ModConfig;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
@@ -42,6 +43,7 @@ public final class HostScreen extends EtmcBaseScreen {
     private ButtonWidget modeButton;
     private ButtonWidget cheatsButton;
     private ButtonWidget offlineButton;
+    private ButtonWidget signButton;
     private ButtonWidget hostButton;
     //?} else {
     /*private EditBox networkField;
@@ -50,12 +52,14 @@ public final class HostScreen extends EtmcBaseScreen {
     private Button modeButton;
     private Button cheatsButton;
     private Button offlineButton;
+    private Button signButton;
     private Button hostButton;*/
     //?}
 
     private int modeIndex;
     private boolean cheats;
     private boolean offline;
+    private boolean sign;
 
     public HostScreen(Screen parent) {
         super(Txt.tr("etmc.menu.host", "Host this world"), parent);
@@ -94,6 +98,7 @@ public final class HostScreen extends EtmcBaseScreen {
         modeIndex = indexOf(cfg.lanGameMode);
         cheats = cfg.lanCheats;
         offline = cfg.lanAllowOffline;
+        sign = cfg.signHostAccount && McIdentity.supported();
         modeButton = Ui.button(modeLabel(), b -> {
             modeIndex = (modeIndex + 1) % MODES.length;
             Ui.setMessage(modeButton, modeLabel());
@@ -110,8 +115,15 @@ public final class HostScreen extends EtmcBaseScreen {
             offline = !offline;
             Ui.setMessage(offlineButton, offlineLabel());
             showNotice();
-        }).dimensions(x, y, W, 20).build();
+        }).dimensions(x, y, W / 2 - 2, 20).build();
         add(offlineButton);
+        signButton = Ui.button(signLabel(), b -> {
+            sign = !sign;
+            Ui.setMessage(signButton, signLabel());
+            showNotice();
+        }).dimensions(x + W / 2 + 2, y, W / 2 - 2, 20).build();
+        signButton.active = McIdentity.supported();
+        add(signButton);
         y += 36;
 
         hostButton = Ui.button(Txt.tr("etmc.host.start", "Start hosting"), b -> startHosting())
@@ -129,7 +141,10 @@ public final class HostScreen extends EtmcBaseScreen {
         String blocker = EtmcManager.get().hostBlocker();
         String warning = offline ? Msg.tr("etmc.host.offline.warning",
                 "Anyone with your link can join under any name. Friends with real accounts start with a new inventory.") : "";
-        setMessage(blocker != null ? blocker : warning, COLOR_WARN);
+        String signing = sign ? Msg.tr("etmc.host.sign.notice", "Your link will name you. etmc signs each joiner's "
+                + "connection with your Minecraft chat key, so they can confirm it's you, and they'll see your account.") : "";
+        String notices = (warning + " " + signing).trim();
+        setMessage(blocker != null ? blocker : notices, COLOR_WARN);
     }
 
     private int top() {
@@ -153,6 +168,7 @@ public final class HostScreen extends EtmcBaseScreen {
         cfg.lanGameMode = MODES[modeIndex];
         cfg.lanCheats = cheats;
         cfg.lanAllowOffline = offline;
+        cfg.signHostAccount = sign;
         hostButton.active = false;
         setMessage(Msg.tr("etmc.host.starting", "Starting…"), COLOR_BUSY);
         String mode = MODES[modeIndex].isEmpty() ? null : MODES[modeIndex];
@@ -215,6 +231,14 @@ public final class HostScreen extends EtmcBaseScreen {
     /*private net.minecraft.network.chat.Component offlineLabel() {*/
     //?}
         return Txt.tr("etmc.host.offline", "Offline accounts: %s", Txt.i18n(offline ? "options.on" : "options.off"));
+    }
+
+    //? if yarn {
+    private net.minecraft.text.Text signLabel() {
+    //?} else {
+    /*private net.minecraft.network.chat.Component signLabel() {*/
+    //?}
+        return Txt.tr("etmc.host.sign", "Sign as me: %s", Txt.i18n(sign ? "options.on" : "options.off"));
     }
 
     private static int indexOf(String mode) {

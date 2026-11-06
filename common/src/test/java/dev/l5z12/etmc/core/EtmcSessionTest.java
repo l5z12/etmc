@@ -63,6 +63,32 @@ class EtmcSessionTest {
     }
 
     @Test
+    void aHostWhoOptedInIsNamedInTheLink() {
+        session.setPlayerName("Steve");
+        session.setHostKey(HostKey.generate());
+        session.setAccountProof(() -> null);
+        host();
+        assertEquals("Steve invites you to join their world", session.currentCode().invite());
+    }
+
+    @Test
+    void aHostWhoDidNotOptInIsNotNamed() {
+        session.setPlayerName("Steve");
+        session.setHostKey(HostKey.generate());
+        host();
+        assertNull(session.currentCode().hostName);
+        assertNull(session.currentCode().invite());
+    }
+
+    @Test
+    void aDedicatedServerInvitesNobody() {
+        session.setHostKey(HostKey.generate());
+        host();
+        assertNull(session.currentCode().hostName);
+        assertNull(session.currentCode().invite());
+    }
+
+    @Test
     void thePlayerNameShapesTheDeviceNameAndIsSanitized() {
         session.setPlayerName("Steve/../Alex 42");
         host();

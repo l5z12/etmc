@@ -3,6 +3,7 @@ package dev.l5z12.etmc.paper;
 import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
+import dev.l5z12.etmc.core.HostKey;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Secrets;
 import dev.l5z12.etmc.ffi.EasyTier;
@@ -121,6 +122,7 @@ public final class EtmcPlugin extends JavaPlugin {
             EasyTier et = EasyTier.load(nat.path());
             getLogger().info("EasyTier backend: " + (Panama.isAvailable() ? "FFM" : "JNA"));
             EtmcSession fresh = new EtmcSession(et);
+            fresh.setHostKey(HostKey.loadOrCreate(cacheRoot.resolve("host-key")));
 
             joinCode = fresh.host(serverPort, network, secret, relays, virtualPort);
             // Published only once it is actually hosting, so `ready` never leads a half-built session.

@@ -32,6 +32,8 @@ public final class JoinProxy {
     private final AtomicLong connectionSeq = new AtomicLong();
     private volatile ServerSocket server;
     private volatile Thread acceptThread;
+    /** Why the last connection was refused, when the far end failed to prove it's the host. */
+    private volatile String failure;
 
     /**
      * @param desiredPort preferred loopback port (0 = ephemeral). A stable port lets mods like
@@ -88,6 +90,8 @@ public final class JoinProxy {
             sock.setTcpNoDelay(true);
             conn = et.tcpConnect(instName, hostIp, hostPort, CONNECT_TIMEOUT_MS);
         } catch (Throwable e) {
+            // Minecraft only sees a socket closing here, so this is the one chance to say why.
+            if (e instanceof HostTunnel.WrongHost) failure = e.getMessage();
             Io.closeQuietly(sock);
             return;
         }
@@ -103,6 +107,11 @@ public final class JoinProxy {
 
     public int activeConnections() {
         return bridges.size();
+    }
+
+    /** Why the host was refused, or {@code null} if it hasn't been. */
+    public String failure() {
+        return failure;
     }
 
     public void stop() {

@@ -5,6 +5,7 @@ import dev.l5z12.etmc.client.screen.EtmcNoticeScreen;
 import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcConnect;
 import dev.l5z12.etmc.core.EtmcSession;
+import dev.l5z12.etmc.core.HostKey;
 import dev.l5z12.etmc.core.ImportedConfig;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Msg;
@@ -25,6 +26,8 @@ import net.minecraft.client.gui.screen.Screen;
 /*import net.minecraft.client.gui.screens.Screen;*/
 //?}
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
@@ -81,6 +84,8 @@ public final class EtmcManager {
     @Getter private volatile ModConfig config;
     @Getter private volatile EtmcSession session;
     private volatile boolean nativeReady;
+    /** {@code config/etmc}: the natives cache, and the host key. */
+    private volatile Path dataDir;
     /** Why the native library failed to load, for the UI and {@code /etmc status}. */
     @Getter private volatile String nativeError;
 
@@ -101,6 +106,8 @@ public final class EtmcManager {
     private boolean proxyJoinPlayed;
     /** The host-failure chat notice has been posted for this session. */
     private boolean hostFailureNotified;
+    /** The player has been told this proxy join refused the far end as the host. */
+    private boolean joinFailureNotified;
     /** Stale "etmc: ..." server-list entries from an earlier run have been swept. */
     private boolean serverListSwept;
 
@@ -151,6 +158,7 @@ public final class EtmcManager {
             //?} else {
             /*Path cacheRoot = McScreens.mc().gameDirectory.toPath().resolve("config").resolve("etmc");*/
             //?}
+            this.dataDir = cacheRoot;
             NativeLoader.Native nat = NativeLoader.extract(cacheRoot);
             // FFM where the runtime has it (Java 21+), JNA on the Java 17 versions — EasyTier.load
             // picks the backend, so this must NOT pre-check for java.lang.foreign.
@@ -229,11 +237,38 @@ public final class EtmcManager {
         config.lastLabel = label;
         config.save();
         return McNet.ensureOpenToLan(gameMode, cheats, allowOffline)
-                .thenApplyAsync(lanPort -> session.host(lanPort, networkName, secret, relays, vport, label), worker)
+                .thenApplyAsync(lanPort -> {
+                    session.setHostKey(loadHostKey());
+                    session.setAccountProof(accountProof());
+                    return session.host(lanPort, networkName, secret, relays, vport, label);
+                }, worker)
                 .whenComplete((code, err) -> McScreens.mc().execute(() -> {
                     hostWorldSeen = err == null;
                     hostFailureNotified = false;
                 }));
+    }
+
+    /**
+     * What proves this player's account while hosting, or {@code null} if they haven't opted in. If
+     * they have and it can't be done, hosting stops here: the link would name them, and every joiner
+     * would then be refused for want of a proof.
+     */
+    private java.util.function.Supplier<dev.l5z12.etmc.core.PlayerCert> accountProof() {
+        if (!config.signHostAccount) return null;
+        if (McIdentity.currentCert() == null) {
+            throw new IllegalStateException(Msg.tr("etmc.host.sign_failed", "couldn't sign with your Minecraft "
+                    + "account. It needs a real account and a connection to Mojang. Turn off Sign as me to host anyway."));
+        }
+        return McIdentity::currentCert;
+    }
+
+    /** Blocking: the key file is created the first time this player hosts. */
+    private HostKey loadHostKey() {
+        try {
+            return HostKey.loadOrCreate(dataDir.resolve("host-key"));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     /**
@@ -252,6 +287,7 @@ public final class EtmcManager {
         return CompletableFuture.supplyAsync(() -> session.join(code), worker)
                 .thenApplyAsync(localPort -> {
                     proxyJoinPlayed = false;
+                    joinFailureNotified = false;
                     McNet.presentJoin(code.displayLabel(), localPort);
                     return localPort;
                 }, McScreens.mc());
@@ -307,6 +343,7 @@ public final class EtmcManager {
             return session.joinWithConfig(cfg);
         }, worker).thenApplyAsync(localPort -> {
             proxyJoinPlayed = false;
+            joinFailureNotified = false;
             JoinCode cc = session.currentCode();
             McNet.presentJoin(cc == null ? "etmc server" : cc.displayLabel(), localPort);
             return localPort;
@@ -360,7 +397,7 @@ public final class EtmcManager {
         this.linkAttempt = a;
         LOGGER.info("[etmc] etmc:// join: starting link instance for host {}:{} (network '{}')",
                 code.hostIp, code.hostPort, code.networkName);
-        McScreens.goTo(new EtmcConnectingScreen(parent, a.label,
+        McScreens.goTo(new EtmcConnectingScreen(parent, a.label, code.invite(),
                 () -> linkProceed(a), () -> linkCancel(a), () -> a.progress));
         CompletableFuture.supplyAsync(() -> session.startLinkInstance(code), worker)
                 .whenComplete((inst, err) -> McScreens.mc().execute(() -> {
@@ -537,6 +574,12 @@ public final class EtmcManager {
                     StatusPing.Outcome outcome = err == null ? ping.outcome() : StatusPing.Outcome.UNREACHABLE;
                     LOGGER.info("[etmc] host world check: {}{}", outcome,
                             outcome == StatusPing.Outcome.ANSWERED ? " (protocol " + ping.protocol() + ")" : "");
+                    if (outcome == StatusPing.Outcome.WRONG_HOST) {
+                        leaveAsync();
+                        showError(a.parent, Msg.tr("etmc.join.wrong_host.title", "This might not be the real host"),
+                                ping.reason());
+                        return;
+                    }
                     if (outcome == StatusPing.Outcome.SILENT) {
                         leaveAsync();
                         showError(a.parent, Msg.tr("etmc.join.no_world.title", "The host's world isn't open"),
@@ -606,6 +649,7 @@ public final class EtmcManager {
                         hostWorldSeen = false;
                         proxyJoinPlayed = false;
                         hostFailureNotified = false;
+                        joinFailureNotified = false;
                         McNet.requireAccounts();
                         // The proxy's server-list entry points at a port that just closed.
                         if (hadProxy) McNet.removeJoinEntries();
@@ -639,6 +683,7 @@ public final class EtmcManager {
         driveLinkAttempt(now);
         endWithTheWorld();
         reportHostFailure();
+        reportJoinFailure();
     }
 
     /**
@@ -677,6 +722,23 @@ public final class EtmcManager {
         LOGGER.warn("[etmc] host stopped accepting joiners: {}", failure);
         McScreens.chat(Msg.tr("etmc.host.failed", "Joiners can't connect any more (%s). Stop and start hosting "
                 + "again from the etmc menu.", failure));
+    }
+
+    /**
+     * Tells the player, once, that a proxy join refused the far end as the host. Minecraft only sees
+     * the loopback socket close, which it reports as a lost connection with no reason.
+     */
+    private void reportJoinFailure() {
+        if (joinFailureNotified) return;
+        String failure = session.joinFailure();
+        if (failure == null) return;
+        joinFailureNotified = true;
+        LOGGER.warn("[etmc] refused the host: {}", failure);
+        if (McScreens.inWorld()) {
+            McScreens.chat(failure);
+        } else {
+            showError(McScreens.current(), Msg.tr("etmc.join.wrong_host.title", "This might not be the real host"), failure);
+        }
     }
 
     /**

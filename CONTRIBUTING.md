@@ -31,6 +31,18 @@ cd site && bun test       # site tests
 The `etmc://` link and TOML output exist twice: in `JoinCode` and `Toml`, and in `site/src/lib/genConfig.ts`.
 Change both together, and keep the vectors in `WireFormatTest` and `genConfig.test.ts` in sync.
 
+## Host identity
+
+The network secret can't identify the host: every joiner holds it, and EasyTier lets any member claim any virtual
+IP, with the shorter route winning. Credential peers don't change that, and route advertisements are self-declared.
+So a link carries the host's public key, and `HostTunnel` runs `Noise_NK_25519_ChaChaPoly_SHA256` over each mesh
+stream. A link with a key never falls back to a plain stream. `NoiseNkTest` holds the published test vectors.
+
+A host can opt in to proving its Minecraft account too. `HostAccount` signs the handshake hash with the player
+certificate's key, in the host's first frame. A certificate binds a UUID and expires, so the proof can't go in a link:
+the joiner checks it per connection, then asks Mojang for the name. A name in a link is a promise to prove it, so one
+that isn't proven stops the join, unless Mojang can't be reached.
+
 ## Natives
 
 Rebuild natives with the `natives.yml` workflow. `easytier-update.yml` also proposes updates weekly.

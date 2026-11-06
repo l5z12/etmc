@@ -242,6 +242,11 @@ final class FakeEasyTier implements EasyTier {
             return written.toByteArray();
         }
 
+        /** Everything the far end of this stream has written. */
+        byte[] peerWritten() {
+            return peer.written();
+        }
+
         synchronized boolean isClosed() {
             return closed;
         }

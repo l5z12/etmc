@@ -52,6 +52,8 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage("  NOT accepting players: " + hostFailure + " (run /etmc reload)");
         }
         sender.sendMessage("  mesh address: " + EtmcConfig.HOST_VIRTUAL_IP + ":" + plugin.virtualPort());
+        JoinCode jc = plugin.joinCode();
+        if (jc != null) sender.sendMessage("  host key: " + jc.hostKey);
         sender.sendMessage("  virtual ip: " + (st.virtualIp() == null ? "(assigning)" : st.virtualIp())
                 + "   peers: " + st.peerCount() + " (P2P " + st.directPeerCount() + ")"
                 + "   connections: " + plugin.session().activeConnections());
@@ -109,6 +111,10 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         sb.append("server = ")
                 .append(Toml.quote(EtmcConfig.HOST_VIRTUAL_IP + ":" + plugin.virtualPort())).append('\n');
         sb.append("label = ").append(Toml.quote(plugin.network())).append('\n');
+        JoinCode jc = plugin.joinCode();
+        if (jc != null && jc.hostKey != null) {
+            sb.append("host_key = ").append(Toml.quote(jc.hostKey)).append('\n');
+        }
         return sb.toString();
     }
 

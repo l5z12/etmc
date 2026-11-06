@@ -42,6 +42,11 @@ public final class ModConfig {
     public boolean lanCheats = false;
     /** Whether joiners can skip Minecraft's account check while this world is hosted. */
     public boolean lanAllowOffline = false;
+    /**
+     * Whether hosting signs each joiner's connection with the player's Minecraft account, so the link
+     * can name them. Off unless they turn it on: it uses their chat key, and shows joiners their account.
+     */
+    public boolean signHostAccount = false;
 
     /** Whether the top-left status overlay is shown while a session is up. */
     public boolean hudEnabled = true;

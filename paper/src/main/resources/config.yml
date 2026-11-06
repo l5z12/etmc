@@ -18,6 +18,10 @@ relays: []
 # Virtual port the server is reachable at on the mesh.
 virtual-port: 25565
 
+# NOTE: plugins/etmc/host-key proves to players that they reached this server, and your
+# etmc:// link depends on it. Back it up and keep it private: anyone who has it can pose as
+# this server. If it leaks, delete it, run /etmc reload, and share the new link.
+
 # NOTE: all mesh players reach the server via the local loopback, so to the server
 # they appear to connect from 127.0.0.1. If you expect several players joining at
 # once, lower or disable connection throttling in server.properties
