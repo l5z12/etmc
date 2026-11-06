@@ -63,8 +63,9 @@ public final class McNet {
      * <p>If the world is already open to LAN (the player used vanilla's dialog), that is reused as is.
      * Otherwise it is opened with {@code gameMode} for joiners ({@code null} = the host's current mode)
      * and {@code cheats} — which, as in vanilla's dialog, applies to the host too.
+     * {@code allowOffline} applies either way, because the login check reads it for each joiner.
      */
-    public static CompletableFuture<Integer> ensureOpenToLan(String gameMode, boolean cheats) {
+    public static CompletableFuture<Integer> ensureOpenToLan(String gameMode, boolean cheats, boolean allowOffline) {
         CompletableFuture<Integer> cf = new CompletableFuture<>();
         //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
@@ -75,6 +76,7 @@ public final class McNet {
                     cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.no_world", "Open a singleplayer world first.")));
                     return;
                 }
+                allowOfflineAccounts(server, allowOffline);
                 int port = server.getServerPort();
                 if (port > 0) {
                     cf.complete(port);
@@ -103,6 +105,7 @@ public final class McNet {
                     cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.no_world", "Open a singleplayer world first.")));
                     return;
                 }
+                allowOfflineAccounts(server, allowOffline);
                 int port = server.getPort();
                 if (port > 0) {
                     cf.complete(port);
@@ -130,6 +133,7 @@ public final class McNet {
                     cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.no_world", "Open a singleplayer world first.")));
                     return;
                 }
+                allowOfflineAccounts(server, allowOffline);
                 int port = server.getPort();
                 if (port > 0) {
                     cf.complete(port);
@@ -151,6 +155,25 @@ public final class McNet {
         });*/
         //?}
         return cf;
+    }
+
+    /** Minecraft turns this check on for every LAN world, and only skips it for in-memory connections. */
+    private static void allowOfflineAccounts(IntegratedServer server, boolean allow) {
+        //? if yarn {
+        server.setOnlineMode(!allow);
+        //?} else {
+        /*server.setUsesAuthentication(!allow);*/
+        //?}
+    }
+
+    /** Puts account checks back when hosting stops, because the world stays open to LAN afterwards. */
+    public static void requireAccounts() {
+        //? if yarn {
+        IntegratedServer server = MinecraftClient.getInstance().getServer();
+        //?} else {
+        /*IntegratedServer server = Minecraft.getInstance().getSingleplayerServer();*/
+        //?}
+        if (server != null) allowOfflineAccounts(server, false);
     }
 
     /**

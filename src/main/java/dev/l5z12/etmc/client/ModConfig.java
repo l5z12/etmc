@@ -40,6 +40,8 @@ public final class ModConfig {
     public String lanGameMode = "";
     /** Whether cheats are allowed when etmc opens the world to LAN (applies to the host too). */
     public boolean lanCheats = false;
+    /** Whether joiners can skip Minecraft's account check while this world is hosted. */
+    public boolean lanAllowOffline = false;
 
     /** Whether the top-left status overlay is shown while a session is up. */
     public boolean hudEnabled = true;

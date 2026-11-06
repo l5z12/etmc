@@ -41,6 +41,7 @@ public final class HostScreen extends EtmcBaseScreen {
     private TextFieldWidget labelField;
     private ButtonWidget modeButton;
     private ButtonWidget cheatsButton;
+    private ButtonWidget offlineButton;
     private ButtonWidget hostButton;
     //?} else {
     /*private EditBox networkField;
@@ -48,11 +49,13 @@ public final class HostScreen extends EtmcBaseScreen {
     private EditBox labelField;
     private Button modeButton;
     private Button cheatsButton;
+    private Button offlineButton;
     private Button hostButton;*/
     //?}
 
     private int modeIndex;
     private boolean cheats;
+    private boolean offline;
 
     public HostScreen(Screen parent) {
         super(Txt.tr("etmc.menu.host", "Host this world"), parent);
@@ -90,6 +93,7 @@ public final class HostScreen extends EtmcBaseScreen {
 
         modeIndex = indexOf(cfg.lanGameMode);
         cheats = cfg.lanCheats;
+        offline = cfg.lanAllowOffline;
         modeButton = Ui.button(modeLabel(), b -> {
             modeIndex = (modeIndex + 1) % MODES.length;
             Ui.setMessage(modeButton, modeLabel());
@@ -100,19 +104,32 @@ public final class HostScreen extends EtmcBaseScreen {
             Ui.setMessage(cheatsButton, cheatsLabel());
         }).dimensions(x + W / 2 + 2, y, W / 2 - 2, 20).build();
         add(cheatsButton);
+        y += 22;
+
+        offlineButton = Ui.button(offlineLabel(), b -> {
+            offline = !offline;
+            Ui.setMessage(offlineButton, offlineLabel());
+            showNotice();
+        }).dimensions(x, y, W, 20).build();
+        add(offlineButton);
         y += 36;
 
         hostButton = Ui.button(Txt.tr("etmc.host.start", "Start hosting"), b -> startHosting())
-                .dimensions(x, y, W, 20).build();
-        String blocker = m.hostBlocker();
-        hostButton.active = blocker == null;
+                .dimensions(x, y, W / 2 - 2, 20).build();
+        hostButton.active = m.hostBlocker() == null;
         add(hostButton);
-        y += 24;
 
         add(Ui.button(Txt.translatable("gui.back"), b -> this.close())
-                .dimensions(x, y, W, 20).build());
+                .dimensions(x + W / 2 + 2, y, W / 2 - 2, 20).build());
 
-        if (blocker != null) setMessage(blocker, COLOR_WARN);
+        showNotice();
+    }
+
+    private void showNotice() {
+        String blocker = EtmcManager.get().hostBlocker();
+        String warning = offline ? Msg.tr("etmc.host.offline.warning",
+                "Anyone with your link can join under any name. Friends with real accounts start with a new inventory.") : "";
+        setMessage(blocker != null ? blocker : warning, COLOR_WARN);
     }
 
     private int top() {
@@ -135,10 +152,11 @@ public final class HostScreen extends EtmcBaseScreen {
         ModConfig cfg = m.config();
         cfg.lanGameMode = MODES[modeIndex];
         cfg.lanCheats = cheats;
+        cfg.lanAllowOffline = offline;
         hostButton.active = false;
         setMessage(Msg.tr("etmc.host.starting", "Starting…"), COLOR_BUSY);
         String mode = MODES[modeIndex].isEmpty() ? null : MODES[modeIndex];
-        m.hostAsync(network, secret, Ui.getText(labelField).trim(), mode, cheats).whenComplete((code, err) ->
+        m.hostAsync(network, secret, Ui.getText(labelField).trim(), mode, cheats, offline).whenComplete((code, err) ->
                 mc().execute(() -> {
                     if (err != null) {
                         setMessage(Msg.tr("etmc.host.failed_start", "Couldn't start hosting: %s", Errors.message(err)),
@@ -160,8 +178,8 @@ public final class HostScreen extends EtmcBaseScreen {
         Gfx.text(ctx, font(), Txt.tr("etmc.host.secret.hint", "Secret: plain text, keep it random, never a real password"),
                 x, y + 32, COLOR_WARN);
         Gfx.text(ctx, font(), Txt.tr("etmc.host.label.hint", "World label (what joiners see)"), x, y + 64, COLOR_MUTED);
-        Gfx.centered(ctx, font(), Txt.tr("etmc.host.lan_kept", "Already opened to LAN? Those settings are kept."),
-                cx, y + 120, 0xFF777777);
+        Gfx.centered(ctx, font(), Txt.tr("etmc.host.lan_kept", "Already opened to LAN? Game mode and cheats are kept."),
+                cx, y + 144, 0xFF777777);
         if (!message.isEmpty()) {
             int my = this.height - 30;
             for (String l : Wrap.lines(font(), message, Math.min(320, this.width - 20))) {
@@ -189,6 +207,14 @@ public final class HostScreen extends EtmcBaseScreen {
     /*private net.minecraft.network.chat.Component cheatsLabel() {*/
     //?}
         return Txt.tr("etmc.host.cheats", "Cheats (everyone): %s", Txt.i18n(cheats ? "options.on" : "options.off"));
+    }
+
+    //? if yarn {
+    private net.minecraft.text.Text offlineLabel() {
+    //?} else {
+    /*private net.minecraft.network.chat.Component offlineLabel() {*/
+    //?}
+        return Txt.tr("etmc.host.offline", "Offline accounts: %s", Txt.i18n(offline ? "options.on" : "options.off"));
     }
 
     private static int indexOf(String mode) {

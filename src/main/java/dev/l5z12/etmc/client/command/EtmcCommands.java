@@ -111,7 +111,7 @@ public final class EtmcCommands {
                 ? Msg.tr("etmc.host.default_label", "%s's world", m.playerName()) : cfg.lastLabel;
         String mode = cfg.lanGameMode == null || cfg.lanGameMode.isBlank() ? null : cfg.lanGameMode;
         src.feedback(Msg.tr("etmc.cmd.host.starting", "Hosting on network '%s'…", network));
-        m.hostAsync(network, sec, label, mode, cfg.lanCheats).whenComplete((code, err) -> {
+        m.hostAsync(network, sec, label, mode, cfg.lanCheats, cfg.lanAllowOffline).whenComplete((code, err) -> {
             if (err != null) {
                 reply(Msg.tr("etmc.host.failed_start", "Couldn't start hosting: %s", Errors.message(err)));
                 return;
