@@ -75,7 +75,7 @@
   "etmc.host.network.hint": "网络名称（只属于你的名字）",
   "etmc.host.new": "换一个",
   "etmc.host.secret": "密钥",
-  "etmc.host.secret.hint": "密钥（包含在邀请链接中：只分享给好友）",
+  "etmc.host.secret.hint": "密钥：明文保存，请保持随机，切勿使用真实密码",
   "etmc.host.start": "开始开放",
   "etmc.host.starting": "正在启动……",
   "etmc.hud.connections": "连接数：%s",

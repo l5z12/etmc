@@ -3,6 +3,8 @@
 # hosted config file (/etmc config).
 
 # EasyTier network identity. Players must use the same name + secret.
+# WARNING: the secret is plain text here, and anyone with your etmc:// link can read it.
+# Replace it with a random value. Never use a password you use anywhere else.
 network: "my-server"
 secret: "change-me"
 

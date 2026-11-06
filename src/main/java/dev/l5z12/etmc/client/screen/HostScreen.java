@@ -157,8 +157,8 @@ public final class HostScreen extends EtmcBaseScreen {
         int y = top();
         Gfx.centered(ctx, font(), this.title, cx, Math.max(8, y - 22), COLOR_TEXT);
         Gfx.text(ctx, font(), Txt.tr("etmc.host.network.hint", "Network name (unique to you)"), x, y, COLOR_MUTED);
-        Gfx.text(ctx, font(), Txt.tr("etmc.host.secret.hint", "Secret (in your invite link: share it only with friends)"),
-                x, y + 32, COLOR_MUTED);
+        Gfx.text(ctx, font(), Txt.tr("etmc.host.secret.hint", "Secret: plain text, keep it random, never a real password"),
+                x, y + 32, COLOR_WARN);
         Gfx.text(ctx, font(), Txt.tr("etmc.host.label.hint", "World label (what joiners see)"), x, y + 64, COLOR_MUTED);
         Gfx.centered(ctx, font(), Txt.tr("etmc.host.lan_kept", "Already opened to LAN? Those settings are kept."),
                 cx, y + 120, 0xFF777777);

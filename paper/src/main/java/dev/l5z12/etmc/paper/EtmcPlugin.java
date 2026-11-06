@@ -79,6 +79,10 @@ public final class EtmcPlugin extends JavaPlugin {
             reloadConfig();
             network = getConfig().getString("network", "etmc-server");
             String secret = getConfig().getString("secret", "");
+            if (secret.isBlank() || "change-me".equals(secret)) {
+                getLogger().warning("Anyone can join: set a random 'secret' in plugins/etmc/config.yml."
+                        + " It's stored as plain text, so never use a password you use anywhere else.");
+            }
             // Frozen: this list is published to the command thread via relays().
             relays = List.copyOf(getConfig().getStringList("relays"));
             virtualPort = getConfig().getInt("virtual-port", EtmcConfig.DEFAULT_VIRTUAL_PORT);
