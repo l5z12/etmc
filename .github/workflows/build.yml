@@ -426,3 +426,19 @@ jobs:
           name: etmc-paper-jars
           path: paper/build/libs/*.jar
           if-no-files-found: error
+
+  # The single required check for the loader shards: the PROTECT ruleset requires "assemble jars",
+  # and the matrix jobs only report "assemble jars (<shard>)". Shards can come and go without the
+  # ruleset changing. `always()` so a failed or cancelled shard reports a failure, not "skipped".
+  assemble-result:
+    name: assemble jars
+    needs: assemble
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: All shards passed?
+        env:
+          RESULT: ${{ needs.assemble.result }}
+        run: |
+          echo "assemble jars (all shards): $RESULT"
+          [ "$RESULT" = "success" ]
