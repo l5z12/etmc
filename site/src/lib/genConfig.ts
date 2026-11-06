@@ -21,6 +21,8 @@ export interface GenInput {
   hostKey?: string;
   /** The hosting player's name. No form field: it only passes through when a link is loaded. */
   hostName?: string;
+  /** The link's relay is the host itself. No form field either, for the same reason. */
+  direct?: boolean;
 }
 
 /**
@@ -235,7 +237,7 @@ export function validateJoinLink(i: GenInput): string[] {
 
 /** The link's base64url payload. */
 function joinPayload(i: GenInput): string {
-  // Key order mirrors JoinCode's field declaration order (networkName … hostName). The optional ones
+  // Key order mirrors JoinCode's field declaration order (networkName … direct). The optional ones
   // are left out when blank, as Gson leaves out a null, so a link without them keeps its exact bytes.
   const hostKey = i.hostKey?.trim();
   const hostName = i.hostName?.trim();
@@ -248,6 +250,7 @@ function joinPayload(i: GenInput): string {
     label: i.label.trim(),
     ...(hostKey ? { hostKey } : {}),
     ...(hostName ? { hostName } : {}),
+    ...(i.direct ? { direct: true } : {}),
   };
   return b64urlUtf8(JSON.stringify(jc));
 }
@@ -257,7 +260,7 @@ export function buildJoinLink(i: GenInput): string {
   return LINK_PREFIX + joinPayload(i);
 }
 
-export type JoinLinkFields = Pick<GenInput, 'network' | 'secret' | 'relays' | 'serverIp' | 'serverPort' | 'label' | 'hostKey' | 'hostName'>;
+export type JoinLinkFields = Pick<GenInput, 'network' | 'secret' | 'relays' | 'serverIp' | 'serverPort' | 'label' | 'hostKey' | 'hostName' | 'direct'>;
 
 /**
  * Reads an `etmc://` link back into form fields. Mirrors `JoinCode.decode`: it tolerates surrounding
@@ -319,6 +322,7 @@ export function decodeJoinLink(text: string): JoinLinkFields {
     label: text_(f.label),
     ...(hostKey ? { hostKey } : {}),
     ...(text_(f.hostName) ? { hostName: text_(f.hostName) } : {}),
+    ...(f.direct === true ? { direct: true } : {}),
   };
 }
 

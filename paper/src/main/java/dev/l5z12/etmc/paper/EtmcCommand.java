@@ -96,25 +96,30 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
 
     /** EasyTier config + [etmc] server, mirroring the site generator output. */
     private String buildConfigFile() {
+        JoinCode jc = plugin.joinCode();
+        List<String> relays = jc != null ? jc.relays : plugin.relays();
+        boolean direct = jc != null && jc.isDirect();
         StringBuilder sb = new StringBuilder();
         sb.append("dhcp = true\n");
         sb.append("listeners = []\n\n");
         sb.append("[network_identity]\n");
         sb.append("network_name = ").append(Toml.quote(plugin.network())).append('\n');
         sb.append("network_secret = ").append(Toml.quote(secretOf())).append("\n\n");
-        for (String r : plugin.relays()) {
+        for (String r : relays) {
             if (r == null || r.isBlank()) continue;
             sb.append("[[peer]]\nuri = ").append(Toml.quote(r.trim())).append('\n');
         }
-        sb.append("\n[flags]\nno_tun = true\n\n");
+        sb.append("\n[flags]\nno_tun = true\n");
+        if (direct) sb.append("disable_p2p = true\n");
+        sb.append('\n');
         sb.append("[etmc]\n");
         sb.append("server = ")
                 .append(Toml.quote(EtmcConfig.HOST_VIRTUAL_IP + ":" + plugin.virtualPort())).append('\n');
         sb.append("label = ").append(Toml.quote(plugin.network())).append('\n');
-        JoinCode jc = plugin.joinCode();
         if (jc != null && jc.hostKey != null) {
             sb.append("host_key = ").append(Toml.quote(jc.hostKey)).append('\n');
         }
+        if (direct) sb.append("direct = true\n");
         return sb.toString();
     }
 

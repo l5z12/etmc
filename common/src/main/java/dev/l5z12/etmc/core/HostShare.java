@@ -52,6 +52,7 @@ public final class HostShare {
     private final Set<TcpBridge> bridges = ConcurrentHashMap.newKeySet();
     private final AtomicLong totalConnections = new AtomicLong();
     private final AtomicLong connectionSeq = new AtomicLong();
+    private final ConnectionLimiter limiter = new ConnectionLimiter();
     private volatile long listenerHandle = 0;
     private volatile Thread acceptThread;
     /** Why the host stopped accepting joiners while still running; {@code null} while healthy. */
@@ -120,12 +121,18 @@ public final class HostShare {
                 continue;
             }
             if (acc == null) continue; // nobody connected within the timeout
+            if (!limiter.admit(acc.peerIp())) {
+                Io.closeStream(et, acc.handle());
+                continue;
+            }
             // Off this thread: a peer that connects and then says nothing mustn't hold up everyone else.
             Threads.start("etmc-host-peer-" + connectionSeq.incrementAndGet(), () -> {
                 try {
                     handlePeer(acc);
                 } catch (Throwable ignored) {
                     Io.closeStream(et, acc.handle());
+                } finally {
+                    limiter.started();
                 }
             });
         }

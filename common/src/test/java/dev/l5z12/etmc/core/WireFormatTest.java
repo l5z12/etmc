@@ -46,6 +46,13 @@ class WireFormatTest {
                     + "NjUsImxhYmVsIjoiTXkgU2VydmVyIiwiaG9zdEtleSI6Ik1lQXdQOVpCalMtTURuaTVIeUxveXUwUHZraGxi"
                     + "YzlIWi1TRFQzQWJqMkkiLCJob3N0TmFtZSI6IlN0ZXZlIn0";
 
+    /** {@link #PAYLOAD_WITH_KEY} from a server that is its own relay. */
+    private static final String PAYLOAD_DIRECT =
+            "eyJuZXR3b3JrTmFtZSI6Im15LXNtcCIsIm5ldHdvcmtTZWNyZXQiOiJzM2NyZXQiLCJyZWxheXMiOlsidGNw"
+                    + "Oi8vcmVsYXkuZXhhbXBsZToxMTAxMCJdLCJob3N0SXAiOiIxMC4xMjYuMTI2LjEiLCJob3N0UG9ydCI6MjU1"
+                    + "NjUsImxhYmVsIjoiTXkgU2VydmVyIiwiaG9zdEtleSI6Ik1lQXdQOVpCalMtTURuaTVIeUxveXUwUHZraGxi"
+                    + "YzlIWi1TRFQzQWJqMkkiLCJkaXJlY3QiOnRydWV9";
+
     /** Awkward on purpose: every character class {@code Toml.quote} has to escape, in one string. */
     private static final String AWKWARD = "a\"b\\c\nd\te\u0001f";
     private static final String AWKWARD_QUOTED = "\"a\\\"b\\\\c\\nd\\te\\u0001f\"";
@@ -89,6 +96,16 @@ class WireFormatTest {
 
         assertEquals("etmc://v1/" + PAYLOAD_WITH_NAME, code.encodeLink());
         assertEquals("Steve", JoinCode.decode("etmc://v1/" + PAYLOAD_WITH_NAME).hostName);
+    }
+
+    @Test
+    void linkFormFromADirectServerIsFrozen() {
+        JoinCode code = vector();
+        code.hostKey = HOST_KEY;
+        code.direct = Boolean.TRUE;
+
+        assertEquals("etmc://v1/" + PAYLOAD_DIRECT, code.encodeLink());
+        assertEquals(Boolean.TRUE, JoinCode.decode("etmc://v1/" + PAYLOAD_DIRECT).direct);
     }
 
     @Test

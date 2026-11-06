@@ -59,6 +59,8 @@ public final class EtmcSession {
     private volatile HostKey hostKey = null;
     /** The account hosting proves itself with, if the player opted in; {@code null} signs nothing. */
     private volatile Supplier<PlayerCert> accountProof = null;
+    /** Where players can reach this host directly; {@code null} when it goes through relays. */
+    private volatile String publicAddress = null;
     /** Where a join checks a host's account. Only contacted for a link that names its host. */
     private volatile AccountDirectory directory = new MojangDirectory();
 
@@ -98,6 +100,16 @@ public final class EtmcSession {
         this.accountProof = cert;
     }
 
+    /**
+     * Makes subsequent hosting the relay itself, for a server players can reach. Its link leads only
+     * here, so a joiner's one neighbour is this host and nobody else can win its address from them.
+     *
+     * @param uri what players dial, such as {@code tcp://play.example.com:11010}; {@code null} for off
+     */
+    public void setPublicAddress(String uri) {
+        this.publicAddress = uri;
+    }
+
     void setDirectory(AccountDirectory directory) {
         this.directory = directory;
     }
@@ -126,7 +138,9 @@ public final class EtmcSession {
             this.lanPort = lanPort;
             this.virtualPort = virtualPort > 0 ? virtualPort : EtmcConfig.DEFAULT_VIRTUAL_PORT;
 
-            String toml = EtmcConfig.hostToml(instName, hostname, networkName, secret, relays);
+            String address = publicAddress;
+            String toml = EtmcConfig.hostToml(instName, hostname, networkName, secret, relays,
+                    address == null ? null : EtmcConfig.listenerFor(address));
             et.runNetworkInstance(toml);
 
             HostKey key = hostKey;
@@ -135,10 +149,11 @@ public final class EtmcSession {
             share.start();
             this.hostShare = share;
 
-            this.currentCode = new JoinCode(networkName, secret, relays,
+            this.currentCode = new JoinCode(networkName, secret, address == null ? relays : List.of(address),
                     EtmcConfig.HOST_VIRTUAL_IP, this.virtualPort,
                     label == null || label.isBlank() ? networkName : label.trim());
             if (key != null) currentCode.hostKey = key.publicText();
+            if (address != null) currentCode.direct = Boolean.TRUE;
             if (proof != null) currentCode.hostName = playerName; // a name is a promise to prove it
             this.mode = Mode.HOST;
             this.state = State.HOSTING;
@@ -159,7 +174,8 @@ public final class EtmcSession {
      */
     public synchronized int join(JoinCode code) {
         String inst = newInstanceName("join");
-        String toml = EtmcConfig.joinToml(inst, joinerHostname(), code.networkName, code.networkSecret, code.relays);
+        String toml = EtmcConfig.joinToml(inst, joinerHostname(), code.networkName, code.networkSecret, code.relays,
+                code.isDirect());
         return startJoin(toml, inst, code.hostIp, code.hostPort, code);
     }
 
@@ -175,7 +191,8 @@ public final class EtmcSession {
         try {
             String inst = newInstanceName("join");
             this.hostname = joinerHostname();
-            String toml = EtmcConfig.joinToml(inst, hostname, code.networkName, code.networkSecret, code.relays);
+            String toml = EtmcConfig.joinToml(inst, hostname, code.networkName, code.networkSecret, code.relays,
+                    code.isDirect());
             EasyTier transport = transportFor(code);
             et.runNetworkInstance(toml);
             this.instName = inst;
@@ -307,6 +324,11 @@ public final class EtmcSession {
     /** The host's name once Mojang has confirmed it for this join, or {@code null}. */
     public String confirmedHost() {
         return joinTransport instanceof HostTunnel tunnel ? tunnel.confirmedName() : null;
+    }
+
+    /** The player chose to join without Mojang confirming the name in the link. */
+    public void acceptUnconfirmedHost() {
+        if (joinTransport instanceof HostTunnel tunnel) tunnel.acceptUnconfirmed();
     }
 
     /** Why this join refused the far end as the host, or {@code null} if it hasn't. */

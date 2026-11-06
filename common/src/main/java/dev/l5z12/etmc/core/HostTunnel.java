@@ -60,6 +60,8 @@ final class HostTunnel implements EasyTier {
     private final Map<Long, Secured> streams = new ConcurrentHashMap<>();
     /** The host's name as Mojang gave it, once proven. */
     private volatile String confirmedName;
+    /** The player chose to go on without Mojang's word on the name. */
+    private volatile boolean unconfirmedAccepted;
 
     private HostTunnel(EasyTier et, byte[] hostPublic, HostKey hostKey, String expectedName,
                        AccountDirectory directory, Supplier<PlayerCert> cert) {
@@ -100,6 +102,11 @@ final class HostTunnel implements EasyTier {
     /** The host's name once Mojang has confirmed it, or {@code null}. */
     String confirmedName() {
         return confirmedName;
+    }
+
+    /** From now on, connect even though Mojang couldn't be asked. Only the player may decide this. */
+    void acceptUnconfirmed() {
+        unconfirmedAccepted = true;
     }
 
     static String badKey() {
@@ -152,10 +159,12 @@ final class HostTunnel implements EasyTier {
     /**
      * Holds the host to the name in the link. A proof that fails, or none at all, stops the join: a
      * host only puts a name in a link if it has opted in to proving it, so this is a forged name. If
-     * Mojang can't be reached there's no telling, so the join goes on with the name unconfirmed.
+     * Mojang can't be reached there's no telling, and a forger would love that to mean yes, so it
+     * refuses too, until the player has been asked. {@link Unconfirmed} is what asks them.
      */
     private void checkAccount(byte[] claim, byte[] handshakeHash) {
         if (claim.length == 0) throw new WrongHost(unproven());
+        if (unconfirmedAccepted) return;
         try {
             UUID account = HostAccount.verify(claim, handshakeHash, directory.certificateKeys(),
                     System.currentTimeMillis());
@@ -168,9 +177,11 @@ final class HostTunnel implements EasyTier {
             confirmedName = name;
         } catch (java.io.IOException e) {
             confirmedName = null;
+            throw new Unconfirmed(expectedName);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             confirmedName = null;
+            throw new Unconfirmed(expectedName);
         }
     }
 
@@ -362,7 +373,7 @@ final class HostTunnel implements EasyTier {
      * The far end couldn't prove it's the host this link names. Carries no cause on purpose:
      * {@link Errors#message} shows the innermost one, and "Tag mismatch!" tells a player nothing.
      */
-    static final class WrongHost extends EasyTierException {
+    static class WrongHost extends EasyTierException {
         WrongHost() {
             this(Msg.tr("etmc.tunnel.wrong_host", "couldn't confirm this is the real host, so etmc didn't "
                     + "connect. Someone may be posing as them, or they may have a new host key: ask them for a "
@@ -371,6 +382,14 @@ final class HostTunnel implements EasyTier {
 
         WrongHost(String why) {
             super(why);
+        }
+    }
+
+    /** The host may be who the link says, but Mojang couldn't be asked. The player gets to decide. */
+    static final class Unconfirmed extends WrongHost {
+        Unconfirmed(String name) {
+            super(Msg.tr("etmc.tunnel.unconfirmed", "This link says it's from %s, but etmc couldn't reach Mojang to "
+                    + "check. If you join anyway, it could be someone else using that name.", name));
         }
     }
 

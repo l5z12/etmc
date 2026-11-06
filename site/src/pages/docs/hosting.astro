@@ -65,4 +65,14 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     If someone takes your address on the network, your players will refuse to connect to them, but they may not be
     able to reach you either. Move to a new network name and secret, and share a new link.
   </p>
+
+  <h2>Stop anyone taking your server's address</h2>
+  <p>
+    If players can reach your Paper server, set <code>public-address</code> in <code>config.yml</code>, for example
+    <code>tcp://play.example.com:11010</code>, and open that port. Players then connect straight to your server, so
+    nobody on the network can take its address from them, and you don't need a relay. Share the new link afterwards.
+  </p>
+  <p>
+    If you share a config URL instead of a link, you can also move to a new network without players needing a new link.
+  </p>
 </DocsLayout>

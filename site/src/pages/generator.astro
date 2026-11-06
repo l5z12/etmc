@@ -189,10 +189,12 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         virtualPort: port,
         hostKey: hostKey.value,
         hostName: loadedHostName,
+        direct: loadedDirect,
       };
     }
 
     let loadedHostName: string | undefined; // kept from a loaded link, so saving it keeps its invite
+    let loadedDirect: boolean | undefined;  // likewise: the link's relay is the host itself
     let current = '';       // paper/player output (Copy + Download)
     let currentLink = '';   // link mode: the etmc:// link
     function render() {
@@ -249,6 +251,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         label.value = link.label;
         hostKey.value = link.hostKey ?? '';
         loadedHostName = link.hostName;
+        loadedDirect = link.direct;
         // Cleared so the secret isn't left in a second field that no longer matches the form.
         linkInput.value = '';
         loadMsg.textContent = `Loaded "${link.label || link.network}". You can edit it below.`;

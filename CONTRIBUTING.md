@@ -41,7 +41,12 @@ stream. A link with a key never falls back to a plain stream. `NoiseNkTest` hold
 A host can opt in to proving its Minecraft account too. `HostAccount` signs the handshake hash with the player
 certificate's key, in the host's first frame. A certificate binds a UUID and expires, so the proof can't go in a link:
 the joiner checks it per connection, then asks Mojang for the name. A name in a link is a promise to prove it, so one
-that isn't proven stops the join, unless Mojang can't be reached.
+that isn't proven stops the join. If Mojang can't be reached, the connection is still refused until the player chooses
+**Join anyway**.
+
+Keys stop an impostor being believed, not from taking the address, since the shorter route wins. A Paper server with a
+`public-address` is the only way to win that: the link's relay is the host and joiners set `disable_p2p`, so the host
+is one hop away and any other claimant is two. `DirectHostNativeTest` holds that against the real library.
 
 ## Natives
 

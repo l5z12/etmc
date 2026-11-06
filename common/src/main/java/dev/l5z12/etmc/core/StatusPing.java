@@ -42,12 +42,14 @@ public final class StatusPing {
         /** Something answered, but not with a server-list reply. */
         BAD_REPLY,
         /** Something is at the host's address, but it couldn't prove it's the host the link names. */
-        WRONG_HOST
+        WRONG_HOST,
+        /** The link names its host, and Mojang couldn't be asked whether that's true. */
+        UNCONFIRMED
     }
 
     /**
      * A ping's outcome, with the server's protocol number when it {@link Outcome#ANSWERED} (else -1),
-     * and what to tell the player about a {@link Outcome#WRONG_HOST}.
+     * and what to tell the player about a {@link Outcome#WRONG_HOST} or {@link Outcome#UNCONFIRMED}.
      */
     public record Result(Outcome outcome, int protocol, String reason) {
         public Result(Outcome outcome, int protocol) {
@@ -70,6 +72,8 @@ public final class StatusPing {
         long stream;
         try {
             stream = et.tcpConnect(inst, hostIp, hostPort, timeoutMs).handle();
+        } catch (HostTunnel.Unconfirmed e) {
+            return new Result(Outcome.UNCONFIRMED, -1, e.getMessage());
         } catch (HostTunnel.WrongHost e) {
             return new Result(Outcome.WRONG_HOST, -1, e.getMessage());
         } catch (HostTunnel.NoAnswer e) {

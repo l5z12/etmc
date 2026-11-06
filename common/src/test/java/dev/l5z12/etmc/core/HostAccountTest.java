@@ -205,15 +205,49 @@ class HostAccountTest {
     }
 
     @Test
-    void whenMojangIsDownTheJoinGoesOnUnconfirmed() throws Exception {
+    void whenMojangIsDownNothingConnectsUntilThePlayerSaysSo() throws Exception {
         PlayerCert cert = cert(STEVE, IN_A_DAY, MOJANG);
         host(() -> cert);
         directory.down = true;
         HostTunnel tunnel = dialing("Steve");
 
-        tunnel.tcpConnect(INST, EtmcConfig.HOST_VIRTUAL_IP, PORT, TIMEOUT_MS);
+        assertThrows(HostTunnel.Unconfirmed.class,
+                () -> tunnel.tcpConnect(INST, EtmcConfig.HOST_VIRTUAL_IP, PORT, TIMEOUT_MS));
 
-        assertNull(tunnel.confirmedName());
+        tunnel.acceptUnconfirmed();
+        tunnel.tcpConnect(INST, EtmcConfig.HOST_VIRTUAL_IP, PORT, TIMEOUT_MS);
+        assertNull(tunnel.confirmedName(), "joining anyway doesn't make the name confirmed");
+    }
+
+    @Test
+    void aForgerCannotBenefitFromMojangBeingDown() throws Exception {
+        PlayerCert forged = cert(STEVE, IN_A_DAY, FORGER);
+        host(() -> forged);
+        directory.down = true;
+
+        assertThrows(HostTunnel.Unconfirmed.class,
+                () -> dialing("Steve").tcpConnect(INST, EtmcConfig.HOST_VIRTUAL_IP, PORT, TIMEOUT_MS));
+    }
+
+    @Test
+    void joiningAnywayStillNeedsSomeClaim() {
+        host(null);
+        HostTunnel tunnel = dialing("Steve");
+        tunnel.acceptUnconfirmed();
+
+        assertRefused(tunnel, "couldn't prove");
+    }
+
+    @Test
+    void thePingAsksRatherThanGivingUpWhenMojangIsDown() throws Exception {
+        PlayerCert cert = cert(STEVE, IN_A_DAY, MOJANG);
+        host(() -> cert);
+        directory.down = true;
+
+        StatusPing.Result r = StatusPing.probe(dialing("Steve"), INST, EtmcConfig.HOST_VIRTUAL_IP, PORT, TIMEOUT_MS);
+
+        assertEquals(StatusPing.Outcome.UNCONFIRMED, r.outcome());
+        assertTrue(r.reason().contains("Steve"), r.reason());
     }
 
     // ------------------------------------------------------------------ opting in

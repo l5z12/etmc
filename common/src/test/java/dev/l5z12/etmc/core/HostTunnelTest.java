@@ -172,6 +172,17 @@ class HostTunnelTest {
         }
     }
 
+    @Test
+    void aFloodFromOnePeerIsCutOffWhileItsFirstConnectionsAreKept() throws Exception {
+        host(key);
+        int flood = ConnectionLimiter.BURST + 20;
+        List<FakeEasyTier.Stream> peers = new ArrayList<>();
+        for (int i = 0; i < flood; i++) peers.add(et.connectFromPeer(PORT)); // connect, say nothing
+
+        Await.until("the excess to be dropped", () -> peers.stream().filter(FakeEasyTier.Stream::isClosed).count() >= 20);
+        assertEquals(20, peers.stream().filter(FakeEasyTier.Stream::isClosed).count());
+    }
+
     // ------------------------------------------------------------------ the impostor
 
     @Test

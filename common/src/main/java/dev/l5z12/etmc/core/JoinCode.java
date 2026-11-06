@@ -54,6 +54,12 @@ public final class JoinCode {
      * {@link HostTunnel}). Read it through {@link #namedHost()}. Left out of the link when {@code null}.
      */
     public String hostName;
+    /**
+     * Set when the link's relay is the host itself, so a joiner should link to nobody else (see
+     * {@link EtmcConfig#joinToml(String, String, String, String, List, boolean)}). A {@code Boolean}
+     * so that it's left out of the link unless true.
+     */
+    public Boolean direct;
 
     public JoinCode() {}
 
@@ -188,6 +194,11 @@ public final class JoinCode {
         }
     }
 
+    /** Whether this link's relay is the host itself. */
+    public boolean isDirect() {
+        return Boolean.TRUE.equals(direct);
+    }
+
     public boolean isValidCandidate() {
         return networkName != null && !networkName.isBlank();
     }
@@ -277,6 +288,7 @@ public final class JoinCode {
                     if ("server".equals(key)) applyServer(jc, val);
                     else if ("label".equals(key)) jc.label = val == null ? "" : val;
                     else if ("host_key".equals(key)) jc.hostKey = val;
+                    else if ("direct".equals(key)) jc.direct = "true".equals(val) ? Boolean.TRUE : null;
                 }
                 default -> { /* any other table is irrelevant to an etmc link */ }
             }

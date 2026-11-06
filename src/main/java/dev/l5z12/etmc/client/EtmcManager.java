@@ -1,5 +1,6 @@
 package dev.l5z12.etmc.client;
 
+import dev.l5z12.etmc.client.screen.EtmcAskScreen;
 import dev.l5z12.etmc.client.screen.EtmcConnectingScreen;
 import dev.l5z12.etmc.client.screen.EtmcNoticeScreen;
 import dev.l5z12.etmc.core.Errors;
@@ -285,12 +286,53 @@ public final class EtmcManager {
         syncPlayerName();
         session.setPreferredLocalPort(config.joinLocalPort);
         return CompletableFuture.supplyAsync(() -> session.join(code), worker)
+                .thenCompose(this::checkNamedHost)
                 .thenApplyAsync(localPort -> {
                     proxyJoinPlayed = false;
                     joinFailureNotified = false;
                     McNet.presentJoin(code.displayLabel(), localPort);
                     return localPort;
                 }, McScreens.mc());
+    }
+
+    /**
+     * Checks a proxy join's named host before offering it to the player. The link flow does this in
+     * {@link #linkDoProceed}; a proxy join has no such step, and once Minecraft dials the proxy all it
+     * can show is a closed socket, so this is the only place to ask.
+     */
+    private CompletableFuture<Integer> checkNamedHost(int localPort) {
+        JoinCode code = session.currentCode();
+        if (code == null || code.namedHost() == null) return CompletableFuture.completedFuture(localPort);
+        EtmcSession s = session;
+        return CompletableFuture
+                .supplyAsync(() -> StatusPing.probe(s.easyTier(), s.instName(), code.hostIp, code.hostPort,
+                        WORLD_CHECK_TIMEOUT_MS), worker)
+                .thenCompose(ping -> {
+                    if (ping.outcome() == StatusPing.Outcome.WRONG_HOST) {
+                        leaveAsync();
+                        return CompletableFuture.failedFuture(new IllegalStateException(ping.reason()));
+                    }
+                    if (ping.outcome() != StatusPing.Outcome.UNCONFIRMED) {
+                        return CompletableFuture.completedFuture(localPort);
+                    }
+                    CompletableFuture<Integer> answer = new CompletableFuture<>();
+                    McScreens.mc().execute(() -> McScreens.goTo(new EtmcAskScreen(McScreens.current(),
+                            unconfirmedTitle(), ping.reason(),
+                            () -> {
+                                s.acceptUnconfirmedHost();
+                                answer.complete(localPort);
+                            },
+                            () -> {
+                                leaveAsync();
+                                answer.completeExceptionally(new IllegalStateException(
+                                        Msg.tr("etmc.join.declined", "you chose not to join")));
+                            })));
+                    return answer;
+                });
+    }
+
+    private static String unconfirmedTitle() {
+        return Msg.tr("etmc.ask.unconfirmed.title", "Couldn't confirm who's hosting");
     }
 
     /** Joins from an {@code etmc://v1/config/} link while in a world, as {@link #joinAsync} does. */
@@ -341,7 +383,7 @@ public final class EtmcManager {
             }
             ImportedConfig cfg = ImportedConfig.parse(body, "etmc-cfg-" + shortId(), overrideServer);
             return session.joinWithConfig(cfg);
-        }, worker).thenApplyAsync(localPort -> {
+        }, worker).thenCompose(this::checkNamedHost).thenApplyAsync(localPort -> {
             proxyJoinPlayed = false;
             joinFailureNotified = false;
             JoinCode cc = session.currentCode();
@@ -574,6 +616,13 @@ public final class EtmcManager {
                     StatusPing.Outcome outcome = err == null ? ping.outcome() : StatusPing.Outcome.UNREACHABLE;
                     LOGGER.info("[etmc] host world check: {}{}", outcome,
                             outcome == StatusPing.Outcome.ANSWERED ? " (protocol " + ping.protocol() + ")" : "");
+                    if (outcome == StatusPing.Outcome.UNCONFIRMED) {
+                        McScreens.goTo(new EtmcAskScreen(a.parent, unconfirmedTitle(), ping.reason(), () -> {
+                            s.acceptUnconfirmedHost();
+                            armAndConnect(target, a.parent, a.label, -1);
+                        }, this::leaveAsync));
+                        return;
+                    }
                     if (outcome == StatusPing.Outcome.WRONG_HOST) {
                         leaveAsync();
                         showError(a.parent, Msg.tr("etmc.join.wrong_host.title", "This might not be the real host"),

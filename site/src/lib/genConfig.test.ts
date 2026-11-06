@@ -57,6 +57,13 @@ const PAYLOAD_WITH_NAME =
   'NjUsImxhYmVsIjoiTXkgU2VydmVyIiwiaG9zdEtleSI6Ik1lQXdQOVpCalMtTURuaTVIeUxveXUwUHZraGxi' +
   'YzlIWi1TRFQzQWJqMkkiLCJob3N0TmFtZSI6IlN0ZXZlIn0';
 
+/** PAYLOAD_WITH_KEY from a server that is its own relay. Twin of WireFormatTest.PAYLOAD_DIRECT. */
+const PAYLOAD_DIRECT =
+  'eyJuZXR3b3JrTmFtZSI6Im15LXNtcCIsIm5ldHdvcmtTZWNyZXQiOiJzM2NyZXQiLCJyZWxheXMiOlsidGNw' +
+  'Oi8vcmVsYXkuZXhhbXBsZToxMTAxMCJdLCJob3N0SXAiOiIxMC4xMjYuMTI2LjEiLCJob3N0UG9ydCI6MjU1' +
+  'NjUsImxhYmVsIjoiTXkgU2VydmVyIiwiaG9zdEtleSI6Ik1lQXdQOVpCalMtTURuaTVIeUxveXUwUHZraGxi' +
+  'YzlIWi1TRFQzQWJqMkkiLCJkaXJlY3QiOnRydWV9';
+
 describe('join link', () => {
   test('link form is frozen', () => {
     expect(buildJoinLink(vector)).toBe('etmc://v1/' + PAYLOAD);
@@ -74,6 +81,13 @@ describe('join link', () => {
     const loaded = decodeJoinLink('etmc://v1/' + PAYLOAD_WITH_NAME);
     expect(loaded.hostName).toBe('Steve');
     expect(buildJoinLink({ ...vector, ...loaded })).toBe('etmc://v1/' + PAYLOAD_WITH_NAME);
+  });
+
+  test('link form from a direct server is frozen, and survives a load and save', () => {
+    expect(buildJoinLink({ ...vector, hostKey: HOST_KEY, direct: true })).toBe('etmc://v1/' + PAYLOAD_DIRECT);
+    const loaded = decodeJoinLink('etmc://v1/' + PAYLOAD_DIRECT);
+    expect(loaded.direct).toBe(true);
+    expect(buildJoinLink({ ...vector, ...loaded })).toBe('etmc://v1/' + PAYLOAD_DIRECT);
   });
 
   test('a blank host key leaves the link exactly as it was', () => {
