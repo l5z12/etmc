@@ -6,12 +6,15 @@ import { defineConfig } from 'astro/config';
 // wrangler.jsonc + worker/index.js). The config generator runs entirely in the
 // browser, so no server runtime is needed.
 export default defineConfig({
-  // Canonical host for OG tags / canonical links. Change to the real domain.
+  // Canonical host for OG tags and canonical links.
   site: 'https://etmc.l5z12.dev',
   trailingSlash: 'ignore',
+  redirects: {
+    '/docs': '/docs/getting-started',
+  },
   build: {
     // routes resolve as /docs/hosting.html etc.; Workers html_handling makes the
-    // URLs clean. Mirrors the reference deployment.
+    // URLs clean.
     format: 'file',
     inlineStylesheets: 'auto',
   },

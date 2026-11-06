@@ -1,41 +1,43 @@
 ---
 import DocsLayout from '../../layouts/DocsLayout.astro';
 
-const toml = `# EasyTier config the client joins with
-dhcp = true
+const toml = `dhcp = true
+
 [network_identity]
 network_name = "my-smp"
-network_secret = "shared-secret"
+network_secret = "use-a-random-secret"
+
 [[peer]]
 uri = "tcp://relay.example.com:11010"
 
-# where the Minecraft server lives on the mesh
-# (etmc extension; stripped before EasyTier sees it)
+# The Minecraft server's address on the network
 [etmc]
 server = "10.144.144.1:25565"
-label  = "My SMP"`;
+label = "My SMP"`;
 ---
 
-<DocsLayout title="Connect via config URL" description="Join an EasyTier-networked server from a hosted config file.">
+<DocsLayout title="Config URLs" description="Let players join from a config file you host.">
   <p>
-    Server admins can publish a single config file over HTTP(S) so players join with just its URL. In the menu choose <strong>Connect via config URL</strong>, or run
-    <code>/etmc connect &lt;url&gt;</code>.
+    Instead of sharing a link, a server admin can host a config file. It suits a server that's already on an
+    EasyTier network, because the server doesn't need to run etmc.
   </p>
 
-  <h2>The config file</h2>
-  <p>It's a normal EasyTier TOML (network, relay, addressing) plus an optional etmc block naming the
-    in-mesh Minecraft server:</p>
+  <h2>For players</h2>
+  <p>In the etmc menu, choose <strong>Connect via config URL</strong> and paste the URL, or run
+    <code>/etmc connect &lt;url&gt;</code>.</p>
+
+  <h2>For server admins</h2>
+  <ol>
+    <li>Create the file with the <a href="/generator">generator</a>, or write it by hand.</li>
+    <li>Host it at any HTTP or HTTPS URL.</li>
+    <li>Share the URL with your players.</li>
+  </ol>
+  <p>The file is a normal EasyTier config, plus an <code>[etmc]</code> section that names the server:</p>
   <pre><code>{toml}</code></pre>
-
-  <p>etmc fetches it, forces <code>no_tun</code>, joins the mesh, and tunnels to <code>server</code>.
-    If the file omits <code>[etmc] server</code>, fill the Server field (or pass <code>ip:port</code> to the
-    command). An <code>etmc://</code> link at the URL works too.</p>
-
-  <div class="note">
-    The target server does <strong>not</strong> need to run etmc — it only needs to be reachable on the
-    EasyTier network (for example a server box already running EasyTier).
-  </div>
-
-  <h2>Generate one</h2>
-  <p>Use the <a href="/generator">config generator</a> to build and download the file in your browser, then host it anywhere (a gist raw link, your site, R2…).</p>
+  <p>
+    If you leave out <code>server</code>, players enter the address themselves. The URL can also serve an
+    <code>etmc://</code> link instead of a config.
+  </p>
+  <div class="warn"><strong>Your secret isn't protected.</strong> It's plain text in this file, and anyone with the URL can read it and join. Keep it random, and never use a password you
+    use anywhere else.</div>
 </DocsLayout>

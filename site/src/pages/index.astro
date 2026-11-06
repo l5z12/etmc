@@ -1,82 +1,91 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import VoxelScene from '../components/VoxelScene.astro';
+import RouteDemo from '../components/RouteDemo.astro';
+import Block from '../components/Block.astro';
 
-const features = [
-  { ico: '🧩', title: 'No port-forwarding', body: 'EasyTier coordinates a P2P mesh through your relay and punches through NAT. Friends just need the link.' },
-  { ico: '🚫', title: 'No TUN, no admin', body: 'Runs fully in userspace via the EasyTier data plane — no virtual adapter, no driver, no elevation.' },
-  { ico: '🧱', title: 'Multi-platform', body: 'Native libraries for Windows and Linux (x64 + arm64) bundled; macOS produced in CI.' },
-  { ico: '🔌', title: 'Mod-compatible', body: 'A transparent transport below the protocol — composes with mods like ViaFabricPlus.' },
+const usual = [
+  'Log in to your router',
+  'Give your PC a fixed local IP',
+  'Forward port 25565',
+  'Look up your public IP',
+  "Find out your ISP doesn't allow it",
+  'Give up and pay for hosting',
 ];
-
-const diagram = `Host                                          Joiner
-─────                                         ──────
-"Open to LAN"  127.0.0.1:LAN                  Minecraft client
-       ^                                             | connects to
-       | loopback                                    v 127.0.0.1:PROXY
-  HostShare ──── data-plane TCP ───┐       ┌─── JoinProxy
-       |                           |       |
-  EasyTier (no_tun, 10.126.126.1)  |       |  EasyTier (no_tun, dhcp)
-       └────────── EasyTier mesh via your relay ──────────┘`;
 ---
 
 <BaseLayout title="etmc">
-  <section class="hero">
-    <div class="container">
-      <span class="tag">FABRIC · NEOFORGE · FORGE · PAPER · MC 1.17 – 26</span>
-      <h1>etmc</h1>
-      <p class="lead">
-        EasyTier P2P multiplayer, in-game. Host your world or join a friend over a
-        peer-to-peer mesh — no port-forwarding, no TUN driver, no admin.
-      </p>
-      <div class="btn-row" style="justify-content:center">
-        <a class="btn btn-primary" href="/docs">Get started</a>
-        <a class="btn" href="/generator">Config generator</a>
-        <a class="btn" href="https://github.com/L5Z12/etmc" target="_blank" rel="noopener">GitHub</a>
+  <section class="hero ink">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>Send a link.<br /><span>Play together.</span></h1>
+        <p class="lead">
+          etmc is a Minecraft mod that opens your world to friends over a peer-to-peer network. No port
+          forwarding, nothing else to install, no admin rights.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/L5Z12/etmc/releases">Download etmc</a>
+          <a class="btn" href="/docs/getting-started">Read the guide</a>
+        </div>
+      </div>
+      <VoxelScene />
+    </div>
+  </section>
+
+  <section class="wrap compare">
+    <h2 class="big">Skip the router settings.</h2>
+    <div class="compare-grid">
+      <div class="usual">
+        <h3>The usual way</h3>
+        <ol>{usual.map((step) => <li>{step}</li>)}</ol>
+      </div>
+      <div class="better">
+        <h3>With etmc</h3>
+        <ol>
+          <li><strong>Add a relay.</strong> You only do this once.</li>
+          <li><strong>Press <kbd>G</kbd></strong> and choose Host this world.</li>
+          <li><strong>Send the link.</strong> Friends paste it into Direct Connect.</li>
+        </ol>
+        <a class="btn primary" href="/docs/getting-started">See how it works</a>
       </div>
     </div>
   </section>
-  <div class="grassbar"></div>
-  <div class="dirtbar"></div>
 
-  <div class="container">
-    <section class="grid" style="margin-top:30px">
-      {features.map((f) => (
-        <div class="panel feature">
-          <div class="ico">{f.ico}</div>
-          <h3>{f.title}</h3>
-          <p>{f.body}</p>
-        </div>
-      ))}
-    </section>
+  <section class="ink band">
+    <div class="wrap"><RouteDemo /></div>
+  </section>
 
-    <h2>How it works</h2>
-    <div class="panel slot">
-      <pre><code>{diagram}</code></pre>
-      <p class="muted">
-        Joining from inside a world, or by config URL, etmc bridges a loopback socket to the mesh in userspace (above).
-        An <code>etmc://</code> link skips even that — the connection rides the data plane directly, with
-        <strong>no local port</strong>. Either way the vanilla networking — and other mods — work unchanged.
-      </p>
+  <section class="wrap tiles">
+    <div class="tile wide">
+      <Block color="#62d0e0" />
+      <h3>Works where you play</h3>
+      <p>On Windows, Linux and macOS, with the loader you already use.</p>
+      <ul class="tags"><li>Fabric</li><li>NeoForge</li><li>Forge</li><li>Paper</li></ul>
     </div>
+    <div class="tile">
+      <Block color="#5fae6b" />
+      <h3>Your mods stay</h3>
+      <p>To Minecraft it's a normal server, so other mods keep working, including ViaFabricPlus.</p>
+    </div>
+    <div class="tile">
+      <Block color="#fcdc5f" />
+      <h3>All in the game</h3>
+      <p>No VPN app, no driver and no admin prompt. It starts and stops with your world.</p>
+    </div>
+    <div class="tile wide">
+      <Block color="#c0564f" />
+      <h3>Free and open source</h3>
+      <p>etmc is GPL-3.0 and built on <a href="https://github.com/EasyTier/EasyTier">EasyTier</a>. You choose the relay, so there's no account and no company in the middle.</p>
+    </div>
+  </section>
 
-    <h2>Quick start</h2>
-    <div class="panel">
-      <ol>
-        <li>Install the Fabric mod (needs Fabric API).</li>
-        <li>Open the menu with <span class="kbd">G</span> or <code>/etmc menu</code>.</li>
-        <li>In <strong>Settings</strong>, add your EasyTier relay, e.g. <code>tcp://my.relay:11010</code>.</li>
-        <li><strong>Host this world</strong> → share the <code>etmc://</code> link. Friends paste it into <strong>Add Server</strong>, or into etmc's <strong>Join with a link</strong>.</li>
-      </ol>
-      <div class="btn-row">
-        <a class="btn" href="/docs">Read the docs</a>
-        <a class="btn" href="/docs/connect-url">Connect via config URL</a>
+  <section class="server">
+    <div class="wrap">
+      <div>
+        <h2 class="big">Running a server?</h2>
+        <p>The Paper plugin puts your server on the network. Create its config in a minute, then share one link with your players.</p>
       </div>
+      <a class="btn dark" href="/generator">Open the generator</a>
     </div>
-
-    <div class="panel center" style="margin:34px 0 50px">
-      <h2 style="margin-top:0">Generate a server config</h2>
-      <p>Build a shareable EasyTier config file your players join with a single link.</p>
-      <a class="btn btn-primary" href="/generator">Open the generator →</a>
-    </div>
-  </div>
+  </section>
 </BaseLayout>

@@ -1,0 +1,125 @@
+---
+import { island, project, renderCubes, shade, tree, type Cube } from '../lib/iso';
+
+const CREAM = '#f4f1e8';
+const CYAN = '#62d0e0';
+const ROCK = '#55556b';
+const WOOD = '#8a6a4f';
+const PLANK = '#c9a877';
+
+// The logo in 3D: cream sits lower left, cyan upper right, and a bridge links them.
+const NEAR_Y = 19;
+
+const far: Cube[] = [
+  ...island(0, 0, 5.6, CYAN, '#2f8fa0', ROCK, 7),
+  ...tree(-2, -2, WOOD, '#2fa59a', 3),
+  ...tree(2, -3, WOOD, '#37b6a6', 5),
+  // A friend waiting at the end of the bridge.
+  { x: 0, y: 3, z: 1, color: '#fcdc5f' },
+  { x: 0, y: 3, z: 2, color: '#f0c9a0' },
+];
+
+const house: Cube[] = [];
+for (let x = -1; x <= 2; x++) {
+  for (let y = NEAR_Y; y <= NEAR_Y + 2; y++) {
+    for (let z = 1; z <= 2; z++) {
+      const window = y === NEAR_Y + 2 && z === 2 && (x === 0 || x === 1);
+      const side = x === 2 && z === 2 && y === NEAR_Y + 1;
+      house.push({ x, y, z, color: window || side ? '#fcdc5f' : '#d8cfb8' });
+    }
+    house.push({ x, y, z: 3, color: '#7a3b3b' });
+  }
+}
+for (let x = 0; x <= 1; x++) {
+  for (let y = NEAR_Y; y <= NEAR_Y + 2; y++) house.push({ x, y, z: 4, color: '#8f4545' });
+}
+
+const near: Cube[] = [
+  ...island(0, NEAR_Y, 6.2, CREAM, '#b79f7c', ROCK, 11),
+  ...house,
+  ...tree(-4, NEAR_Y + 2, WOOD, '#5fae6b', 9),
+  ...tree(4, NEAR_Y - 1, WOOD, '#6dbb77', 13),
+  // You, about to cross.
+  { x: 1, y: NEAR_Y - 4, z: 1, color: '#62d0e0' },
+  { x: 1, y: NEAR_Y - 4, z: 2, color: '#f0c9a0' },
+];
+
+// The bridge drops into place block by block when the page loads.
+const bridge: Cube[] = [];
+let index = 0;
+for (let y = NEAR_Y - 7; y >= 5; y--) {
+  for (const x of [0, 1]) {
+    bridge.push({
+      x, y, z: 0,
+      color: shade(PLANK, (y + x) % 2 ? 1 : 0.9),
+      attrs: `class="drop" style="--i:${index}"`,
+    });
+  }
+  index++;
+}
+
+const start = project(0.3, NEAR_Y - 7, 1);
+const end = project(0.3, 5, 1);
+const travel = `--tx:${end[0] - start[0]}px;--ty:${end[1] - start[1]}px`;
+const packet = (delay: number, reverse = false) => renderCubes([{
+  x: reverse ? 0.9 : 0.3,
+  y: NEAR_Y - 7,
+  z: 1,
+  size: 0.4,
+  color: reverse ? CREAM : CYAN,
+  attrs: `class="packet${reverse ? ' back' : ''}" style="${travel};--d:${delay}s"`,
+}]);
+
+const relay = renderCubes([{ x: 0, y: 11, z: 7, color: '#fcdc5f' }]);
+const relayTop = project(0.5, 11.5, 7);
+const links = [project(0, 3.5, 3), project(1, NEAR_Y - 4, 3)];
+---
+
+<svg class="scene" viewBox="-690 -250 930 790" role="img"
+  aria-label="Two floating islands joined by a bridge, with data crossing between them">
+  <g class="float">
+    <g set:html={renderCubes(far)} />
+    <g set:html={renderCubes(bridge)} />
+    <g set:html={packet(0) + packet(1.6) + packet(0.8, true) + packet(2.4, true)} />
+    <g set:html={renderCubes(near)} />
+  </g>
+  <g class="relay">
+    {links.map(([x, y]) => (
+      <line x1={relayTop[0]} y1={relayTop[1]} x2={x} y2={y} class="link" />
+    ))}
+    <g set:html={relay} />
+  </g>
+</svg>
+
+<style>
+  .scene { display: block; width: 100%; height: auto; overflow: visible; }
+  .link { stroke: #fcdc5f; stroke-width: 1.5; stroke-dasharray: 3 7; opacity: 0.55; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .float { animation: float 7s ease-in-out infinite; }
+    .relay { animation: float 5s ease-in-out infinite reverse; }
+    .scene :global(.drop) {
+      animation: drop 0.5s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+      animation-delay: calc(0.25s + var(--i) * 0.07s);
+    }
+    .scene :global(.packet) { animation: cross 3.2s linear infinite; animation-delay: calc(1.2s + var(--d)); opacity: 0; }
+    .scene :global(.packet.back) { animation-name: cross-back; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scene :global(.packet) { display: none; }
+  }
+
+  @keyframes float { 50% { transform: translateY(-9px); } }
+  @keyframes drop { from { transform: translateY(-70px); opacity: 0; } }
+  @keyframes cross {
+    0% { transform: none; opacity: 0; }
+    8%, 92% { opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)); opacity: 0; }
+  }
+  @keyframes cross-back {
+    0% { transform: translate(var(--tx), var(--ty)); opacity: 0; }
+    8%, 92% { opacity: 1; }
+    100% { transform: none; opacity: 0; }
+  }
+</style>

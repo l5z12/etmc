@@ -1,0 +1,13 @@
+---
+import { renderCubes, type Cube } from '../lib/iso';
+
+interface Props {
+  color: string;
+}
+const { color } = Astro.props;
+
+const cubes: Cube[] = [];
+for (let x = 0; x < 2; x++) for (let y = 0; y < 2; y++) for (let z = 0; z < 2; z++) cubes.push({ x, y, z, color });
+---
+
+<svg class="block" viewBox="-49 -55 98 104" aria-hidden="true" set:html={renderCubes(cubes)} />
