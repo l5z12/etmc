@@ -79,6 +79,7 @@ public final class StatusPing {
         } catch (HostTunnel.NoAnswer e) {
             return new Result(Outcome.SILENT, -1);
         } catch (Throwable t) {
+            EtmcLog.info("ping of " + hostIp + ":" + hostPort + " couldn't connect: " + Errors.message(t));
             return new Result(Outcome.UNREACHABLE, -1);
         }
         try {
@@ -118,8 +119,10 @@ public final class StatusPing {
             int protocol = parseProtocol(json);
             return protocol < 0 ? badReply() : new Result(Outcome.ANSWERED, protocol);
         } catch (EasyTierException e) {
+            EtmcLog.info("ping of " + hostIp + ":" + hostPort + " ended: " + Errors.message(e));
             return new Result(e.is(DataPlaneError.DEADLINE_EXCEEDED) ? Outcome.SILENT : Outcome.CLOSED, -1);
         } catch (Throwable t) {
+            EtmcLog.info("ping of " + hostIp + ":" + hostPort + " ended: " + Errors.message(t));
             return new Result(Outcome.CLOSED, -1); // end of stream, mid-frame or before a byte
         } finally {
             Io.closeStream(et, stream);
@@ -127,6 +130,7 @@ public final class StatusPing {
     }
 
     private static Result badReply() {
+        EtmcLog.info("ping got a reply that isn't a server list answer");
         return new Result(Outcome.BAD_REPLY, -1);
     }
 

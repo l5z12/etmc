@@ -5,6 +5,7 @@ import dev.l5z12.etmc.client.screen.EtmcConnectingScreen;
 import dev.l5z12.etmc.client.screen.EtmcNoticeScreen;
 import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcConnect;
+import dev.l5z12.etmc.core.EtmcLog;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.HostKey;
 import dev.l5z12.etmc.core.ImportedConfig;
@@ -152,6 +153,11 @@ public final class EtmcManager {
     public void init() {
         // Player-facing text follows the game's language from here on (see Msg).
         Msg.setTranslator(Txt::i18n);
+        // System.Logger isn't the game's log, and that's the one a player can send in.
+        EtmcLog.to((level, message, thrown) -> {
+            if (level == System.Logger.Level.WARNING) LOGGER.warn("[etmc] " + message, thrown);
+            else LOGGER.info("[etmc] " + message, thrown);
+        });
         this.config = ModConfig.load();
         try {
             //? if fabric {
@@ -310,8 +316,14 @@ public final class EtmcManager {
     private CompletableFuture<Void> askAboutOldLink() {
         CompletableFuture<Void> answer = new CompletableFuture<>();
         worker.execute(() -> McScreens.mc().execute(() -> McScreens.goTo(oldLinkScreen(McScreens.current(),
-                () -> answer.complete(null),
-                () -> answer.completeExceptionally(new IllegalStateException(declined()))))));
+                () -> {
+                    LOGGER.info("[etmc] old link: the player chose to join anyway");
+                    answer.complete(null);
+                },
+                () -> {
+                    LOGGER.info("[etmc] old link: the player cancelled");
+                    answer.completeExceptionally(new IllegalStateException(declined()));
+                }))));
         return answer;
     }
 
@@ -339,6 +351,7 @@ public final class EtmcManager {
                 .supplyAsync(() -> StatusPing.probe(s.easyTier(), s.instName(), code.hostIp, code.hostPort,
                         WORLD_CHECK_TIMEOUT_MS), worker)
                 .thenCompose(ping -> {
+                    LOGGER.info("[etmc] named host check: {}", ping.outcome());
                     if (ping.outcome() == StatusPing.Outcome.WRONG_HOST) {
                         leaveAsync();
                         return CompletableFuture.failedFuture(new IllegalStateException(ping.reason()));
@@ -350,10 +363,12 @@ public final class EtmcManager {
                     McScreens.mc().execute(() -> McScreens.goTo(new EtmcAskScreen(McScreens.current(),
                             unconfirmedTitle(), ping.reason(),
                             () -> {
+                                LOGGER.info("[etmc] unconfirmed host: the player chose to join anyway");
                                 s.acceptUnconfirmedHost();
                                 answer.complete(localPort);
                             },
                             () -> {
+                                LOGGER.info("[etmc] unconfirmed host: the player cancelled");
                                 leaveAsync();
                                 answer.completeExceptionally(new IllegalStateException(declined()));
                             })));
@@ -473,7 +488,11 @@ public final class EtmcManager {
             return;
         }
         if (askIfOld && code.isOldHostLink()) {
-            McScreens.goTo(oldLinkScreen(parent, () -> startLinkJoin(parent, code), () -> { }));
+            LOGGER.info("[etmc] old link: asking the player before joining");
+            McScreens.goTo(oldLinkScreen(parent, () -> {
+                LOGGER.info("[etmc] old link: the player chose to join anyway");
+                startLinkJoin(parent, code);
+            }, () -> LOGGER.info("[etmc] old link: the player cancelled")));
             return;
         }
         startLinkJoin(parent, code);
@@ -664,9 +683,13 @@ public final class EtmcManager {
                             outcome == StatusPing.Outcome.ANSWERED ? " (protocol " + ping.protocol() + ")" : "");
                     if (outcome == StatusPing.Outcome.UNCONFIRMED) {
                         McScreens.goTo(new EtmcAskScreen(a.parent, unconfirmedTitle(), ping.reason(), () -> {
+                            LOGGER.info("[etmc] unconfirmed host: the player chose to join anyway");
                             s.acceptUnconfirmedHost();
                             armAndConnect(target, a.parent, a.label, -1);
-                        }, this::leaveAsync));
+                        }, () -> {
+                            LOGGER.info("[etmc] unconfirmed host: the player cancelled");
+                            leaveAsync();
+                        }));
                         return;
                     }
                     if (outcome == StatusPing.Outcome.WRONG_HOST) {

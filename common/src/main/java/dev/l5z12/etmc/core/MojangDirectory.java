@@ -37,6 +37,7 @@ final class MojangDirectory implements AccountDirectory {
         if (known == null) {
             known = parseKeys(RemoteConfig.fetch(KEYS_URL));
             keys = known;
+            EtmcLog.info("Mojang lists " + known.size() + " certificate key(s)");
         }
         return known;
     }

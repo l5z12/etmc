@@ -5,6 +5,7 @@ import dev.l5z12.etmc.ffi.EasyTier;
 import dev.l5z12.etmc.ffi.EasyTierException;
 
 import java.security.GeneralSecurityException;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
@@ -86,6 +87,8 @@ final class HostTunnel implements EasyTier {
     static HostTunnel dialing(EasyTier et, String hostPublicKey, String expectedName, AccountDirectory directory) {
         byte[] key = HostKey.decode(hostPublicKey);
         if (key == null) throw new IllegalArgumentException(badKey());
+        EtmcLog.info("holding the host to key " + HostKey.shortText(key)
+                + (expectedName == null ? "" : " and the name " + expectedName));
         return new HostTunnel(et, key, null, expectedName, directory, null);
     }
 
@@ -121,6 +124,7 @@ final class HostTunnel implements EasyTier {
         Bind bind = et.tcpConnect(inst, dstIp, dstPort, timeoutMs);
         try {
             streams.put(bind.handle(), proveHost(bind.handle(), timeoutMs));
+            EtmcLog.info("the host at " + dstIp + ":" + dstPort + " proved key " + HostKey.shortText(hostPublic));
             return bind;
         } catch (Throwable t) {
             Io.closeStream(et, bind.handle());
@@ -141,17 +145,29 @@ final class HostTunnel implements EasyTier {
             byte[] hash = noise.handshakeHash();
             Secured secured = new Secured(noise.split());
             byte[] claim = secured.firstFrame(stream, timeoutMs);
-            if (claim == null) throw new WrongHost();
+            if (claim == null) {
+                EtmcLog.info("host check failed: the connection ended before the host's first frame");
+                throw new WrongHost();
+            }
             if (expectedName != null) checkAccount(claim, hash);
             return secured;
         } catch (GeneralSecurityException e) {
+            EtmcLog.info("host check failed: the reply doesn't match key " + HostKey.shortText(hostPublic)
+                    + " (" + e.getMessage() + ")");
             throw new WrongHost();
         } catch (WrongHost | NoAnswer e) {
             throw e;
         } catch (EasyTierException e) {
             // Hanging up before the proof is no proof, whether it lands on the write or the read.
-            if (e.is(DataPlaneError.HANDLE_CLOSED)) throw new WrongHost();
-            if (e.is(DataPlaneError.DEADLINE_EXCEEDED)) throw new NoAnswer();
+            if (e.is(DataPlaneError.HANDLE_CLOSED)) {
+                EtmcLog.info("host check failed: the other end hung up during the handshake");
+                throw new WrongHost();
+            }
+            if (e.is(DataPlaneError.DEADLINE_EXCEEDED)) {
+                EtmcLog.info("host check: no answer in " + timeoutMs + "ms, so maybe nothing is on that port");
+                throw new NoAnswer();
+            }
+            EtmcLog.info("host check failed: " + Errors.message(e));
             throw e;
         }
     }
@@ -163,23 +179,34 @@ final class HostTunnel implements EasyTier {
      * refuses too, until the player has been asked. {@link Unconfirmed} is what asks them.
      */
     private void checkAccount(byte[] claim, byte[] handshakeHash) {
-        if (claim.length == 0) throw new WrongHost(unproven());
-        if (unconfirmedAccepted) return;
+        if (claim.length == 0) {
+            EtmcLog.info("host check failed: the link names " + expectedName + ", but the host sent no account proof");
+            throw new WrongHost(unproven());
+        }
+        if (unconfirmedAccepted) {
+            EtmcLog.info("skipping the account check: the player chose to join without it");
+            return;
+        }
         try {
             UUID account = HostAccount.verify(claim, handshakeHash, directory.certificateKeys(),
                     System.currentTimeMillis());
             if (account == null) throw new WrongHost(unproven());
             String name = directory.nameOf(account);
             if (!expectedName.equalsIgnoreCase(name)) {
+                EtmcLog.info("host check failed: the link names " + expectedName + ", but the proof is for "
+                        + name + " (" + account + ")");
                 throw new WrongHost(Msg.tr("etmc.tunnel.wrong_account", "this link says it's from %s, but the "
                         + "host's Minecraft account is %s, so etmc didn't connect", expectedName, name));
             }
             confirmedName = name;
+            EtmcLog.info("Mojang confirmed the host is " + name + " (" + account + ")");
         } catch (java.io.IOException e) {
+            EtmcLog.warn("couldn't ask Mojang about " + expectedName + ": " + Errors.message(e));
             confirmedName = null;
             throw new Unconfirmed(expectedName);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            EtmcLog.warn("stopped waiting for Mojang about " + expectedName);
             confirmedName = null;
             throw new Unconfirmed(expectedName);
         }
@@ -209,7 +236,11 @@ final class HostTunnel implements EasyTier {
                 if (e.is(DataPlaneError.DEADLINE_EXCEEDED)) throw new NoAnswer();
                 throw e;
             }
-            if (n <= 0) throw new WrongHost();
+            if (n <= 0) {
+                EtmcLog.info("host check failed: the connection ended after " + got + " of " + length
+                        + " handshake bytes, which is what the real host does for a key it doesn't hold");
+                throw new WrongHost();
+            }
             System.arraycopy(chunk, 0, out, got, n);
             got += n;
         }
@@ -230,6 +261,12 @@ final class HostTunnel implements EasyTier {
         byte[] hash = noise.handshakeHash();
         Secured secured = new Secured(noise.split());
         PlayerCert current = cert == null ? null : cert.get();
+        if (current != null) {
+            EtmcLog.info("signed this connection as " + current.uuid() + ", certificate expires "
+                    + Instant.ofEpochMilli(current.expiresAtMs()));
+        } else if (cert != null) {
+            EtmcLog.warn("no player certificate to sign this connection with, so joiners will refuse it");
+        }
         byte[] claim = current == null ? EMPTY : HostAccount.prove(current, hash);
         secured.writeFrame(stream, claim, 0, claim.length, timeoutMs);
         streams.put(stream, secured);

@@ -25,10 +25,14 @@ final class ConnectionLimiter {
     static final int MAX_STARTING = 64;
     /** Past this many tracked peers, the ones that have refilled completely are forgotten. */
     private static final int MAX_TRACKED = 4096;
+    /** A flood mustn't flood the log as well: refusals are reported this often at most. */
+    static final long REPORT_EVERY_MS = 10_000L;
 
     private final LongSupplier clockMs;
     private final Map<String, Bucket> buckets = new HashMap<>();
     private int starting;
+    private int unreported;
+    private long reportedAt = Long.MIN_VALUE;
 
     ConnectionLimiter() {
         this(System::currentTimeMillis);
@@ -51,6 +55,17 @@ final class ConnectionLimiter {
 
     synchronized void started() {
         if (starting > 0) starting--;
+    }
+
+    /** Counts a refusal. Returns how many to report now, or 0 if it's too soon to say anything. */
+    synchronized int refused() {
+        unreported++;
+        long now = clockMs.getAsLong();
+        if (reportedAt != Long.MIN_VALUE && now - reportedAt < REPORT_EVERY_MS) return 0;
+        reportedAt = now;
+        int count = unreported;
+        unreported = 0;
+        return count;
     }
 
     private static final class Bucket {

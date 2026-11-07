@@ -92,6 +92,7 @@ public final class JoinProxy {
         } catch (Throwable e) {
             // Minecraft only sees a socket closing here, so this is the one chance to say why.
             if (e instanceof HostTunnel.WrongHost) failure = e.getMessage();
+            EtmcLog.info("couldn't reach the host at " + hostIp + ":" + hostPort + ": " + Errors.message(e));
             Io.closeQuietly(sock);
             return;
         }

@@ -40,7 +40,11 @@ public final class McIdentity {
             /*var pair = client.getProfileKeyPairManager().prepareKeyPair().get(TIMEOUT_SECONDS, TimeUnit.SECONDS).orElse(null);
             var account = client.getUser().getProfileId();*/
             //?}
-            if (pair == null || account == null) return null;
+            if (pair == null || account == null) {
+                EtmcManager.LOGGER.info("[etmc] no player certificate: the game has {}",
+                        pair == null ? "no key pair for this account" : "no account ID");
+                return null;
+            }
             var data = pair.publicKey().data();
             return new PlayerCert(account, data.expiresAt().toEpochMilli(), data.key().getEncoded(),
                     data.keySignature(), pair.privateKey());

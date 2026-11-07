@@ -7,6 +7,7 @@ import java.security.KeyFactory;
 import java.security.PublicKey;
 import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.UUID;
 
@@ -64,16 +65,27 @@ final class HostAccount {
             byte[] mojangSignature = getBlock(in);
             byte[] proof = getBlock(in);
 
-            if (expiresAtMs <= nowMs) return null;
-            if (!mojangSigned(account, expiresAtMs, publicKey, mojangSignature, mojangKeys)) return null;
+            if (expiresAtMs <= nowMs) {
+                EtmcLog.info("account proof refused: the certificate for " + account + " expired at "
+                        + Instant.ofEpochMilli(expiresAtMs) + ", and it's now " + Instant.ofEpochMilli(nowMs));
+                return null;
+            }
+            if (!mojangSigned(account, expiresAtMs, publicKey, mojangSignature, mojangKeys)) {
+                EtmcLog.info("account proof refused: none of Mojang's " + mojangKeys.size()
+                        + " key(s) signed the certificate for " + account);
+                return null;
+            }
 
             PublicKey key = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(publicKey));
             Signature checker = Signature.getInstance(PROOF_ALGORITHM);
             checker.initVerify(key);
             checker.update(DOMAIN);
             checker.update(handshakeHash);
-            return checker.verify(proof) ? account : null;
+            if (checker.verify(proof)) return account;
+            EtmcLog.info("account proof refused: the certificate for " + account + " didn't sign this connection");
+            return null;
         } catch (GeneralSecurityException | RuntimeException e) {
+            EtmcLog.info("account proof refused: it's unreadable (" + e + ")");
             return null; // short or malformed: whoever sent it, it proves nothing
         }
     }

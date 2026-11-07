@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -55,6 +56,18 @@ class ConnectionLimiterTest {
         burn("10.126.126.2", ConnectionLimiter.BURST);
 
         assertFalse(limiter.admit("10.126.126.2"));
+    }
+
+    @Test
+    void aFloodIsReportedNowAndThenNotLineByLine() {
+        assertEquals(1, limiter.refused(), "the first refusal is worth a line");
+        for (int i = 0; i < 1000; i++) {
+            assertEquals(0, limiter.refused());
+        }
+
+        now.addAndGet(ConnectionLimiter.REPORT_EVERY_MS);
+
+        assertEquals(1001, limiter.refused(), "nothing goes uncounted");
     }
 
     @Test

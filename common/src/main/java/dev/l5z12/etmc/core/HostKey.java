@@ -99,6 +99,15 @@ public final class HostKey {
         return ENCODER.encodeToString(publicKey);
     }
 
+    /** The start of this key's public text, enough to tell keys apart in a log. */
+    String shortText() {
+        return shortText(publicKey);
+    }
+
+    static String shortText(byte[] publicKey) {
+        return ENCODER.encodeToString(publicKey).substring(0, 8);
+    }
+
     byte[] privateKey() {
         return privateKey;
     }

@@ -18,8 +18,6 @@ import java.util.function.Supplier;
  */
 public final class EtmcSession {
 
-    private static final System.Logger LOG = System.getLogger("etmc.EtmcSession");
-
     public enum State { IDLE, STARTING, HOSTING, JOINING, ERROR }
     public enum Mode { NONE, HOST, JOIN }
 
@@ -155,6 +153,9 @@ public final class EtmcSession {
             if (key != null) currentCode.hostKey = key.publicText();
             if (address != null) currentCode.direct = Boolean.TRUE;
             if (proof != null) currentCode.hostName = playerName; // a name is a promise to prove it
+            EtmcLog.info("hosting network '" + networkName + "': host key "
+                    + (key == null ? "none" : key.shortText()) + ", account proof " + (proof == null ? "off" : "on")
+                    + ", public address " + (address == null ? "none" : address));
             this.mode = Mode.HOST;
             this.state = State.HOSTING;
             return currentCode;
@@ -219,6 +220,8 @@ public final class EtmcSession {
 
     /** @throws IllegalArgumentException if the key is damaged: that must stop the join, not skip the check */
     private EasyTier transportFor(JoinCode code) {
+        EtmcLog.info("joining " + code.hostIp + ":" + code.hostPort + (code.isDirect() ? ", direct link" : "")
+                + (code.hostKey == null ? ", no host key, so nothing checks who answers" : ""));
         return code.hostKey == null ? et
                 : HostTunnel.dialing(et, code.hostKey, code.namedHost(), directory);
     }
@@ -274,7 +277,7 @@ public final class EtmcSession {
                 } catch (Throwable t) {
                     // Instance names are unique per session, so a leftover can't block the next host or
                     // join; it is still a network running in the background, though, so say so.
-                    LOG.log(System.Logger.Level.WARNING, "couldn't stop EasyTier instance " + name, t);
+                    EtmcLog.warn("couldn't stop EasyTier instance " + name, t);
                 }
             }
         } finally {

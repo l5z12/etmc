@@ -170,6 +170,22 @@ class HostAccountTest {
     }
 
     @Test
+    void aRefusedProofSaysWhyInTheLog() throws Exception {
+        List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+        EtmcLog.to((level, message, thrown) -> lines.add(message));
+        try {
+            PlayerCert old = cert(STEVE, System.currentTimeMillis() - 1000, MOJANG);
+            host(() -> old);
+
+            assertRefused(dialing("Steve"), "couldn't prove");
+
+            assertTrue(lines.stream().anyMatch(l -> l.contains("expired")), lines.toString());
+        } finally {
+            EtmcLog.to(null);
+        }
+    }
+
+    @Test
     void aHostGivingNoProofIsRefusedWhenTheLinkNamesThem() {
         host(null);
 

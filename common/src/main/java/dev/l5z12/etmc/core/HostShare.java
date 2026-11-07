@@ -81,6 +81,7 @@ public final class HostShare {
     public void start() {
         listenerHandle = bindWithRetry().handle();
         acceptThread = Threads.start("etmc-host-accept", this::acceptLoop);
+        EtmcLog.info("listening on mesh port " + virtualPort + " for the world on port " + lanPort);
     }
 
     /** The instance may not be ready the instant after run_network_instance; give the bind a few tries. */
@@ -103,6 +104,7 @@ public final class HostShare {
     }
 
     private void acceptLoop() {
+        String lastError = null;
         while (!stopped.get()) {
             EasyTier.Accept acc;
             try {
@@ -114,28 +116,41 @@ public final class HostShare {
                     // The listener (or the whole network) is gone and won't come back: stop, and say
                     // so, rather than keep the world "hosting" while nobody can join.
                     failure = Errors.message(t);
+                    EtmcLog.warn("stopped accepting joiners: " + failure);
                     break;
                 }
                 // Anything else may be transient; back off so it can't turn into a busy spin.
+                String error = Errors.message(t);
+                if (!error.equals(lastError)) EtmcLog.warn("couldn't accept a connection, retrying: " + error);
+                lastError = error;
                 if (!sleep(ACCEPT_ERROR_BACKOFF_MS)) break;
                 continue;
             }
             if (acc == null) continue; // nobody connected within the timeout
             if (!limiter.admit(acc.peerIp())) {
                 Io.closeStream(et, acc.handle());
+                int refused = limiter.refused();
+                if (refused > 0) {
+                    EtmcLog.warn("refused " + refused + " connection(s) over the limit, latest from " + peer(acc));
+                }
                 continue;
             }
             // Off this thread: a peer that connects and then says nothing mustn't hold up everyone else.
             Threads.start("etmc-host-peer-" + connectionSeq.incrementAndGet(), () -> {
                 try {
                     handlePeer(acc);
-                } catch (Throwable ignored) {
+                } catch (Throwable t) {
+                    EtmcLog.info("connection from " + peer(acc) + " ended early: " + Errors.message(t));
                     Io.closeStream(et, acc.handle());
                 } finally {
                     limiter.started();
                 }
             });
         }
+    }
+
+    private static String peer(EasyTier.Accept acc) {
+        return acc.peerIp() == null ? "an unknown peer" : acc.peerIp();
     }
 
     private void handlePeer(EasyTier.Accept acc) throws IOException {
@@ -147,6 +162,8 @@ public final class HostShare {
                 try {
                     tunnel.answer(acc.handle(), HELLO_TIMEOUT_MS);
                 } catch (GeneralSecurityException | EasyTierException e) {
+                    EtmcLog.info(peer(acc) + " failed the host key handshake, so it may have a link for an "
+                            + "older key: " + Errors.message(e));
                     Io.closeStream(et, acc.handle()); // an old link, from before this host's key changed
                     return;
                 }
@@ -160,10 +177,13 @@ public final class HostShare {
             sock.setTcpNoDelay(true);
             if (early.length > 0) sock.getOutputStream().write(early);
         } catch (Exception e) {
+            EtmcLog.warn("couldn't reach the world on port " + lanPort + " for " + peer(acc) + ": "
+                    + Errors.message(e));
             Io.closeQuietly(sock);
             Io.closeStream(stream, acc.handle());
             return;
         }
+        EtmcLog.info("connection from " + peer(acc) + (stream == et ? ": plain, no host check" : ": host key checked"));
         totalConnections.incrementAndGet();
         TcpBridge bridge = new TcpBridge(stream, sock, acc.handle(), bridges::remove);
         bridges.add(bridge);
@@ -210,6 +230,7 @@ public final class HostShare {
 
     public void stop() {
         if (!stopped.compareAndSet(false, true)) return;
+        EtmcLog.info("stopped hosting after " + totalConnections.get() + " connection(s)");
         try {
             et.tcpListenerClose(listenerHandle);
         } catch (Throwable ignored) {

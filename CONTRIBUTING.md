@@ -48,6 +48,9 @@ Keys stop an impostor being believed, not from taking the address, since the sho
 `public-address` is the only way to win that: the link's relay is the host and joiners set `disable_p2p`, so the host
 is one hop away and any other claimant is two. `DirectHostNativeTest` holds that against the real library.
 
+Core code logs through `EtmcLog`, which a client points at the game's log. Players post these logs in public, so keep
+secrets, links and private key material out of them, and use `HostKey.shortText` to name a key.
+
 ## Natives
 
 Rebuild natives with the `natives.yml` workflow. `easytier-update.yml` also proposes updates weekly.
