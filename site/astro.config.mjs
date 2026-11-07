@@ -3,8 +3,8 @@ import { defineConfig } from 'astro/config';
 
 // Build-time rendered (static) site. No SSR adapter: every page is prerendered
 // to HTML at build, then served from Cloudflare Workers static assets (see
-// wrangler.jsonc + worker/index.js). The config generator runs entirely in the
-// browser, so no server runtime is needed.
+// wrangler.jsonc). The config generator runs entirely in the browser, so no
+// server runtime is needed.
 export default defineConfig({
   // Canonical host for OG tags and canonical links.
   site: 'https://etmc.l5z12.dev',
