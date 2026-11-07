@@ -22,7 +22,7 @@ sourceSets {
         }
         resources {
             srcDir(rootProject.file("common/src/main/resources"))
-            srcDir(rootProject.file("neoforge/src/main/resources"))
+            srcDir(rootProject.file("src/neoforge/resources"))
         }
     }
 }

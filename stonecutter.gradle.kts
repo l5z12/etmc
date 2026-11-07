@@ -1,5 +1,5 @@
-// Stonecutter controller (root project). The buildable Fabric mod is each version node under
-// versions/<mc>-fabric, built with build.gradle.kts. Other loaders are normal subprojects.
+// Stonecutter controller (root project). Each version node under versions/<mc>-<loader> builds the
+// client mod with its loader's script in gradle/nodes/. Paper is a separate build (paper/).
 plugins {
     id("dev.kikugie.stonecutter")
 }

@@ -160,7 +160,7 @@ jobs:
           # one of those changes, so ordinary src/ edits still hit the cache.
           SHARD: ${{ matrix.shard }}
           CACHES: ${{ matrix.caches }}
-          CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
+          CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'gradle/nodes/*') }}
         run: |
           set +e   # a cache problem must never fail the build — fall back to a cold decompile instead
           if [ -z "$AWS_ACCESS_KEY_ID" ]; then
@@ -239,7 +239,7 @@ jobs:
           BUCKET: ${{ secrets.R2_BUCKET }}
           SHARD: ${{ matrix.shard }}
           CACHES: ${{ matrix.caches }}
-          CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'build.gradle.kts', 'build.forge.gradle', 'build.neoforge.gradle.kts', 'build.fabric26.gradle') }}
+          CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'versions/**/gradle.properties', 'gradle/nodes/*') }}
           HIT: ${{ steps.r2_restore.outputs.hit }}
         run: |
           set +e   # uploading the cache is best-effort — never fail the build over it
