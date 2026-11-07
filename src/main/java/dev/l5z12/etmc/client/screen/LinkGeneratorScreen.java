@@ -163,8 +163,13 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         JoinCode code = buildCode();
         if (code == null) return;
         McScreens.setClipboard(code.encodeLink());
-        setMessage(Msg.tr("etmc.gen.link_copied",
-                "Copied etmc:// link. It contains the secret: share it only with people you want in."), COLOR_GOOD);
+        if (code.isOldHostLink()) {
+            setMessage(Msg.tr("etmc.gen.link_copied_no_key", "Copied, but joiners will get a warning: only the host's own "
+                    + "invite link can prove who the host is. This link contains the secret, so share it carefully."), COLOR_WARN);
+        } else {
+            setMessage(Msg.tr("etmc.gen.link_copied",
+                    "Copied etmc:// link. It contains the secret: share it only with people you want in."), COLOR_GOOD);
+        }
     }
 
     @Override

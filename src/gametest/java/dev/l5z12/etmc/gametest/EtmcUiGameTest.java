@@ -25,9 +25,11 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.resource.language.I18n;
 import org.lwjgl.glfw.GLFW;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +52,9 @@ public class EtmcUiGameTest implements FabricClientGameTest {
     /** The status screen's health light. */
     private static final int GREEN = 0xFF55FF55;
     private static final int AMBER = 0xFFFFAA00;
+    /** The screens' shared frame, which isn't public. */
+    private static final Class<?> BASE_SCREEN = LinkGeneratorScreen.class.getSuperclass();
+    private static final String HOST_KEY = "MeAwP9ZBjS-MDni5HyLoyu0Pvkhlbc9HZ-SDT3Abj2I";
     private static final String LONG_TEXT = "etmc couldn't reach the host over the relay. Check that the relay address is "
             + "right and that it is running, then try again. If it keeps happening, ask the host to copy the link again.";
 
@@ -107,7 +112,50 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         view(ctx, at, "ask", () -> new EtmcAskScreen(null, "This link can't check the host", LONG_TEXT, () -> {}, () -> {}));
         view(ctx, at, "connecting", () -> new EtmcConnectingScreen(null, "Steve's world", () -> {}, () -> {},
                 () -> "Reached the network — waiting for the host to show up…"));
+        generatorWarnsWhenJoinersWillBe(ctx, at);
         ctx.setScreen(() -> null);
+    }
+
+    /** Whoever makes a link that joiners will be warned about hears it first, and nobody else does. */
+    private void generatorWarnsWhenJoinersWillBe(ClientGameTestContext ctx, String at) {
+        List<String> relays = List.of("tcp://127.0.0.1:1");
+        JoinCode noKey = new JoinCode("tour", "s", relays, EtmcConfig.HOST_VIRTUAL_IP, 25565, "");
+        JoinCode keyed = new JoinCode("tour", "s", relays, EtmcConfig.HOST_VIRTUAL_IP, 25565, "");
+        keyed.hostKey = HOST_KEY;
+        JoinCode server = new JoinCode("tour", "s", relays, "10.126.126.7", 25565, "");
+
+        ctx.setScreen(() -> new LinkGeneratorScreen(null));
+        ctx.waitTicks(2);
+        expectCopied(ctx, at + " generator, no host key", noKey, AMBER);
+        shot(ctx, at, "generator-no-key");
+        for (String p : ctx.computeOnClient(EtmcUiGameTest::messageProblems)) problems.add(at + " generator: " + p);
+        expectCopied(ctx, at + " generator, host key", keyed, GREEN);
+        expectCopied(ctx, at + " generator, server address", server, GREEN);
+        ctx.runOnClient(c -> McScreens.setClipboard("not a link either")); // or the next Join screen fills it in
+    }
+
+    /** Loads {@code link} into the generator, copies it back out, and checks what the screen says. */
+    private void expectCopied(ClientGameTestContext ctx, String name, JoinCode link, int color) {
+        ctx.runOnClient(c -> McScreens.setClipboard(link.encodeLink()));
+        ctx.clickScreenButton(I18n.translate("etmc.gen.load"));
+        ctx.waitTick();
+        ctx.clickScreenButton(I18n.translate("etmc.gen.copy_link"));
+        ctx.waitTicks(2);
+        int shown = ctx.computeOnClient(c -> (int) baseScreenField(c.currentScreen, "messageColor"));
+        if (shown != color) problems.add(name + ": the message is " + Integer.toHexString(shown));
+    }
+
+    /** The status line grows upward from the footer, so a long one can run into the form above it. */
+    private static List<String> messageProblems(MinecraftClient c) {
+        int top = baseScreenInt(c.currentScreen, "messageTop");
+        int bandBottom = baseScreenInt(c.currentScreen, "bandBottom");
+        List<String> out = new ArrayList<>();
+        for (var child : c.currentScreen.children()) {
+            if (child instanceof ClickableWidget w && w.getY() < bandBottom && w.getBottom() > top) {
+                out.add("the message starts at " + top + ", over '" + w.getMessage().getString() + "'");
+            }
+        }
+        return out;
     }
 
     private void inAWorld(ClientGameTestContext ctx, String at) {
@@ -421,6 +469,26 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             Field f = EtmcManager.class.getDeclaredField(name);
             f.setAccessible(true);
             f.set(EtmcManager.get(), value);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static Object baseScreenField(Screen s, String name) {
+        try {
+            Field f = BASE_SCREEN.getDeclaredField(name);
+            f.setAccessible(true);
+            return f.get(s);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static int baseScreenInt(Screen s, String method) {
+        try {
+            Method m = BASE_SCREEN.getDeclaredMethod(method);
+            m.setAccessible(true);
+            return (int) m.invoke(s);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }

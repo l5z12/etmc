@@ -55,6 +55,7 @@
   "etmc.gen.host_ip": "房主虚拟 IP",
   "etmc.gen.label": "标签（可选）",
   "etmc.gen.link_copied": "已复制 etmc:// 链接。其中包含密钥：只分享给你想邀请的人。",
+  "etmc.gen.link_copied_no_key": "已复制，但好友加入时会看到警告：只有房主自己的邀请链接才能证明房主身份。此链接包含密钥，请谨慎分享。",
   "etmc.gen.load": "从剪贴板读取",
   "etmc.gen.load.help": "用你复制的 EasyTier 配置或 etmc:// 链接填写这些内容。",
   "etmc.gen.loaded_config": "已从配置读取。",

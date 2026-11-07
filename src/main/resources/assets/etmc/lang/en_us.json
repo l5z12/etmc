@@ -55,6 +55,7 @@
   "etmc.gen.host_ip": "Host virtual IP",
   "etmc.gen.label": "Label (optional)",
   "etmc.gen.link_copied": "Copied etmc:// link. It contains the secret: share it only with people you want in.",
+  "etmc.gen.link_copied_no_key": "Copied, but joiners will get a warning: only the host's own invite link can prove who the host is. This link contains the secret, so share it carefully.",
   "etmc.gen.load": "Load from clipboard",
   "etmc.gen.load.help": "Fills these in from an EasyTier config or an etmc:// link you've copied.",
   "etmc.gen.loaded_config": "Loaded from config.",
