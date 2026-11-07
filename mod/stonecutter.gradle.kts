@@ -1,5 +1,5 @@
-// Stonecutter controller (root project). Each version node under versions/<mc>-<loader> builds the
-// client mod with its loader's script in gradle/nodes/. Paper is a separate build (paper/).
+// Stonecutter controller (mod/). Each version node under versions/<mc>-<loader> builds the client
+// mod with its loader's script in nodes/. Paper is a separate build (paper/).
 plugins {
     id("dev.kikugie.stonecutter")
 }

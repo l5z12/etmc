@@ -58,8 +58,8 @@ tasks.named('test') {
     // -Petmc.writeLang=true makes LangFilesTest regenerate en_us.json from the code instead of failing.
     systemProperty 'etmc.writeLang', (project.findProperty('etmc.writeLang') ?: 'false').toString()
     // The language files live in the client tree, which this build doesn't otherwise see.
-    inputs.dir("$rootDir/../src/main/resources/assets/etmc/lang")
-    inputs.dir("$rootDir/../src/main/java")
+    inputs.dir("$rootDir/../mod/src/main/resources/assets/etmc/lang")
+    inputs.dir("$rootDir/../mod/src/main/java")
     testLogging {
         events 'failed'
         exceptionFormat 'full'

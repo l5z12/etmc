@@ -4,10 +4,10 @@ The README and the website are for players. Developer docs go here, and in code 
 
 ## Layout
 
-- `src/`: the client mod, one tree for every loader and version ([Stonecutter](https://stonecutter.kikugie.dev/)).
-  `src/forge/` and `src/neoforge/` hold those loaders' metadata
-- `gradle/nodes/`: the build script for each loader
-- `versions/`: the dependency versions for each node
+- `mod/`: the client mod, built with [Stonecutter](https://stonecutter.kikugie.dev/)
+  - `src/`: one tree for every loader and version. `src/forge/` and `src/neoforge/` hold those loaders' metadata
+  - `nodes/`: the build script for each loader
+  - `versions/`: the dependency versions for each node
 - `common/`: the networking core and the EasyTier natives
 - `paper/`: the Paper plugin, a separate Gradle build
 - `site/`: the website
@@ -18,7 +18,7 @@ CI builds every version, so build only the ones you're working on. Install the J
 (17, 21 or 25), plus JDK 8 for Forge. Gradle can't download them for you, so a missing JDK fails the build.
 
 ```bash
-./gradlew chiseledBuild -Petmc.nodes='1\.21\.10-.*'   # -> versions/<node>/build/libs/
+./gradlew chiseledBuild -Petmc.nodes='1\.21\.10-.*'   # -> mod/versions/<node>/build/libs/
 ./gradlew -p paper build                              # -> paper/build/libs/
 ```
 
@@ -45,7 +45,7 @@ size and at 1080p, in English and Chinese, and fails if a widget is off screen, 
 its button. It can't see drawn text, so check the screenshots CI uploads when you change a layout. To run it locally:
 
 ```bash
-./gradlew :1.21.10-fabric:runClientGameTest -Petmc.nodes='1.21.10-fabric'
+./gradlew :mod:1.21.10-fabric:runClientGameTest -Petmc.nodes='1.21.10-fabric'
 ```
 
 ## Host identity

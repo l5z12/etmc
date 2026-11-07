@@ -21,9 +21,9 @@ rootProject.name = "etmc"
 
 // Paper is its own standalone build (paper/settings.gradle) so a server-only build never pulls in the
 // Stonecutter version tree — build it with `gradle -p paper`. NeoForge + Forge are Stonecutter loader
-// nodes built from the shared src/ tree (below), not standalone subprojects.
+// nodes built from the shared mod/src/ tree (below), not standalone subprojects.
 
-// The node Stonecutter keeps active (see `vcsVersion` below and stonecutter.gradle.kts).
+// The node Stonecutter keeps active (see `vcsVersion` below and mod/stonecutter.gradle.kts).
 val vcsNode = "1.21.10-fabric"
 
 // Optional node filter, e.g. `-Petmc.nodes=1\.21.*-forge,.*-neoforge` (comma-separated regexes over node
@@ -36,22 +36,22 @@ val nodeFilter: List<Regex>? = providers.gradleProperty("etmc.nodes").orNull
 
 fun wanted(name: String) = nodeFilter == null || name == vcsNode || nodeFilter.any { it.matches(name) }
 
-// Each node builds with its loader's script unless it names its own.
+// Each node builds with its loader's script unless it names its own. Paths are relative to mod/.
 val nodeScripts = mapOf(
-    "fabric" to "gradle/nodes/fabric.gradle.kts",
-    "neoforge" to "gradle/nodes/neoforge.gradle.kts",
-    "forge" to "gradle/nodes/forge.gradle",
+    "fabric" to "nodes/fabric.gradle.kts",
+    "neoforge" to "nodes/neoforge.gradle.kts",
+    "forge" to "nodes/forge.gradle",
 )
 
-// Stonecutter versions the client mod (root = controller, root src/ = shared source).
+// Stonecutter versions the client mod (mod/ = controller, mod/src/ = shared source).
 stonecutter {
-    create(rootProject) {
+    create("mod") {
         fun node(name: String, mc: String, buildscript: String = nodeScripts.getValue(name.substringAfterLast('-'))) {
             if (wanted(name)) version(name, mc).buildscript(buildscript)
         }
 
         // 26.2-fabric: unobfuscated, official names, own snapshot-Loom node script.
-        node("26.2-fabric", "26.2", "gradle/nodes/fabric26.gradle")
+        node("26.2-fabric", "26.2", "nodes/fabric26.gradle")
         node("1.21.11-fabric", "1.21.11")
         node("1.21.10-fabric", "1.21.10")
         node("1.21.9-fabric", "1.21.9")
@@ -92,7 +92,7 @@ stonecutter {
         node("1.15.2-fabric", "1.15.2")
         node("1.15-fabric", "1.15")
         node("1.14.4-fabric", "1.14.4")
-        // Mojmap loader nodes (own buildscript): the shared root src/ is processed with fabric=false.
+        // Mojmap loader nodes (own buildscript): the shared mod/src/ is processed with fabric=false.
         node("26.2-neoforge", "26.2")
         node("1.21.11-neoforge", "1.21.11")
         node("1.21.10-neoforge", "1.21.10")

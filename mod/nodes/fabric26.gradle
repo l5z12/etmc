@@ -1,7 +1,7 @@
 // Fabric node buildscript for unobfuscated MC 26.x. 26.x ships with official names (no yarn / no
 // mappings dependency) and needs the newer Loom snapshot, whose API differs from the 1.x release Loom
 // (plain `implementation`, no `mappings`/`modImplementation`). Groovy avoids the Kotlin-DSL accessor
-// friction. The shared client source comes from the Stonecutter-processed root src/ + common/.
+// friction. The shared client source comes from the Stonecutter-processed mod/src/ + common/.
 plugins {
     id 'net.fabricmc.fabric-loom' version '1.17-SNAPSHOT'
 }
@@ -16,15 +16,15 @@ repositories {
     mavenCentral()
 }
 
-// CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
-apply from: "$rootDir/gradle/launch-probe.gradle"
+// CI's launch test (-Petmc.launchProbe=true): see nodes/launch-probe.gradle.
+apply from: "$rootDir/mod/nodes/launch-probe.gradle"
 if (launchProbeResult != null) {
     loom.runs.matching { it.name == 'client' }.configureEach { property 'etmc.launchProbe', launchProbeResult }
 }
 
 // Mod Menu's API as compile-only stubs in official names (stubs/README.md); never in the jar.
 sourceSets.create('modmenuStubs') {
-    java.srcDirs = [file("$rootDir/stubs/modmenu/official/java")]
+    java.srcDirs = [file("$rootDir/mod/stubs/modmenu/official/java")]
     resources.srcDirs = []
 }
 configurations.modmenuStubsCompileClasspath.extendsFrom(configurations.compileClasspath)

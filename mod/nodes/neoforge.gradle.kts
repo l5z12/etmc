@@ -1,4 +1,4 @@
-// NeoForge node buildscript (mojmap). The shared client source lives in the root src/ (Stonecutter
+// NeoForge node buildscript (mojmap). The shared client source lives in mod/src/ (Stonecutter
 // processes it with fabric=false -> the //? if !fabric mojmap branches) + common/. Loader entry
 // points for the OTHER loaders are excluded.
 plugins {
@@ -22,13 +22,13 @@ sourceSets {
         }
         resources {
             srcDir(rootProject.file("common/src/main/resources"))
-            srcDir(rootProject.file("src/neoforge/resources"))
+            srcDir(rootProject.file("mod/src/neoforge/resources"))
         }
     }
 }
 
-// CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
-apply(from = rootProject.file("gradle/launch-probe.gradle"))
+// CI's launch test (-Petmc.launchProbe=true): see nodes/launch-probe.gradle.
+apply(from = rootProject.file("mod/nodes/launch-probe.gradle"))
 val launchProbeResult = extra["launchProbeResult"] as String?
 
 neoForge {

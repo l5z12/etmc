@@ -1,5 +1,5 @@
 // Node buildscript: applied to each Stonecutter version node (versions/<mc>-fabric). The shared mod
-// source lives in the root src/ (processed by Stonecutter per version) + common/ (FFI + networking).
+// source lives in mod/src/ (processed by Stonecutter per version) + common/ (FFI + networking).
 plugins {
     id("fabric-loom") version "1.17.11"
 }
@@ -43,14 +43,14 @@ sourceSets {
 // Menu provides it at runtime. A separate source set that only main's compile classpath sees, so none
 // of it is in the jar or on the dev runtime classpath.
 val modmenuStubs = sourceSets.create("modmenuStubs") {
-    java.setSrcDirs(listOf(rootProject.file("stubs/modmenu/yarn/java")))
+    java.setSrcDirs(listOf(rootProject.file("mod/stubs/modmenu/yarn/java")))
     resources.setSrcDirs(emptyList<File>())
 }
 configurations.named("modmenuStubsCompileClasspath") { extendsFrom(configurations["compileClasspath"]) }
 sourceSets.named("main") { compileClasspath += modmenuStubs.output }
 
-// CI's launch test (-Petmc.launchProbe=true): see gradle/launch-probe.gradle.
-apply(from = rootProject.file("gradle/launch-probe.gradle"))
+// CI's launch test (-Petmc.launchProbe=true): see nodes/launch-probe.gradle.
+apply(from = rootProject.file("mod/nodes/launch-probe.gradle"))
 val launchProbeResult = extra["launchProbeResult"] as String?
 
 loom {
@@ -66,7 +66,7 @@ loom {
 
 // Client gametests (src/gametest, yarn 1.21.10 names): a real client that drives etmc's menu and hosts
 // a world over the bundled EasyTier library. Only on the node the source tree is checked out as; run
-// with `./gradlew :1.21.10-fabric:runClientGameTest` (CI puts it under xvfb).
+// with `./gradlew :mod:1.21.10-fabric:runClientGameTest` (CI puts it under xvfb).
 if (mcVersion == "1.21.10") {
     fabricApi {
         configureTests {
@@ -78,8 +78,8 @@ if (mcVersion == "1.21.10") {
         }
     }
     sourceSets.named("gametest") {
-        java.setSrcDirs(listOf(rootProject.file("src/gametest/java")))
-        resources.setSrcDirs(listOf(rootProject.file("src/gametest/resources")))
+        java.setSrcDirs(listOf(rootProject.file("mod/src/gametest/java")))
+        resources.setSrcDirs(listOf(rootProject.file("mod/src/gametest/resources")))
     }
     // The real Mod Menu on the dev runtime (never in the jar), so the gametest can check that it
     // finds etmc's config screen through EtmcModMenu and the stubbed API.

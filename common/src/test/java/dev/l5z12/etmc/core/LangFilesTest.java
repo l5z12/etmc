@@ -50,7 +50,7 @@ class LangFilesTest {
         Path root = repoRoot();
         Map<String, String> english = new TreeMap<>(NON_CODE_KEYS);
         List<String> conflicts = new ArrayList<>();
-        for (Path dir : List.of(root.resolve("src/main/java"), root.resolve("common/src/main/java"))) {
+        for (Path dir : List.of(root.resolve("mod/src/main/java"), root.resolve("common/src/main/java"))) {
             try (Stream<Path> files = Files.walk(dir)) {
                 for (Path f : (Iterable<Path>) files.filter(p -> p.toString().endsWith(".java"))::iterator) {
                     Matcher m = CALL.matcher(Files.readString(f, StandardCharsets.UTF_8));
@@ -67,7 +67,7 @@ class LangFilesTest {
         assertTrue(conflicts.isEmpty(), "one key, two English texts:\n" + String.join("\n", conflicts));
         assertTrue(english.size() > 100, "found only " + english.size() + " keys; did the Msg.tr pattern change?");
 
-        Path langDir = root.resolve("src/main/resources/assets/etmc/lang");
+        Path langDir = root.resolve("mod/src/main/resources/assets/etmc/lang");
         Path enUs = langDir.resolve("en_us.json");
         if (Boolean.getBoolean("etmc.writeLang")) {
             Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
