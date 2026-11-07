@@ -4,7 +4,10 @@ The README and the website are for players. Developer docs go here, and in code 
 
 ## Layout
 
-- `src/`: the client mod, one tree for every loader and version ([Stonecutter](https://stonecutter.kikugie.dev/))
+- `src/`: the client mod, one tree for every loader and version ([Stonecutter](https://stonecutter.kikugie.dev/)).
+  `src/forge/` and `src/neoforge/` hold those loaders' metadata
+- `gradle/nodes/`: the build script for each loader
+- `versions/`: the dependency versions for each node
 - `common/`: the networking core and the EasyTier natives
 - `paper/`: the Paper plugin, a separate Gradle build
 - `site/`: the website
