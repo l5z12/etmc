@@ -1,5 +1,6 @@
 package dev.l5z12.etmc.client;
 
+import dev.l5z12.etmc.core.HiddenField;
 import dev.l5z12.etmc.core.PlayerCert;
 
 import java.util.concurrent.TimeUnit;
@@ -34,11 +35,20 @@ public final class McIdentity {
         try {
             var client = McScreens.mc();
             //? if yarn {
-            var pair = client.getProfileKeys().fetchKeyPair().get(TIMEOUT_SECONDS, TimeUnit.SECONDS).orElse(null);
+            var shown = client.getProfileKeys();
             var account = client.getSession().getUuidOrNull();
             //?} else {
-            /*var pair = client.getProfileKeyPairManager().prepareKeyPair().get(TIMEOUT_SECONDS, TimeUnit.SECONDS).orElse(null);
+            /*var shown = client.getProfileKeyPairManager();
             var account = client.getUser().getProfileId();*/
+            //?}
+            // No Chat Reports answers that getter with an empty manager while chat signing is off. Its
+            // aim is unsigned chat, and this signs no chat: only a connection the host opted in to signing.
+            var keys = HiddenField.read(client, shown);
+            if (keys != shown) EtmcManager.LOGGER.info("[etmc] another mod hides the key manager, so reading it directly");
+            //? if yarn {
+            var pair = keys.fetchKeyPair().get(TIMEOUT_SECONDS, TimeUnit.SECONDS).orElse(null);
+            //?} else {
+            /*var pair = keys.prepareKeyPair().get(TIMEOUT_SECONDS, TimeUnit.SECONDS).orElse(null);*/
             //?}
             if (pair == null || account == null) {
                 EtmcManager.LOGGER.info("[etmc] no player certificate: the game has {}",
