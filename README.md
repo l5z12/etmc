@@ -16,11 +16,11 @@ installed.
 
 1. Put the jar for your loader and Minecraft version in `mods/`. Fabric also needs
    [Fabric API](https://modrinth.com/mod/fabric-api).
-2. Press **G** or run `/etmc menu` to open the menu.
-3. Under **Settings → relays**, add an EasyTier relay such as `tcp://my.relay:11010`. Any EasyTier node
+2. Press **G**, or click **etmc** in the pause menu, to open the menu.
+3. Under **Settings & relays**, add an EasyTier relay such as `tcp://my.relay:11010`. Any EasyTier node
    works, so use a free community node or run your own.
-4. Choose **Host this world**, keep the random network name and secret, then share the `etmc://`
-   invite link.
+4. Choose **Host this world**, then **Start hosting**. etmc copies your `etmc://` invite link, so
+   send it to your friends.
 5. Friends paste the link into **Add Server / Direct Connect**, or use **Join with a link** in the etmc
    menu.
 

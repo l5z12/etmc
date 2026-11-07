@@ -5,27 +5,29 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
 <DocsLayout title="Hosting" description="Share your singleplayer world or a Paper server.">
   <h2>Host a singleplayer world</h2>
   <ol>
-    <li>Open your world, then press <kbd>G</kbd> and choose <strong>Host this world</strong>.</li>
-    <li>etmc fills in a random network name and secret, so leave them as they are.</li>
-    <li>Click <strong>Start hosting</strong>.</li>
-    <li>Open <strong>Session status</strong> and click <strong>Copy invite link</strong>, or run
-      <code>/etmc invite</code>.</li>
+    <li>Open your world, then press <kbd>G</kbd> or click <strong>etmc</strong> in the pause menu, and choose
+      <strong>Host this world</strong>.</li>
+    <li>If you haven't added a relay yet, paste one in.</li>
+    <li>Click <strong>Start hosting</strong>. etmc copies your invite link for you.</li>
     <li>Send the link to your friends.</li>
   </ol>
   <div class="warn"><strong>Your secret isn't protected.</strong> It's saved as plain text in <code>config/etmc.json</code>, and anyone with your link can read it and join. Keep it random, and never use a password you
     use anywhere else.</div>
-  <p>Keep the world open while friends are playing. Leaving the world stops hosting.</p>
+  <p>Keep the world open while friends are playing. Leaving the world stops hosting. To copy the link again, open
+    <strong>Session status</strong> and click <strong>Copy invite link</strong>, or run <code>/etmc invite</code>.</p>
+  <p>etmc picks a random network name and secret. To see or change them, click <strong>More options</strong>.</p>
 
   <h2>Let offline accounts join</h2>
-  <p>Minecraft checks each player's account. To let offline accounts join your world, turn on
-    <strong>Offline accounts</strong> before you click <strong>Start hosting</strong>. Stopping hosting turns the
+  <p>Minecraft checks each player's account. To let offline accounts join your world, click <strong>More options</strong>
+    and turn on <strong>Offline accounts</strong> before you click <strong>Start hosting</strong>. Stopping hosting turns the
     check back on. On a Paper server, set <code>online-mode=false</code> in <code>server.properties</code> instead.</p>
   <div class="warn"><strong>Names aren't checked with this on.</strong> Anyone with your link can join under any name.
     Friends with real accounts start with a new inventory, and get their old one back when it's off.</div>
 
   <h2>Show who's inviting</h2>
   <p>
-    Turn on <strong>Sign as me</strong> before you click <strong>Start hosting</strong>, and your link shows
+    Under <strong>More options</strong>, turn on <strong>Sign as me</strong> before you click
+    <strong>Start hosting</strong>, and your link shows
     "&lt;your name&gt; invites you to join their world". Players can confirm that with Mojang, so nobody else can use
     your name on a link. It's off unless you turn it on.
   </p>

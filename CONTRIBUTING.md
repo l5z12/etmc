@@ -31,6 +31,20 @@ cd site && bun test       # site tests
 The `etmc://` link and TOML output exist twice: in `JoinCode` and `Toml`, and in `site/src/lib/genConfig.ts`.
 Change both together, and keep the vectors in `WireFormatTest` and `genConfig.test.ts` in sync.
 
+## Screens
+
+Every etmc screen extends `EtmcBaseScreen`, which draws the shared frame. A screen declares its widgets, labels and
+hover hints once, in `build()`, and that runs again on every resize, so keep anything the player chose in fields and
+text in `Ui.Field`. Use `draw()` only for what changes while the screen is open.
+
+A layout has to fit 320x240, the smallest GUI the game gives at Auto scale. `EtmcUiGameTest` opens every screen at that
+size and at 1080p, in English and Chinese, and fails if a widget is off screen, widgets overlap, or a label doesn't fit
+its button. It can't see drawn text, so check the screenshots CI uploads when you change a layout. To run it locally:
+
+```bash
+./gradlew :1.21.10-fabric:runClientGameTest -Petmc.nodes='1.21.10-fabric'
+```
+
 ## Host identity
 
 The network secret can't identify the host: every joiner holds it, and EasyTier lets any member claim any virtual
