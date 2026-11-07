@@ -143,7 +143,7 @@ public class EtmcClientGameTest implements FabricClientGameTest {
         }
     }
 
-    private static void setLanguage(ClientGameTestContext ctx, String code) {
+    static void setLanguage(ClientGameTestContext ctx, String code) {
         AtomicReference<CompletableFuture<Void>> reload = new AtomicReference<>();
         ctx.runOnClient(c -> {
             c.getLanguageManager().setLanguage(code);
@@ -356,7 +356,7 @@ public class EtmcClientGameTest implements FabricClientGameTest {
         return got;
     }
 
-    private static ClickableWidget button(Screen screen, String label) {
+    static ClickableWidget button(Screen screen, String label) {
         for (var child : screen.children()) {
             if (child instanceof ClickableWidget w && label.equals(w.getMessage().getString())) return w;
         }
