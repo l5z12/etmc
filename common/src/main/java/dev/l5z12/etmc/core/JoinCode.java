@@ -32,6 +32,8 @@ public final class JoinCode {
     /** Scheme every link form shares; {@link #decode} accepts any {@code etmc://<version>/<b64>}. */
     private static final String SCHEME = "etmc://";
     private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+    /** What Mojang allows in an account name. */
+    private static final Pattern PLAYER_NAME = Pattern.compile("[A-Za-z0-9_]{1,16}");
 
     public String networkName;
     public String networkSecret;
@@ -40,6 +42,24 @@ public final class JoinCode {
     public int hostPort = EtmcConfig.DEFAULT_VIRTUAL_PORT;
     /** Optional human label shown in the UI / server list. */
     public String label = "";
+    /**
+     * The public key the host must prove it holds (see {@link HostKey}), or {@code null} for a link
+     * that can't confirm who the host is. Last, and left out of the link when {@code null}, so a link
+     * without one keeps its exact bytes and an older etmc just ignores it.
+     */
+    public String hostKey;
+    /**
+     * The player hosting this world, if they opted in to proving their Minecraft account. It's a
+     * promise, not a fact: anyone can write a link, so a join holds the host to it (see
+     * {@link HostTunnel}). Read it through {@link #namedHost()}. Left out of the link when {@code null}.
+     */
+    public String hostName;
+    /**
+     * Set when the link's relay is the host itself, so a joiner should link to nobody else (see
+     * {@link EtmcConfig#joinToml(String, String, String, String, List, boolean)}). A {@code Boolean}
+     * so that it's left out of the link unless true.
+     */
+    public Boolean direct;
 
     public JoinCode() {}
 
@@ -111,6 +131,7 @@ public final class JoinCode {
                             + "Ask the server admin to fix its [etmc] server line", cfg.server()));
         }
         JoinCode jc = fromToml(s);
+        requireGoodHostKey(jc);
         if (!jc.isValidCandidate()) {
             throw new IllegalArgumentException(Msg.tr("etmc.link.no_network", "etmc link without a network name"));
         }
@@ -159,10 +180,32 @@ public final class JoinCode {
         if (jc == null || jc.networkName == null || jc.networkName.isBlank()) {
             throw new IllegalArgumentException(Msg.tr("etmc.link.no_network", "etmc link without a network name"));
         }
+        requireGoodHostKey(jc);
         if (jc.relays == null) jc.relays = new ArrayList<>();
         if (jc.hostIp == null || jc.hostIp.isBlank()) jc.hostIp = EtmcConfig.HOST_VIRTUAL_IP;
         if (jc.hostPort <= 0 || jc.hostPort > 65535) jc.hostPort = EtmcConfig.DEFAULT_VIRTUAL_PORT;
         return jc;
+    }
+
+    /** A key that can't be read must stop the join: treating it as absent would skip the check. */
+    private static void requireGoodHostKey(JoinCode jc) {
+        if (jc.hostKey != null && !HostKey.isValid(jc.hostKey)) {
+            throw new IllegalArgumentException(HostTunnel.badKey());
+        }
+    }
+
+    /** Whether this link's relay is the host itself. */
+    public boolean isDirect() {
+        return Boolean.TRUE.equals(direct);
+    }
+
+    /**
+     * Whether this is an etmc host's link from before host keys, so nothing can check who a join
+     * reaches. A link to any other address may be for a server that can't have a key at all, and
+     * the player couldn't get a better one, so only the etmc host address counts.
+     */
+    public boolean isOldHostLink() {
+        return hostKey == null && EtmcConfig.HOST_VIRTUAL_IP.equals(hostIp);
     }
 
     public boolean isValidCandidate() {
@@ -180,9 +223,47 @@ public final class JoinCode {
     }
 
     /**
+     * The invite line for this link, in the player's language, or {@code null} if it doesn't name a
+     * usable host.
+     */
+    public String invite() {
+        String name = namedHost();
+        return name == null ? null : Msg.tr("etmc.invite", "%s invites you to join their world", name);
+    }
+
+    /**
+     * The name a join must hold the host to, or {@code null} if this link makes no usable claim. It
+     * takes a host key too: without one there's no connection for the host to prove it on, so a name
+     * would go unchecked.
+     */
+    public String namedHost() {
+        return hostKey != null && isDisplayableName(hostName) ? hostName : null;
+    }
+
+    /** {@link #invite()} for link text that may not be valid, or may be a config link with no details. */
+    public static String inviteIn(String link) {
+        if (link == null || link.isBlank() || configUrl(link) != null) return null;
+        try {
+            return decode(link).invite();
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Whether a name from a link is fit to draw as a player's name. It's text from a stranger going
+     * on the joiner's screen, so only a name Mojang would allow gets through. That keeps out
+     * {@code §} formatting codes, sentences posing as names, and look-alikes such as a Cyrillic
+     * {@code е} in "Steve". An offline account with any other name just gets no invite line.
+     */
+    private static boolean isDisplayableName(String name) {
+        return name != null && PLAYER_NAME.matcher(name).matches();
+    }
+
+    /**
      * Best-effort extraction of a JoinCode from an EasyTier TOML config. Reads
      * {@code [network_identity] network_name / network_secret}, each {@code [[peer]] uri}, and the
-     * optional {@code [etmc] server = "ip:port"} / {@code label} extension. If no {@code [etmc]}
+     * optional {@code [etmc] server = "ip:port"} / {@code label} / {@code host_key} extension. If no {@code [etmc]}
      * server is present, tries to derive it from a top-level {@code ipv4 = "10.x.y.z/24"} key
      * (the host's fixed virtual IP). Fields not present in the TOML are left at their defaults.
      */
@@ -215,6 +296,8 @@ public final class JoinCode {
                 case "etmc" -> {
                     if ("server".equals(key)) applyServer(jc, val);
                     else if ("label".equals(key)) jc.label = val == null ? "" : val;
+                    else if ("host_key".equals(key)) jc.hostKey = val;
+                    else if ("direct".equals(key)) jc.direct = "true".equals(val) ? Boolean.TRUE : null;
                 }
                 default -> { /* any other table is irrelevant to an etmc link */ }
             }

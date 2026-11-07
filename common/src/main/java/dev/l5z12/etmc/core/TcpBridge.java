@@ -21,7 +21,6 @@ import java.util.function.Consumer;
  */
 public final class TcpBridge {
 
-    private static final System.Logger LOG = System.getLogger("etmc.TcpBridge");
     private static final int BUF = 32 * 1024;
     /** Long: the read returns promptly on data or on close (handle cancellation), not on this timeout. */
     private static final long READ_TIMEOUT_MS = 3_600_000L;
@@ -93,8 +92,7 @@ public final class TcpBridge {
     private void ended(String direction, Throwable t) {
         if (closed.get()) return;
         if (t instanceof EasyTierException e && e.is(DataPlaneError.HANDLE_CLOSED)) return;
-        LOG.log(System.Logger.Level.INFO, "etmc connection with " + name + " dropped (" + direction + "): "
-                + Errors.message(t));
+        EtmcLog.info("connection with " + name + " dropped (" + direction + "): " + Errors.message(t));
     }
 
     public void close() {

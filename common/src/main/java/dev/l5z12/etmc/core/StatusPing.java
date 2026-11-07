@@ -40,11 +40,22 @@ public final class StatusPing {
         /** The host's address couldn't be reached over the network at all. */
         UNREACHABLE,
         /** Something answered, but not with a server-list reply. */
-        BAD_REPLY
+        BAD_REPLY,
+        /** Something is at the host's address, but it couldn't prove it's the host the link names. */
+        WRONG_HOST,
+        /** The link names its host, and Mojang couldn't be asked whether that's true. */
+        UNCONFIRMED
     }
 
-    /** A ping's outcome, with the server's protocol number when it {@link Outcome#ANSWERED} (else -1). */
-    public record Result(Outcome outcome, int protocol) {}
+    /**
+     * A ping's outcome, with the server's protocol number when it {@link Outcome#ANSWERED} (else -1),
+     * and what to tell the player about a {@link Outcome#WRONG_HOST} or {@link Outcome#UNCONFIRMED}.
+     */
+    public record Result(Outcome outcome, int protocol, String reason) {
+        public Result(Outcome outcome, int protocol) {
+            this(outcome, protocol, null);
+        }
+    }
 
     private static final long IO_TIMEOUT_MS = 8_000L;
     private static final int MAX_FRAME = 1 << 23; // 8 MiB — status JSON with a favicon can be sizable
@@ -61,7 +72,14 @@ public final class StatusPing {
         long stream;
         try {
             stream = et.tcpConnect(inst, hostIp, hostPort, timeoutMs).handle();
+        } catch (HostTunnel.Unconfirmed e) {
+            return new Result(Outcome.UNCONFIRMED, -1, e.getMessage());
+        } catch (HostTunnel.WrongHost e) {
+            return new Result(Outcome.WRONG_HOST, -1, e.getMessage());
+        } catch (HostTunnel.NoAnswer e) {
+            return new Result(Outcome.SILENT, -1);
         } catch (Throwable t) {
+            EtmcLog.info("ping of " + hostIp + ":" + hostPort + " couldn't connect: " + Errors.message(t));
             return new Result(Outcome.UNREACHABLE, -1);
         }
         try {
@@ -101,8 +119,10 @@ public final class StatusPing {
             int protocol = parseProtocol(json);
             return protocol < 0 ? badReply() : new Result(Outcome.ANSWERED, protocol);
         } catch (EasyTierException e) {
+            EtmcLog.info("ping of " + hostIp + ":" + hostPort + " ended: " + Errors.message(e));
             return new Result(e.is(DataPlaneError.DEADLINE_EXCEEDED) ? Outcome.SILENT : Outcome.CLOSED, -1);
         } catch (Throwable t) {
+            EtmcLog.info("ping of " + hostIp + ":" + hostPort + " ended: " + Errors.message(t));
             return new Result(Outcome.CLOSED, -1); // end of stream, mid-frame or before a byte
         } finally {
             Io.closeStream(et, stream);
@@ -110,6 +130,7 @@ public final class StatusPing {
     }
 
     private static Result badReply() {
+        EtmcLog.info("ping got a reply that isn't a server list answer");
         return new Result(Outcome.BAD_REPLY, -1);
     }
 

@@ -11,6 +11,11 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     <li>Click <strong>Join Server</strong>.</li>
   </ol>
   <p>
+    If the host chose to sign with their Minecraft account, the link shows who invited you. etmc checks that name with
+    Mojang when you connect, and won't join if the host can't prove it. If Mojang can't be reached, etmc asks you first.
+    <strong>Session status</strong> shows when Mojang has confirmed them.
+  </p>
+  <p>
     etmc tries for a direct connection first. If that's taking too long, click <strong>Join now anyway</strong> to
     skip the wait. This can fail if the host isn't reachable yet.
   </p>
@@ -24,6 +29,18 @@ import DocsLayout from '../../layouts/DocsLayout.astro';
     From the title screen, etmc connects right away. From inside a world, it adds the server to your
     <strong>Multiplayer</strong> list so you can join after leaving. You can also run
     <code>/etmc join &lt;link&gt;</code>.
+  </p>
+
+  <h2>If etmc can't confirm the host</h2>
+  <p>
+    Your link names the host's key, and etmc connects only if the host can prove it's theirs. If it can't, etmc stops
+    and tells you. Someone on the network may be posing as the host, or the host may have a new key. Ask them for a new
+    link, somewhere you know it's really them.
+  </p>
+  <p>
+    Older links don't have a key, so etmc can't check who you reach. It asks before joining with one: get a new link
+    from the host if you can. If you choose <strong>Join anyway</strong>, <strong>Session status</strong> shows that the
+    host wasn't checked.
   </p>
 
   <h2>Check your connection</h2>

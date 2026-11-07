@@ -1,6 +1,7 @@
 package dev.l5z12.etmc.gametest;
 
 import dev.l5z12.etmc.client.EtmcManager;
+import dev.l5z12.etmc.client.screen.EtmcAskScreen;
 import dev.l5z12.etmc.client.screen.EtmcNoticeScreen;
 import dev.l5z12.etmc.client.screen.EtmcScreen;
 import dev.l5z12.etmc.client.screen.SettingsScreen;
@@ -8,6 +9,7 @@ import dev.l5z12.etmc.client.screen.StatusScreen;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcConnect;
 import dev.l5z12.etmc.core.EtmcSession;
+import dev.l5z12.etmc.core.HostKey;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.core.StatusPing;
@@ -246,6 +248,7 @@ public class EtmcClientGameTest implements FabricClientGameTest {
             int serverPort = server.computeOnServer(MinecraftServer::getServerPort);
             // The host side of etmc, for this server: what hosting a world does once it is open to LAN.
             host.setPlayerName("gametest");
+            host.setHostKey(HostKey.generate());
             JoinCode code = host.host(serverPort, network, secret, List.of(relay),
                     EtmcConfig.DEFAULT_VIRTUAL_PORT, "gametest server");
             try {
@@ -275,6 +278,28 @@ public class EtmcClientGameTest implements FabricClientGameTest {
                 check(shown.endsWith("The host's world isn't open"), "joining a closed port ended on " + shown);
                 ctx.takeScreenshot("etmc-join-world-not-open");
                 ctx.waitFor(c -> !etmc.session().isActive(), 30 * SECONDS);
+
+                // A link from before host keys: nothing starts until the player says so.
+                JoinCode old = JoinCode.decode(code.encodeLink());
+                old.hostKey = null;
+                pasteTheLink(ctx, old.encodeLink());
+                ctx.waitForScreen(EtmcAskScreen.class);
+                check(!etmc.session().isActive(), "an old link started the network before asking");
+                ctx.takeScreenshot("etmc-ask-old-link");
+                ctx.clickScreenButton("Cancel");
+                ctx.waitFor(c -> !(c.currentScreen instanceof EtmcAskScreen), 10 * SECONDS);
+                check(!etmc.session().isActive(), "cancelling an old link still started the network");
+
+                pasteTheLink(ctx, old.encodeLink());
+                ctx.waitForScreen(EtmcAskScreen.class);
+                ctx.clickScreenButton("Join anyway");
+                waitForTheJoin(ctx);
+                check(ctx.computeOnClient(c -> c.world != null), "joining anyway ended on "
+                        + ctx.computeOnClient(c -> describe(c.currentScreen)) + " instead of the world");
+                try (TestServerConnection anyway = new TestServerConnectionImpl(ctx, new TestClientWorldContextImpl(ctx))) {
+                    anyway.getClientWorld().waitForChunksRender();
+                }
+                ctx.waitFor(c -> !etmc.session().isActive(), 30 * SECONDS);
                 ctx.setScreen(() -> null);
             } finally {
                 host.leave();
@@ -289,6 +314,11 @@ public class EtmcClientGameTest implements FabricClientGameTest {
      * world, or on etmc's error screen if the join failed.
      */
     private static void joinWithTheLink(ClientGameTestContext ctx, String link) {
+        pasteTheLink(ctx, link);
+        waitForTheJoin(ctx);
+    }
+
+    private static void pasteTheLink(ClientGameTestContext ctx, String link) {
         ctx.runOnClient(c -> c.options.lastServer = ""); // Direct Connection starts from the last address
         ctx.setScreen(() -> new MultiplayerScreen(new TitleScreen()));
         ctx.waitForScreen(MultiplayerScreen.class);
@@ -296,6 +326,9 @@ public class EtmcClientGameTest implements FabricClientGameTest {
         ctx.waitForScreen(DirectConnectScreen.class);
         ctx.getInput().typeChars(link);
         ctx.clickScreenButton("Join Server");
+    }
+
+    private static void waitForTheJoin(ClientGameTestContext ctx) {
         // The connecting screen until the host is found and its world answers; then Minecraft's own
         // connect (and the world), or etmc's error screen.
         ctx.waitFor(c -> c.world != null || c.currentScreen instanceof EtmcNoticeScreen, 120 * SECONDS);

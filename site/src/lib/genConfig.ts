@@ -17,6 +17,12 @@ export interface GenInput {
   label: string;
   /** Mesh-side port for the Paper server config (`virtual-port`). */
   virtualPort: number;
+  /** The host's public key, from `/etmc status`. Blank makes a link that can't confirm the host. */
+  hostKey?: string;
+  /** The hosting player's name. No form field: it only passes through when a link is loaded. */
+  hostName?: string;
+  /** The link's relay is the host itself. No form field either, for the same reason. */
+  direct?: boolean;
 }
 
 /**
@@ -80,6 +86,23 @@ function relayErrors(relays: string[]): string[] {
   return out;
 }
 
+/**
+ * What is wrong with a host key, or `null` if it's fine or blank. Mirrors `HostKey.isValid`: a key
+ * is 32 bytes of base64url without padding, so 43 characters, and the last one only carries 4 bits.
+ */
+export function hostKeyProblem(key: string | undefined): string | null {
+  const k = (key ?? '').trim();
+  if (!k) return null;
+  return /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(k)
+    ? null
+    : 'That host key isn\'t right. Copy it again from /etmc status.';
+}
+
+function hostKeyErrors(key: string | undefined): string[] {
+  const p = hostKeyProblem(key);
+  return p ? [p] : [];
+}
+
 export function validate(i: GenInput): string[] {
   const errs: string[] = [];
   if (!i.network.trim()) errs.push('Network name is required.');
@@ -88,6 +111,7 @@ export function validate(i: GenInput): string[] {
   if (!i.serverIp.trim()) errs.push('Server mesh IP is required.');
   if (!(i.serverPort > 0 && i.serverPort <= 65535)) errs.push('Server port must be 1–65535.');
   if (!i.dhcp && !i.ipv4.trim()) errs.push('Static mode needs a client IPv4 (or switch to DHCP).');
+  errs.push(...hostKeyErrors(i.hostKey));
   return errs;
 }
 
@@ -129,6 +153,7 @@ export function buildToml(i: GenInput): string {
   lines.push('[etmc]');
   lines.push(`server = ${tstr(`${i.serverIp.trim()}:${i.serverPort}`)}`);
   if (i.label.trim()) lines.push(`label = ${tstr(i.label.trim())}`);
+  if (i.hostKey?.trim()) lines.push(`host_key = ${tstr(i.hostKey.trim())}`);
 
   return lines.join('\n') + '\n';
 }
@@ -206,12 +231,16 @@ export function validateJoinLink(i: GenInput): string[] {
   errs.push(...relayErrors(i.relays));
   if (!i.serverIp.trim()) errs.push('Host mesh IP is required.');
   if (!(i.serverPort > 0 && i.serverPort <= 65535)) errs.push('Host port must be 1–65535.');
+  errs.push(...hostKeyErrors(i.hostKey));
   return errs;
 }
 
 /** The link's base64url payload. */
 function joinPayload(i: GenInput): string {
-  // Key order mirrors JoinCode's field declaration order (networkName … label).
+  // Key order mirrors JoinCode's field declaration order (networkName … direct). The optional ones
+  // are left out when blank, as Gson leaves out a null, so a link without them keeps its exact bytes.
+  const hostKey = i.hostKey?.trim();
+  const hostName = i.hostName?.trim();
   const jc = {
     networkName: i.network.trim(),
     networkSecret: i.secret,
@@ -219,6 +248,9 @@ function joinPayload(i: GenInput): string {
     hostIp: i.serverIp.trim() || HOST_VIRTUAL_IP,
     hostPort: i.serverPort > 0 && i.serverPort <= 65535 ? i.serverPort : DEFAULT_VIRTUAL_PORT,
     label: i.label.trim(),
+    ...(hostKey ? { hostKey } : {}),
+    ...(hostName ? { hostName } : {}),
+    ...(i.direct ? { direct: true } : {}),
   };
   return b64urlUtf8(JSON.stringify(jc));
 }
@@ -228,7 +260,7 @@ export function buildJoinLink(i: GenInput): string {
   return LINK_PREFIX + joinPayload(i);
 }
 
-export type JoinLinkFields = Pick<GenInput, 'network' | 'secret' | 'relays' | 'serverIp' | 'serverPort' | 'label'>;
+export type JoinLinkFields = Pick<GenInput, 'network' | 'secret' | 'relays' | 'serverIp' | 'serverPort' | 'label' | 'hostKey' | 'hostName' | 'direct'>;
 
 /**
  * Reads an `etmc://` link back into form fields. Mirrors `JoinCode.decode`: it tolerates surrounding
@@ -273,6 +305,12 @@ export function decodeJoinLink(text: string): JoinLinkFields {
   const network = text_(f.networkName);
   if (!network.trim()) throw new Error('This link has no network name.');
 
+  // A damaged key is refused, as the mod refuses it: losing it here would turn off the host check.
+  const hostKey = f.hostKey === undefined || f.hostKey === null ? undefined : text_(f.hostKey);
+  if (hostKey !== undefined && (!hostKey.trim() || hostKeyProblem(hostKey))) {
+    throw new Error('This link is damaged. Ask for a new one.');
+  }
+
   const relays = Array.isArray(f.relays) ? f.relays.filter((r): r is string => typeof r === 'string') : [];
   const port = f.hostPort;
   return {
@@ -282,6 +320,9 @@ export function decodeJoinLink(text: string): JoinLinkFields {
     serverIp: text_(f.hostIp).trim() ? text_(f.hostIp) : HOST_VIRTUAL_IP,
     serverPort: typeof port === 'number' && Number.isInteger(port) && port > 0 && port <= 65535 ? port : DEFAULT_VIRTUAL_PORT,
     label: text_(f.label),
+    ...(hostKey ? { hostKey } : {}),
+    ...(text_(f.hostName) ? { hostName: text_(f.hostName) } : {}),
+    ...(f.direct === true ? { direct: true } : {}),
   };
 }
 

@@ -3,6 +3,7 @@ package dev.l5z12.etmc.paper;
 import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
+import dev.l5z12.etmc.core.HostKey;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Secrets;
 import dev.l5z12.etmc.ffi.EasyTier;
@@ -107,12 +108,20 @@ public final class EtmcPlugin extends JavaPlugin {
             virtualPort = getConfig().getInt("virtual-port", EtmcConfig.DEFAULT_VIRTUAL_PORT);
             int serverPort = getServer().getPort();
 
-            if (relays.isEmpty()) {
-                throw new IllegalStateException("No relays configured. Set 'relays' in plugins/etmc/config.yml.");
+            String publicAddress = getConfig().getString("public-address", "").trim();
+            if (relays.isEmpty() && publicAddress.isEmpty()) {
+                throw new IllegalStateException("No relays configured. Set 'relays' or 'public-address' in "
+                        + "plugins/etmc/config.yml.");
             }
             String relayProblem = dev.l5z12.etmc.core.Relays.firstProblem(relays);
             if (relayProblem != null) {
                 throw new IllegalStateException("Bad relay in plugins/etmc/config.yml: " + relayProblem);
+            }
+            if (!publicAddress.isEmpty()) {
+                String addressProblem = dev.l5z12.etmc.core.Relays.problem(publicAddress);
+                if (addressProblem != null) {
+                    throw new IllegalStateException("Bad public-address in plugins/etmc/config.yml: " + addressProblem);
+                }
             }
 
             Path cacheRoot = getDataFolder().toPath();
@@ -121,6 +130,8 @@ public final class EtmcPlugin extends JavaPlugin {
             EasyTier et = EasyTier.load(nat.path());
             getLogger().info("EasyTier backend: " + (Panama.isAvailable() ? "FFM" : "JNA"));
             EtmcSession fresh = new EtmcSession(et);
+            fresh.setHostKey(HostKey.loadOrCreate(cacheRoot.resolve("host-key")));
+            fresh.setPublicAddress(publicAddress.isEmpty() ? null : publicAddress);
 
             joinCode = fresh.host(serverPort, network, secret, relays, virtualPort);
             // Published only once it is actually hosting, so `ready` never leads a half-built session.

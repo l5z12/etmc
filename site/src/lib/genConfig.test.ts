@@ -16,7 +16,9 @@
  */
 /// <reference types="bun" />
 import { describe, expect, test } from 'bun:test';
-import { buildJoinLink, buildPaperYaml, buildToml, decodeJoinLink, randomSecret, type GenInput } from './genConfig';
+import {
+  buildJoinLink, buildPaperYaml, buildToml, decodeJoinLink, hostKeyProblem, randomSecret, validateJoinLink, type GenInput,
+} from './genConfig';
 
 /** The shared payload: base64url (no padding) of the JoinCode JSON, in field-declaration order. */
 const PAYLOAD =
@@ -40,9 +42,56 @@ const vector: GenInput = {
   virtualPort: 25565,
 };
 
+/** PAYLOAD with a host key, which comes last. Twin of WireFormatTest.PAYLOAD_WITH_KEY. */
+const HOST_KEY = 'MeAwP9ZBjS-MDni5HyLoyu0Pvkhlbc9HZ-SDT3Abj2I';
+const PAYLOAD_WITH_KEY =
+  'eyJuZXR3b3JrTmFtZSI6Im15LXNtcCIsIm5ldHdvcmtTZWNyZXQiOiJzM2NyZXQiLCJyZWxheXMiOlsidGNw' +
+  'Oi8vcmVsYXkuZXhhbXBsZToxMTAxMCJdLCJob3N0SXAiOiIxMC4xMjYuMTI2LjEiLCJob3N0UG9ydCI6MjU1' +
+  'NjUsImxhYmVsIjoiTXkgU2VydmVyIiwiaG9zdEtleSI6Ik1lQXdQOVpCalMtTURuaTVIeUxveXUwUHZraGxi' +
+  'YzlIWi1TRFQzQWJqMkkifQ';
+
+/** PAYLOAD_WITH_KEY from a player's world. Twin of WireFormatTest.PAYLOAD_WITH_NAME. */
+const PAYLOAD_WITH_NAME =
+  'eyJuZXR3b3JrTmFtZSI6Im15LXNtcCIsIm5ldHdvcmtTZWNyZXQiOiJzM2NyZXQiLCJyZWxheXMiOlsidGNw' +
+  'Oi8vcmVsYXkuZXhhbXBsZToxMTAxMCJdLCJob3N0SXAiOiIxMC4xMjYuMTI2LjEiLCJob3N0UG9ydCI6MjU1' +
+  'NjUsImxhYmVsIjoiTXkgU2VydmVyIiwiaG9zdEtleSI6Ik1lQXdQOVpCalMtTURuaTVIeUxveXUwUHZraGxi' +
+  'YzlIWi1TRFQzQWJqMkkiLCJob3N0TmFtZSI6IlN0ZXZlIn0';
+
+/** PAYLOAD_WITH_KEY from a server that is its own relay. Twin of WireFormatTest.PAYLOAD_DIRECT. */
+const PAYLOAD_DIRECT =
+  'eyJuZXR3b3JrTmFtZSI6Im15LXNtcCIsIm5ldHdvcmtTZWNyZXQiOiJzM2NyZXQiLCJyZWxheXMiOlsidGNw' +
+  'Oi8vcmVsYXkuZXhhbXBsZToxMTAxMCJdLCJob3N0SXAiOiIxMC4xMjYuMTI2LjEiLCJob3N0UG9ydCI6MjU1' +
+  'NjUsImxhYmVsIjoiTXkgU2VydmVyIiwiaG9zdEtleSI6Ik1lQXdQOVpCalMtTURuaTVIeUxveXUwUHZraGxi' +
+  'YzlIWi1TRFQzQWJqMkkiLCJkaXJlY3QiOnRydWV9';
+
 describe('join link', () => {
   test('link form is frozen', () => {
     expect(buildJoinLink(vector)).toBe('etmc://v1/' + PAYLOAD);
+  });
+
+  test('link form with a host key is frozen', () => {
+    expect(buildJoinLink({ ...vector, hostKey: HOST_KEY })).toBe('etmc://v1/' + PAYLOAD_WITH_KEY);
+  });
+
+  test('link form from a player\'s world is frozen', () => {
+    expect(buildJoinLink({ ...vector, hostKey: HOST_KEY, hostName: 'Steve' })).toBe('etmc://v1/' + PAYLOAD_WITH_NAME);
+  });
+
+  test('loading a link and saving it again keeps who it is from', () => {
+    const loaded = decodeJoinLink('etmc://v1/' + PAYLOAD_WITH_NAME);
+    expect(loaded.hostName).toBe('Steve');
+    expect(buildJoinLink({ ...vector, ...loaded })).toBe('etmc://v1/' + PAYLOAD_WITH_NAME);
+  });
+
+  test('link form from a direct server is frozen, and survives a load and save', () => {
+    expect(buildJoinLink({ ...vector, hostKey: HOST_KEY, direct: true })).toBe('etmc://v1/' + PAYLOAD_DIRECT);
+    const loaded = decodeJoinLink('etmc://v1/' + PAYLOAD_DIRECT);
+    expect(loaded.direct).toBe(true);
+    expect(buildJoinLink({ ...vector, ...loaded })).toBe('etmc://v1/' + PAYLOAD_DIRECT);
+  });
+
+  test('a blank host key leaves the link exactly as it was', () => {
+    expect(buildJoinLink({ ...vector, hostKey: '  ' })).toBe('etmc://v1/' + PAYLOAD);
   });
 
   test('blank host details fall back to the same defaults as the mod', () => {
@@ -98,6 +147,38 @@ describe('decoding a join link', () => {
     expect(() => decodeJoinLink('etmc://v1/' + b64url('[1]'))).toThrow('damaged');
     expect(() => decodeJoinLink('etmc://v1/' + b64url('{"relays":[]}'))).toThrow('network name');
     expect(() => decodeJoinLink('etmc://v1/')).toThrow('network name');
+  });
+});
+
+describe('host keys', () => {
+  const linkWith = (hostKey: unknown) => 'etmc://v1/' + Buffer.from(JSON.stringify({ networkName: 'n', hostKey })).toString('base64url');
+
+  test('loading a link keeps its key, so saving it again keeps the host check', () => {
+    const loaded = decodeJoinLink('etmc://v1/' + PAYLOAD_WITH_KEY);
+    expect(loaded.hostKey).toBe(HOST_KEY);
+    expect(buildJoinLink({ ...vector, ...loaded })).toBe('etmc://v1/' + PAYLOAD_WITH_KEY);
+  });
+
+  test('a link without a key has none', () => {
+    expect(decodeJoinLink('etmc://v1/' + PAYLOAD).hostKey).toBeUndefined();
+  });
+
+  test('a damaged key is refused, not dropped', () => {
+    expect(() => decodeJoinLink(linkWith('not-a-key'))).toThrow('damaged');
+    expect(() => decodeJoinLink(linkWith(''))).toThrow('damaged');
+    expect(() => decodeJoinLink(linkWith(7))).toThrow('damaged');
+  });
+
+  test('the form only takes a real key', () => {
+    expect(hostKeyProblem('')).toBeNull();
+    expect(hostKeyProblem(HOST_KEY)).toBeNull();
+    expect(hostKeyProblem(HOST_KEY.slice(1))).not.toBeNull();
+    expect(validateJoinLink({ ...vector, hostKey: 'nope' })).toHaveLength(1);
+  });
+
+  test('a player config carries the key', () => {
+    expect(buildToml({ ...vector, hostKey: HOST_KEY })).toContain(`host_key = "${HOST_KEY}"`);
+    expect(buildToml(vector)).not.toContain('host_key');
   });
 });
 

@@ -191,6 +191,7 @@ public final class EtmcCommands {
         else if (st.peers().isEmpty() && st.relayNodes() == 0) src.error(Msg.tr("etmc.cmd.status.no_relay", "The relay hasn't been reached yet."));
         if (st.errorMsg() != null) src.error(Msg.tr("etmc.status.easytier_error", "EasyTier: %s", st.errorMsg()));
         if (s.hostFailure() != null) src.error(Msg.tr("etmc.cmd.status.host_failed", "Joiners can't connect any more: %s", s.hostFailure()));
+        if (s.joinFailure() != null) src.error(s.joinFailure());
         int shown = 0;
         for (NetworkStatus.Peer p : st.peers()) {
             if (++shown > 10) {

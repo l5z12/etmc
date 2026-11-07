@@ -40,7 +40,30 @@ public final class EtmcConfig {
     /** @param hostname the device name peers see (the instance name is internal and unique per session) */
     public static String hostToml(String instName, String hostname, String networkName, String secret,
                                   List<String> relays) {
-        return build(instName, hostname, networkName, secret, relays, HOST_VIRTUAL_IP, false, HOST_LISTENERS);
+        return hostToml(instName, hostname, networkName, secret, relays, null);
+    }
+
+    /** @param extraListener also listen here, for a host with a public address; {@code null} for none */
+    public static String hostToml(String instName, String hostname, String networkName, String secret,
+                                  List<String> relays, String extraListener) {
+        String listeners = extraListener == null ? HOST_LISTENERS
+                : "[" + Toml.quote(extraListener) + ", " + HOST_LISTENERS.substring(1);
+        return build(instName, hostname, networkName, secret, relays, HOST_VIRTUAL_IP, false, listeners, false);
+    }
+
+    /**
+     * What to listen on for a public address, such as {@code tcp://play.example.com:11010}.
+     *
+     * @throws IllegalArgumentException if it has no port to listen on
+     */
+    public static String listenerFor(String publicAddress) {
+        java.net.URI uri = java.net.URI.create(publicAddress.trim());
+        if (uri.getScheme() == null || uri.getPort() <= 0) {
+            throw new IllegalArgumentException(Msg.tr("etmc.public_address.no_port",
+                    "the public address '%s' needs a protocol and a port, like tcp://play.example.com:11010",
+                    publicAddress));
+        }
+        return uri.getScheme().toLowerCase(java.util.Locale.ROOT) + "://0.0.0.0:" + uri.getPort();
     }
 
     public static String joinToml(String instName, String networkName, String secret, List<String> relays) {
@@ -49,11 +72,22 @@ public final class EtmcConfig {
 
     public static String joinToml(String instName, String hostname, String networkName, String secret,
                                   List<String> relays) {
-        return build(instName, hostname, networkName, secret, relays, null, true, "[]");
+        return joinToml(instName, hostname, networkName, secret, relays, false);
+    }
+
+    /**
+     * @param direct the link's relay is the host itself, so link to nobody else. EasyTier gives an
+     *               address to whoever is closest, and this keeps the host closest: one hop, where
+     *               anyone claiming its address is two, through the host.
+     */
+    public static String joinToml(String instName, String hostname, String networkName, String secret,
+                                  List<String> relays, boolean direct) {
+        return build(instName, hostname, networkName, secret, relays, null, true, "[]", direct);
     }
 
     private static String build(String instName, String hostname, String networkName, String secret,
-                                List<String> relays, String staticIpv4, boolean dhcp, String listeners) {
+                                List<String> relays, String staticIpv4, boolean dhcp, String listeners,
+                                boolean direct) {
         StringBuilder sb = new StringBuilder();
         sb.append("instance_name = ").append(Toml.quote(instName)).append('\n');
         String device = hostname == null || hostname.isBlank() ? instName : hostname;
@@ -89,6 +123,7 @@ public final class EtmcConfig {
 
         sb.append("[flags]\n");
         sb.append("no_tun = true\n");
+        if (direct) sb.append("disable_p2p = true\n");
         // EasyTier binds its outgoing sockets to the physical network interfaces, and a socket bound
         // there can't reach this machine's loopback address (Windows refuses every such dial with
         // WSAEADDRNOTAVAIL). So a relay running on the player's own machine was unreachable.

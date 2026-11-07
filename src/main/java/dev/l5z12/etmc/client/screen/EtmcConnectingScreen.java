@@ -30,7 +30,14 @@ public final class EtmcConnectingScreen extends EtmcBaseScreen {
 
     public EtmcConnectingScreen(Screen parent, String label, Runnable onProceed, Runnable onCancel,
                                 Supplier<String> progress) {
-        super(label == null || label.isBlank() ? Txt.tr("etmc.connecting.title", "Joining")
+        this(parent, label, null, onProceed, onCancel, progress);
+    }
+
+    /** @param invite the link's invite line, shown as the title in place of {@code label}; may be {@code null} */
+    public EtmcConnectingScreen(Screen parent, String label, String invite, Runnable onProceed, Runnable onCancel,
+                                Supplier<String> progress) {
+        super(invite != null ? Txt.literal(invite)
+                : label == null || label.isBlank() ? Txt.tr("etmc.connecting.title", "Joining")
                 : Txt.tr("etmc.connecting.title_label", "Joining %s", label), parent);
         this.onProceed = onProceed;
         this.onCancel = onCancel;

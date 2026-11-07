@@ -37,6 +37,10 @@ public final class JoinScreen extends EtmcBaseScreen {
     private Button joinButton;*/
     //?}
 
+    /** The field's text {@link #invite} was read from: decoding a link every frame would be wasteful. */
+    private String inviteFrom = "";
+    private String invite;
+
     public JoinScreen(Screen parent) {
         super(Txt.tr("etmc.join.title", "Join a world"), parent);
     }
@@ -107,8 +111,17 @@ public final class JoinScreen extends EtmcBaseScreen {
     protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
         int cx = this.width / 2;
         Gfx.centered(ctx, font(), this.title, cx, 24, COLOR_TEXT);
-        Gfx.centered(ctx, font(), Txt.tr("etmc.join.hint", "Paste the etmc:// link your host shared"),
-                cx, this.height / 4 - 4, COLOR_MUTED);
+        String text = Ui.getText(codeField);
+        if (!text.equals(inviteFrom)) {
+            inviteFrom = text;
+            invite = JoinCode.inviteIn(text);
+        }
+        if (invite != null) {
+            Gfx.centered(ctx, font(), Txt.literal(invite), cx, this.height / 4 - 4, COLOR_GOOD);
+        } else {
+            Gfx.centered(ctx, font(), Txt.tr("etmc.join.hint", "Paste the etmc:// link your host shared"),
+                    cx, this.height / 4 - 4, COLOR_MUTED);
+        }
         if (McScreens.inWorld()) {
             Gfx.centered(ctx, font(),
                     Txt.tr("etmc.join.in_world",

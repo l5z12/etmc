@@ -44,6 +44,12 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
     private EditBox labelField;*/
     //?}
 
+    /**
+     * The host key of the config this was loaded from. It has no field: nobody types one in, but
+     * dropping it here would hand out a link that no longer checks who the host is.
+     */
+    private String hostKey;
+
     public LinkGeneratorScreen(Screen parent) {
         super(Txt.tr("etmc.menu.generate", "Generate join link"), parent);
     }
@@ -133,6 +139,7 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
         if (jc.hostIp != null && !jc.hostIp.isBlank()) Ui.setText(hostIpField, jc.hostIp);
         if (jc.hostPort > 0 && jc.hostPort <= 65535) Ui.setText(hostPortField, Integer.toString(jc.hostPort));
         Ui.setText(labelField, safe(jc.label));
+        hostKey = jc.hostKey;
     }
 
     private JoinCode buildCode() {
@@ -170,7 +177,9 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
                 return null;
             }
         }
-        return new JoinCode(network, secret, relays, ip, port, Ui.getText(labelField).trim());
+        JoinCode code = new JoinCode(network, secret, relays, ip, port, Ui.getText(labelField).trim());
+        code.hostKey = hostKey;
+        return code;
     }
 
     private void copy() {

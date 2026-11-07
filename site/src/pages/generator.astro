@@ -77,6 +77,11 @@ import BaseLayout from '../layouts/BaseLayout.astro';
           <span>Server name <span class="hint">(shown in the game)</span></span>
           <input id="f-label" type="text" value="My Server" autocomplete="off" spellcheck="false" />
         </label>
+
+        <label class="field mesh-only">
+          <span>Host key <span class="hint">(from /etmc status, so players can confirm it's your server)</span></span>
+          <input id="f-hostkey" type="text" autocomplete="off" spellcheck="false" />
+        </label>
       </div>
 
       <div class="card output-card">
@@ -156,6 +161,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const serverip = $<HTMLInputElement>('f-serverip');
     const serverport = $<HTMLInputElement>('f-serverport');
     const label = $<HTMLInputElement>('f-label');
+    const hostKey = $<HTMLInputElement>('f-hostkey');
 
     const lblPort = $<HTMLElement>('lbl-port');
     const lblOut = $<HTMLElement>('lbl-out');
@@ -181,9 +187,14 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         serverPort: port,
         label: label.value,
         virtualPort: port,
+        hostKey: hostKey.value,
+        hostName: loadedHostName,
+        direct: loadedDirect,
       };
     }
 
+    let loadedHostName: string | undefined; // kept from a loaded link, so saving it keeps its invite
+    let loadedDirect: boolean | undefined;  // likewise: the link's relay is the host itself
     let current = '';       // paper/player output (Copy + Download)
     let currentLink = '';   // link mode: the etmc:// link
     function render() {
@@ -238,6 +249,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
         serverip.value = link.serverIp;
         serverport.value = String(link.serverPort);
         label.value = link.label;
+        hostKey.value = link.hostKey ?? '';
+        loadedHostName = link.hostName;
+        loadedDirect = link.direct;
         // Cleared so the secret isn't left in a second field that no longer matches the form.
         linkInput.value = '';
         loadMsg.textContent = `Loaded "${link.label || link.network}". You can edit it below.`;

@@ -19,9 +19,11 @@ import java.util.List;
  *   [etmc]
  *   server = "10.144.144.1:25565"
  *   label  = "My SMP"
+ *   host_key = "..."
  * </pre>
  * The {@code [etmc]} table is stripped before the config reaches EasyTier. If it is absent the
- * caller must supply the server address out-of-band.
+ * caller must supply the server address out-of-band. {@code host_key} is optional, and only an etmc
+ * host has one: without it, nothing checks that the server is the one the config means.
  *
  * @param toml         the normalized config, ready for {@code run_network_instance}
  * @param instanceName the unique instance name forced into it
@@ -29,9 +31,10 @@ import java.util.List;
  * @param serverPort   the Minecraft server's port on the mesh
  * @param label        what to call this server in the UI; never blank
  * @param server       the server address as it was written, before any defaults
+ * @param hostKey      the public key the server must prove it holds (see {@link HostKey}), or {@code null}
  */
 public record ImportedConfig(String toml, String instanceName, String serverIp, int serverPort, String label,
-                             String server) {
+                             String server, String hostKey) {
 
     /**
      * Parses and normalizes a raw EasyTier TOML config.
@@ -39,7 +42,8 @@ public record ImportedConfig(String toml, String instanceName, String serverIp, 
      * @param raw            the fetched config text
      * @param instanceName   the unique instance name to force
      * @param overrideServer optional {@code ip:port} used when the config has no {@code [etmc] server}
-     * @throws IllegalArgumentException if the config is empty or no server address can be determined
+     * @throws IllegalArgumentException if the config is empty, no server address can be determined,
+     *                                  or its host key is damaged
      */
     public static ImportedConfig parse(String raw, String instanceName, String overrideServer) {
         if (raw == null || raw.isBlank()) {
@@ -50,6 +54,7 @@ public record ImportedConfig(String toml, String instanceName, String serverIp, 
         int flagsHeaderIdx = -1;
         String serverFromCfg = null;
         String labelFromCfg = null;
+        String hostKeyFromCfg = null;
 
         for (String line : Toml.lines(raw)) {
             String t = line.trim();
@@ -65,6 +70,7 @@ public record ImportedConfig(String toml, String instanceName, String serverIp, 
                 // drop the [etmc] body, keeping what it tells us about the Minecraft server
                 if ("server".equals(key)) serverFromCfg = Toml.stringValue(t);
                 else if ("label".equals(key)) labelFromCfg = Toml.stringValue(t);
+                else if ("host_key".equals(key)) hostKeyFromCfg = Toml.stringValue(t);
                 continue;
             }
             if (table.isEmpty() && "instance_name".equals(key)) continue; // re-added below
@@ -90,7 +96,11 @@ public record ImportedConfig(String toml, String instanceName, String serverIp, 
                             "No server address. Add `[etmc]\\nserver = \"ip:port\"` to the config or fill the Server field."));
         }
 
+        if (hostKeyFromCfg != null && !HostKey.isValid(hostKeyFromCfg)) {
+            throw new IllegalArgumentException(HostTunnel.badKey());
+        }
+
         String label = labelFromCfg != null && !labelFromCfg.isBlank() ? labelFromCfg : addr.toString();
-        return new ImportedConfig(sb.toString(), instanceName, addr.ip(), addr.port(), label, server);
+        return new ImportedConfig(sb.toString(), instanceName, addr.ip(), addr.port(), label, server, hostKeyFromCfg);
     }
 }

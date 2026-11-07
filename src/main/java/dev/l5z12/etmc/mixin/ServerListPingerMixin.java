@@ -65,7 +65,9 @@ public class ServerListPingerMixin {
         //?}
         if (address == null || !JoinCode.isLink(address)) return;
         ci.cancel();
-        String label = Msg.tr("etmc.serverlist.link", "etmc invite link: click Join Server to connect");
+        String invite = JoinCode.inviteIn(address);
+        String label = invite != null ? invite
+                : Msg.tr("etmc.serverlist.link", "etmc invite link: click Join Server to connect");
         // The entry reads these fields as it draws; a negative ping is "pinged, no connection".
         //? if yarn && <1.16 {
         /*info.label = label;
