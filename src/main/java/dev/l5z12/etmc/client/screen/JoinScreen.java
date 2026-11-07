@@ -11,17 +11,16 @@ import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.JoinCode;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 //?} else {
-/*import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;*/
+/*import net.minecraft.client.gui.screens.Screen;*/
 //?}
 
+import java.util.List;
+
 /**
- * Join a hosted world from the {@code etmc://} link the
- * host shared.
+ * Join a hosted world from the {@code etmc://} link the host shared. A link already on the clipboard
+ * is filled in, and what's in the box is read as it's typed: the line under it says who's inviting, or
+ * why that isn't a link, and <b>Join</b> stays off until there's something to join.
  *
  * <p>Outside a world this takes the same path as pasting the link into Direct Connect: it waits for
  * the host to be reachable and connects by itself. Inside a world Minecraft can't switch servers
@@ -29,79 +28,122 @@ import net.minecraft.client.gui.screens.Screen;*/
  */
 public final class JoinScreen extends EtmcBaseScreen {
 
-    //? if yarn {
-    private TextFieldWidget codeField;
-    private ButtonWidget joinButton;
-    //?} else {
-    /*private EditBox codeField;
-    private Button joinButton;*/
-    //?}
+    private static final int W = 280;
+    private static final int PASTE_W = 50;
+    private static final int CONFIG_URL_W = 170;
 
-    /** The field's text {@link #invite} was read from: decoding a link every frame would be wasteful. */
-    private String inviteFrom = "";
-    private String invite;
+    private Ui.Field code;
+    private boolean joining;
+
+    /** The box's text {@link #verdict} was read from: decoding a link every frame would be wasteful. */
+    private String readFrom;
+    private String verdict = "";
+    private int verdictColor = COLOR_MUTED;
+    private boolean joinable;
+    private int verdictY;
 
     public JoinScreen(Screen parent) {
         super(Txt.tr("etmc.join.title", "Join a world"), parent);
     }
 
     @Override
-    protected void init() {
-        int cx = this.width / 2;
-        int w = 260;
-        int y = this.height / 4 + 12;
+    protected void build() {
+        if (code == null) code = new Ui.Field(4096, linkOnClipboard());
+        int w = col(W);
+        int x = left(w);
+        boolean inWorld = McScreens.inWorld();
+        int y = formTop(ROW + 2 * LINE_H + GAP + ROW + (inWorld ? 3 * LINE_H : 0), 2 * LINE_H);
 
-        codeField = Ui.textField(font(), cx - w / 2, y, w, 20, Txt.tr("etmc.join.field", "etmc:// link"));
-        codeField.setMaxLength(4096);
-        add(codeField);
+        var box = add(code.widget(font(), x, y, w - PASTE_W - GAP, ROW, Txt.tr("etmc.join.field", "etmc:// link")));
         //? if >=1.17 {
-        setInitialFocus(codeField);
+        setInitialFocus(box);
         //?}
-        y += 28;
+        add(Ui.button(Txt.tr("etmc.join.paste", "Paste"), b -> code.set(McScreens.getClipboard().trim()))
+                .dimensions(x + w - PASTE_W, y, PASTE_W, ROW).build());
+        y += ROW + GAP;
+        verdictY = y;
+        y += 2 * LINE_H + GAP;
 
-        add(Ui.button(Txt.tr("etmc.join.paste", "Paste from clipboard"),
-                        b -> Ui.setText(codeField, McScreens.getClipboard().trim()))
-                .dimensions(cx - w / 2, y, w, 20).build());
-        y += 28;
+        // Narrower than the box above: this is the way in for a few, not the next step for everyone.
+        int urlW = col(CONFIG_URL_W);
+        var connectUrl = Ui.button(Txt.tr("etmc.menu.connect_url", "Connect via config URL"),
+                b -> goTo(new ConnectUrlScreen(this))).dimensions(left(urlW), y, urlW, ROW).build();
+        connectUrl.active = EtmcManager.get().isReady();
+        add(connectUrl);
+        y += ROW + GAP;
 
-        joinButton = Ui.button((McScreens.inWorld() ? Txt.tr("etmc.join.add_to_list", "Add to server list")
-                : Txt.tr("etmc.join.join", "Join")), b -> startJoining())
-                .dimensions(cx - w / 2, y, w, 20).build();
-        joinButton.active = EtmcManager.get().isReady();
-        add(joinButton);
-        y += 24;
+        if (inWorld) {
+            paragraph(Msg.tr("etmc.join.in_world", "You're in a world: this adds the host to your server list, "
+                    + "to join after you leave."), y, w, COLOR_MUTED);
+        }
 
-        add(Ui.button(Txt.translatable("gui.back"), b -> this.close())
-                .dimensions(cx - w / 2, y, w, 20).build());
+        var join = add(footer(Ui.button(inWorld ? Txt.tr("etmc.join.add_to_list", "Add to server list")
+                : Txt.tr("etmc.join.join", "Join"), b -> submit()), 0, 2).build());
+        add(footer(Ui.button(Txt.translatable("gui.back"), b -> this.close()), 1, 2).build());
+        live(() -> {
+            read();
+            join.active = joinable && !joining && EtmcManager.get().isReady();
+        });
+    }
+
+    /** The clipboard, if it's a link. Nothing is joined until the player says so. */
+    private static String linkOnClipboard() {
+        String clip = McScreens.getClipboard().trim();
+        return JoinCode.isLink(clip) ? clip : "";
+    }
+
+    private void read() {
+        String text = code.text().trim();
+        if (text.equals(readFrom)) return;
+        readFrom = text;
+        joinable = false;
+        verdictColor = COLOR_MUTED;
+        if (text.isEmpty()) {
+            verdict = Msg.tr("etmc.join.hint", "Paste the etmc:// link your host shared");
+        } else if (JoinCode.configUrl(text) != null) {
+            joinable = true;
+            verdict = Msg.tr("etmc.join.config_link", "This link loads the server's details when you join.");
+        } else {
+            try {
+                JoinCode link = JoinCode.decode(text);
+                // Only a host who signs their links is named in one.
+                verdict = link.invite() != null ? link.invite()
+                        : Msg.tr("etmc.join.ready", "Ready to join '%s'", link.displayLabel());
+                verdictColor = COLOR_GOOD;
+                joinable = true;
+            } catch (IllegalArgumentException e) {
+                verdict = Msg.tr("etmc.join.not_a_link", "Can't use this: %s. Copy it from the host again.", e.getMessage());
+                verdictColor = COLOR_BAD;
+            }
+        }
+    }
+
+    @Override
+    protected boolean submit() {
+        read();
+        if (!joinable || joining) return false;
+        startJoining();
+        return true;
     }
 
     private void startJoining() {
         EtmcManager m = EtmcManager.get();
-        String text = Ui.getText(codeField).trim();
+        String text = code.text().trim();
         String configUrl = JoinCode.configUrl(text);
-        JoinCode jc = null;
-        if (configUrl == null) {
-            try {
-                jc = JoinCode.decode(text);
-            } catch (IllegalArgumentException e) {
-                setMessage(Msg.tr("etmc.join.not_a_link",
-                        "That isn't an etmc link (%s). Copy it from the host again.", e.getMessage()), COLOR_BAD);
-                return;
-            }
-        }
         if (!McScreens.inWorld()) {
             // Same path as Direct Connect: waits for the host, then connects by itself.
             m.connectViaLink(this, text);
             return;
         }
-        joinButton.active = false;
+        JoinCode jc = configUrl == null ? JoinCode.decode(text) : null;
+        joining = true;
         setMessage(jc == null ? Msg.tr("etmc.url.fetching", "Fetching config…")
                 : Msg.tr("etmc.join.starting", "Starting the network for '%s'…", jc.displayLabel()), COLOR_BUSY);
         (jc == null ? m.joinConfigAsync(configUrl) : m.joinAsync(jc)).whenComplete((port, err) ->
                 mc().execute(() -> {
                     if (err != null) {
                         setMessage(Msg.tr("etmc.join.failed", "Couldn't join: %s", Errors.message(err)), COLOR_BAD);
-                        joinButton.active = true;
+                        joining = false;
                     }
                     // on success, McNet has already closed this screen and posted where the entry went
                 }));
@@ -109,31 +151,11 @@ public final class JoinScreen extends EtmcBaseScreen {
 
     @Override
     protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
-        int cx = this.width / 2;
-        Gfx.centered(ctx, font(), this.title, cx, 24, COLOR_TEXT);
-        String text = Ui.getText(codeField);
-        if (!text.equals(inviteFrom)) {
-            inviteFrom = text;
-            invite = JoinCode.inviteIn(text);
-        }
-        if (invite != null) {
-            Gfx.centered(ctx, font(), Txt.literal(invite), cx, this.height / 4 - 4, COLOR_GOOD);
-        } else {
-            Gfx.centered(ctx, font(), Txt.tr("etmc.join.hint", "Paste the etmc:// link your host shared"),
-                    cx, this.height / 4 - 4, COLOR_MUTED);
-        }
-        if (McScreens.inWorld()) {
-            Gfx.centered(ctx, font(),
-                    Txt.tr("etmc.join.in_world",
-                            "You're in a world: this adds the host to your server list, to join after you leave."),
-                    cx, this.height / 4 + 120, 0xFF777777);
-        }
-        if (!message.isEmpty()) {
-            int y = this.height - 40;
-            for (String l : Wrap.lines(font(), message, Math.min(320, this.width - 20))) {
-                Gfx.centered(ctx, font(), Txt.literal(l), cx, y, messageColor);
-                y += 11;
-            }
+        List<String> lines = Wrap.lines(font(), verdict, col(W));
+        int y = verdictY;
+        for (String line : lines.subList(0, Math.min(2, lines.size()))) {
+            Gfx.centered(ctx, font(), Txt.literal(line), this.width / 2, y, verdictColor);
+            y += LINE_H;
         }
     }
 }

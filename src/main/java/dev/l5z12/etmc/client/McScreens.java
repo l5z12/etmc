@@ -84,6 +84,19 @@ public final class McScreens {
         //?}
     }
 
+    /** Whether the F3 debug screen is up: it fills the corner the etmc overlay uses. */
+    public static boolean debugScreenOpen() {
+        //? if yarn && >=1.20.2 {
+        return mc().getDebugHud().shouldShowDebugHud();
+        //?} else if yarn {
+        /*return mc().options.debugEnabled;*/
+        //?} else if >=1.20.2 {
+        /*return mc().getDebugOverlay().showDebugScreen();*/
+        //?} else {
+        /*return mc().options.renderDebug;*/
+        //?}
+    }
+
     /** Posts an {@code [etmc]} line to the player's chat; dropped when no world is loaded. */
     public static void chat(String msg) {
         var client = mc();

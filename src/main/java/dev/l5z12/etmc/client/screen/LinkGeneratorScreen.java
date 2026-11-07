@@ -1,10 +1,8 @@
 package dev.l5z12.etmc.client.screen;
 
-import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
-import dev.l5z12.etmc.client.Wrap;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Msg;
@@ -13,36 +11,29 @@ import dev.l5z12.etmc.core.Relays;
 import java.util.List;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 //?} else {
-/*import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;*/
+/*import net.minecraft.client.gui.screens.Screen;*/
 //?}
 
 /**
  * Build a shareable {@code etmc://} link from raw fields — network name,
- * secret, relay URI, host virtual ip:port, label. "Load config from clipboard" pastes an EasyTier
+ * secret, relay URI, host virtual ip:port, label. "Load from clipboard" pastes an EasyTier
  * TOML and auto-fills the fields via {@link JoinCode#fromToml}.
  *
  * <p>This screen is offline: it just serializes the fields. The user does not have to be hosting.
  */
 public final class LinkGeneratorScreen extends EtmcBaseScreen {
 
-    //? if yarn {
-    private TextFieldWidget networkField;
-    private TextFieldWidget secretField;
-    private TextFieldWidget relayField;
-    private TextFieldWidget hostIpField;
-    private TextFieldWidget hostPortField;
-    private TextFieldWidget labelField;
-    //?} else {
-    /*private EditBox networkField;
-    private EditBox secretField;
-    private EditBox relayField;
-    private EditBox hostIpField;
-    private EditBox hostPortField;
-    private EditBox labelField;*/
-    //?}
+    private static final int W = 300;
+    private static final int PORT_W = 64;
+    private static final int ROW_H = LINE_H + ROW + 5;
+
+    private final Ui.Field network = new Ui.Field(64, "");
+    private final Ui.Field secret = new Ui.Field(128, "");
+    private final Ui.Field relay = new Ui.Field(512, "");
+    private final Ui.Field hostIp = new Ui.Field(45, EtmcConfig.HOST_VIRTUAL_IP);
+    private final Ui.Field hostPort = new Ui.Field(5, Integer.toString(EtmcConfig.DEFAULT_VIRTUAL_PORT));
+    private final Ui.Field worldLabel = new Ui.Field(64, "");
 
     /**
      * The host key of the config this was loaded from. It has no field: nobody types one in, but
@@ -55,55 +46,42 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
     }
 
     @Override
-    protected void init() {
-        int cx = this.width / 2;
-        int w = 280;
-        int y = 42;
+    protected void build() {
+        int w = col(W);
+        int x = left(w);
+        int half = (w - GAP) / 2;
+        int right = x + half + GAP;
+        int y = formTop(4 * ROW_H, 3 * LINE_H);
 
-        networkField = Ui.textField(font(), cx - w / 2, y + 12, w, 18, Txt.tr("etmc.host.network", "Network name"));
-        networkField.setMaxLength(64);
-        add(networkField);
+        label(Msg.tr("etmc.host.network", "Network name"), x, y, half, COLOR_MUTED);
+        var first = add(network.widget(font(), x, y + LINE_H, half, ROW, Txt.tr("etmc.host.network", "Network name")));
         //? if >=1.17 {
-        setInitialFocus(networkField);
+        setInitialFocus(first);
         //?}
-        y += 34;
+        label(Msg.tr("etmc.gen.secret", "Network secret"), right, y, half, COLOR_MUTED);
+        add(secret.widget(font(), right, y + LINE_H, half, ROW, Txt.tr("etmc.gen.secret", "Network secret")));
+        y += ROW_H;
 
-        secretField = Ui.textField(font(), cx - w / 2, y + 12, w, 18, Txt.tr("etmc.gen.secret", "Network secret"));
-        secretField.setMaxLength(128);
-        add(secretField);
-        y += 34;
+        label(Msg.tr("etmc.gen.relay.hint", "Relay (several: commas or spaces between them)"), x, y, w, COLOR_MUTED);
+        add(relay.widget(font(), x, y + LINE_H, w, ROW, Txt.tr("etmc.gen.relay", "Relay URI")));
+        y += ROW_H;
 
-        relayField = Ui.textField(font(), cx - w / 2, y + 12, w, 18, Txt.tr("etmc.gen.relay", "Relay URI"));
-        relayField.setMaxLength(512);
-        add(relayField);
-        y += 34;
+        int ipW = w - PORT_W - GAP;
+        label(Msg.tr("etmc.gen.host_ip", "Host virtual IP"), x, y, ipW, COLOR_MUTED);
+        add(hostIp.widget(font(), x, y + LINE_H, ipW, ROW, Txt.tr("etmc.gen.host_ip", "Host virtual IP")));
+        label(Msg.tr("etmc.settings.port", "Port"), x + ipW + GAP, y, PORT_W, COLOR_MUTED);
+        add(hostPort.widget(font(), x + ipW + GAP, y + LINE_H, PORT_W, ROW, Txt.tr("etmc.settings.port", "Port")));
+        y += ROW_H;
 
-        int ipW = w - 68;
-        hostIpField = Ui.textField(font(), cx - w / 2, y + 12, ipW, 18, Txt.tr("etmc.gen.host_ip", "Host virtual IP"));
-        hostIpField.setMaxLength(45);
-        Ui.setText(hostIpField, EtmcConfig.HOST_VIRTUAL_IP);
-        add(hostIpField);
-        hostPortField = Ui.textField(font(), cx - w / 2 + ipW + 4, y + 12, 64, 18, Txt.tr("etmc.settings.port", "Port"));
-        hostPortField.setMaxLength(5);
-        Ui.setText(hostPortField, Integer.toString(EtmcConfig.DEFAULT_VIRTUAL_PORT));
-        add(hostPortField);
-        y += 34;
+        label(Msg.tr("etmc.gen.label", "Label (optional)"), x, y, half, COLOR_MUTED);
+        add(worldLabel.widget(font(), x, y + LINE_H, half, ROW, Txt.tr("etmc.gen.label", "Label (optional)")));
+        Ui.Builder load = Ui.button(Txt.tr("etmc.gen.load", "Load from clipboard"), b -> loadFromClipboard())
+                .dimensions(right, y + LINE_H, half, ROW);
+        hint(load, Msg.tr("etmc.gen.load.help", "Fills these in from an EasyTier config or an etmc:// link you've copied."));
+        add(load.build());
 
-        labelField = Ui.textField(font(), cx - w / 2, y + 12, w, 18, Txt.tr("etmc.gen.label", "Label (optional)"));
-        labelField.setMaxLength(64);
-        add(labelField);
-        y += 40;
-
-        add(Ui.button(Txt.tr("etmc.gen.load", "Load config from clipboard"), b -> loadFromClipboard())
-                .dimensions(cx - w / 2, y, w, 20).build());
-        y += 24;
-
-        add(Ui.button(Txt.tr("etmc.gen.copy_link", "Copy etmc:// link"), b -> copy())
-                .dimensions(cx - w / 2, y, w, 20).build());
-        y += 24;
-
-        add(Ui.button(Txt.translatable("gui.back"), b -> this.close())
-                .dimensions(cx - w / 2, y, w, 20).build());
+        add(footer(Ui.button(Txt.tr("etmc.gen.copy_link", "Copy etmc:// link"), b -> copy()), 0, 2).build());
+        add(footer(Ui.button(Txt.translatable("gui.back"), b -> this.close()), 1, 2).build());
     }
 
     private void loadFromClipboard() {
@@ -133,23 +111,22 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
     }
 
     private void fillFrom(JoinCode jc) {
-        Ui.setText(networkField, safe(jc.networkName));
-        Ui.setText(secretField, safe(jc.networkSecret));
-        Ui.setText(relayField, jc.relays == null || jc.relays.isEmpty() ? "" : String.join(", ", jc.relays));
-        if (jc.hostIp != null && !jc.hostIp.isBlank()) Ui.setText(hostIpField, jc.hostIp);
-        if (jc.hostPort > 0 && jc.hostPort <= 65535) Ui.setText(hostPortField, Integer.toString(jc.hostPort));
-        Ui.setText(labelField, safe(jc.label));
+        network.set(safe(jc.networkName));
+        secret.set(safe(jc.networkSecret));
+        relay.set(jc.relays == null || jc.relays.isEmpty() ? "" : String.join(", ", jc.relays));
+        if (jc.hostIp != null && !jc.hostIp.isBlank()) hostIp.set(jc.hostIp);
+        if (jc.hostPort > 0 && jc.hostPort <= 65535) hostPort.set(Integer.toString(jc.hostPort));
+        worldLabel.set(safe(jc.label));
         hostKey = jc.hostKey;
     }
 
     private JoinCode buildCode() {
-        String network = Ui.getText(networkField).trim();
-        if (network.isEmpty()) {
+        String networkName = network.text().trim();
+        if (networkName.isEmpty()) {
             setMessage(Msg.tr("etmc.host.need_network", "Enter a network name."), COLOR_BAD);
             return null;
         }
-        String secret = Ui.getText(secretField);
-        List<String> relays = Relays.parse(Ui.getText(relayField));
+        List<String> relays = Relays.parse(relay.text());
         if (relays.isEmpty()) {
             setMessage(Msg.tr("etmc.gen.need_relay",
                     "Add the host's relay: without one, joiners have no way to reach the host."), COLOR_BAD);
@@ -160,10 +137,10 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
             setMessage(bad, COLOR_BAD);
             return null;
         }
-        String ip = Ui.getText(hostIpField).trim();
+        String ip = hostIp.text().trim();
         if (ip.isEmpty()) ip = EtmcConfig.HOST_VIRTUAL_IP;
         int port = EtmcConfig.DEFAULT_VIRTUAL_PORT;
-        String portText = Ui.getText(hostPortField).trim();
+        String portText = hostPort.text().trim();
         if (!portText.isEmpty()) {
             try {
                 int p = Integer.parseInt(portText);
@@ -177,7 +154,7 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
                 return null;
             }
         }
-        JoinCode code = new JoinCode(network, secret, relays, ip, port, Ui.getText(labelField).trim());
+        JoinCode code = new JoinCode(networkName, secret.text(), relays, ip, port, worldLabel.text().trim());
         code.hostKey = hostKey;
         return code;
     }
@@ -190,34 +167,13 @@ public final class LinkGeneratorScreen extends EtmcBaseScreen {
                 "Copied etmc:// link. It contains the secret: share it only with people you want in."), COLOR_GOOD);
     }
 
-    private static String safe(String s) {
-        return s == null ? "" : s;
+    @Override
+    protected boolean submit() {
+        copy();
+        return true;
     }
 
-    @Override
-    protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
-        int cx = this.width / 2;
-        int w = 280;
-        Gfx.centered(ctx, font(), this.title, cx, 18, COLOR_TEXT);
-
-        int y = 42;
-        int labelColor = COLOR_MUTED;
-        Gfx.text(ctx, font(), Txt.tr("etmc.host.network", "Network name"),   cx - w / 2, y, labelColor); y += 34;
-        Gfx.text(ctx, font(), Txt.tr("etmc.gen.secret", "Network secret"), cx - w / 2, y, labelColor); y += 34;
-        Gfx.text(ctx, font(), Txt.tr("etmc.gen.relay.hint", "Relay (several: commas or spaces between them)"),
-                cx - w / 2, y, labelColor); y += 34;
-        Gfx.text(ctx, font(), Txt.tr("etmc.gen.host_ip", "Host virtual IP"), cx - w / 2, y, labelColor);
-        Gfx.text(ctx, font(), Txt.tr("etmc.settings.port", "Port"),            cx - w / 2 + (w - 68) + 4, y, labelColor);
-        y += 34;
-        Gfx.text(ctx, font(), Txt.tr("etmc.gen.label", "Label (optional)"), cx - w / 2, y, labelColor);
-
-        if (!message.isEmpty()) {
-            List<String> lines = Wrap.lines(font(), message, Math.min(340, this.width - 20));
-            int my = this.height - 4 - lines.size() * 11;
-            for (String l : lines) {
-                Gfx.centered(ctx, font(), Txt.literal(l), cx, my, messageColor);
-                my += 11;
-            }
-        }
+    private static String safe(String s) {
+        return s == null ? "" : s;
     }
 }

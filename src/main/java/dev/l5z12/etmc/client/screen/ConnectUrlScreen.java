@@ -1,7 +1,6 @@
 package dev.l5z12.etmc.client.screen;
 
 import dev.l5z12.etmc.client.EtmcManager;
-import dev.l5z12.etmc.client.Gfx;
 import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
@@ -9,12 +8,8 @@ import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.Msg;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
 //?} else {
-/*import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;*/
+/*import net.minecraft.client.gui.screens.Screen;*/
 //?}
 
 /**
@@ -24,83 +19,62 @@ import net.minecraft.client.gui.screens.Screen;*/
  */
 public final class ConnectUrlScreen extends EtmcBaseScreen {
 
-    //? if yarn {
-    private TextFieldWidget urlField;
-    private TextFieldWidget serverField;
-    private ButtonWidget connectButton;
-    //?} else {
-    /*private EditBox urlField;
-    private EditBox serverField;
-    private Button connectButton;*/
-    //?}
+    private static final int W = 300;
+    private static final int PASTE_W = 50;
+
+    private final Ui.Field url = new Ui.Field(1024, "");
+    private final Ui.Field server = new Ui.Field(64, "");
+    private boolean connecting;
 
     public ConnectUrlScreen(Screen parent) {
         super(Txt.tr("etmc.menu.connect_url", "Connect via config URL"), parent);
     }
 
     @Override
-    protected void init() {
-        int cx = this.width / 2;
-        int w = 280;
-        int y = this.height / 4;
+    protected void build() {
+        int w = col(W);
+        int x = left(w);
+        int y = formTop(2 * (LINE_H + ROW) + GAP, 3 * LINE_H);
 
-        urlField = Ui.textField(font(), cx - w / 2, y + 12, w, 20, Txt.tr("etmc.url.field", "Config URL"));
-        urlField.setMaxLength(1024);
-        add(urlField);
+        label(Msg.tr("etmc.url.field.hint", "Config URL (http/https to an EasyTier config)"), x, y, w, COLOR_MUTED);
+        var box = add(url.widget(font(), x, y + LINE_H, w - PASTE_W - GAP, ROW, Txt.tr("etmc.url.field", "Config URL")));
         //? if >=1.17 {
-        setInitialFocus(urlField);
+        setInitialFocus(box);
         //?}
-        y += 44;
+        add(Ui.button(Txt.tr("etmc.join.paste", "Paste"), b -> url.set(McScreens.getClipboard().trim()))
+                .dimensions(x + w - PASTE_W, y + LINE_H, PASTE_W, ROW).build());
+        y += LINE_H + ROW + GAP;
 
-        serverField = Ui.textField(font(), cx - w / 2, y + 12, w, 20, Txt.tr("etmc.url.server", "Server"));
-        serverField.setMaxLength(64);
-        add(serverField);
-        y += 48;
+        label(Msg.tr("etmc.url.server.hint", "Server ip:port (optional if config has [etmc] server)"), x, y, w, COLOR_MUTED);
+        add(server.widget(font(), x, y + LINE_H, w, ROW, Txt.tr("etmc.url.server", "Server")));
 
-        add(Ui.button(Txt.tr("etmc.url.paste", "Paste URL"), b -> Ui.setText(urlField, McScreens.getClipboard().trim()))
-                .dimensions(cx - w / 2, y, w, 20).build());
-        y += 28;
-
-        connectButton = Ui.button(Txt.tr("etmc.url.connect", "Fetch & connect"), b -> connect())
-                .dimensions(cx - w / 2, y, w, 20).build();
-        connectButton.active = EtmcManager.get().isReady();
-        add(connectButton);
-        y += 24;
-
-        add(Ui.button(Txt.translatable("gui.back"), b -> this.close())
-                .dimensions(cx - w / 2, y, w, 20).build());
+        var connect = add(footer(Ui.button(Txt.tr("etmc.url.connect", "Fetch & connect"), b -> connect()), 0, 2).build());
+        add(footer(Ui.button(Txt.translatable("gui.back"), b -> this.close()), 1, 2).build());
+        live(() -> connect.active = canConnect());
     }
 
-    private void connect() {
-        String url = Ui.getText(urlField).trim();
-        if (url.isEmpty()) {
-            setMessage(Msg.tr("etmc.url.need_url", "Enter a config URL."), COLOR_BAD);
-            return;
-        }
-        String override = Ui.getText(serverField).trim();
-        connectButton.active = false;
-        setMessage(Msg.tr("etmc.url.fetching", "Fetching config…"), COLOR_BUSY);
-        EtmcManager.get().connectUrlAsync(url, override.isEmpty() ? null : override)
-                .whenComplete((port, err) -> mc().execute(() -> {
-                    if (err != null) {
-                        setMessage(Msg.tr("etmc.url.failed", "Failed: %s", Errors.message(err)), COLOR_BAD);
-                        connectButton.active = true;
-                    }
-                    // on success McNet has switched to the connect screen
-                }));
+    private boolean canConnect() {
+        return !connecting && !url.text().isBlank() && EtmcManager.get().isReady();
     }
 
     @Override
-    protected void draw(Object ctx, int mouseX, int mouseY, float delta) {
-        Gfx.centered(ctx, font(), this.title, this.width / 2, 22, COLOR_TEXT);
-        int cx = this.width / 2;
-        int w = 280;
-        Gfx.text(ctx, font(), Txt.tr("etmc.url.field.hint", "Config URL (http/https to an EasyTier config)"),
-                cx - w / 2, this.height / 4, COLOR_MUTED);
-        Gfx.text(ctx, font(), Txt.tr("etmc.url.server.hint", "Server ip:port (optional if config has [etmc] server)"),
-                cx - w / 2, this.height / 4 + 44, COLOR_MUTED);
-        if (!message.isEmpty()) {
-            Gfx.centered(ctx, font(), Txt.literal(message), cx, this.height - 38, messageColor);
-        }
+    protected boolean submit() {
+        if (!canConnect()) return false;
+        connect();
+        return true;
+    }
+
+    private void connect() {
+        String override = server.text().trim();
+        connecting = true;
+        setMessage(Msg.tr("etmc.url.fetching", "Fetching config…"), COLOR_BUSY);
+        EtmcManager.get().connectUrlAsync(url.text().trim(), override.isEmpty() ? null : override)
+                .whenComplete((port, err) -> mc().execute(() -> {
+                    if (err != null) {
+                        setMessage(Msg.tr("etmc.url.failed", "Failed: %s", Errors.message(err)), COLOR_BAD);
+                        connecting = false;
+                    }
+                    // on success McNet has switched to the connect screen
+                }));
     }
 }

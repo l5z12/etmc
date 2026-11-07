@@ -31,6 +31,10 @@ public final class Wrap {
     public static List<String> lines(TextRenderer font, String text, int maxWidth) {
         return wrap(s -> width(font, s), text, maxWidth);
     }
+
+    public static String fit(TextRenderer font, String text, int maxWidth) {
+        return fit(s -> width(font, s), text, maxWidth);
+    }
     //?} else {
     /*public static int width(Font font, String s) {
         return font.width(s);
@@ -38,8 +42,20 @@ public final class Wrap {
 
     public static List<String> lines(Font font, String text, int maxWidth) {
         return wrap(s -> width(font, s), text, maxWidth);
+    }
+
+    public static String fit(Font font, String text, int maxWidth) {
+        return fit(s -> width(font, s), text, maxWidth);
     }*/
     //?}
+
+    /** {@code text} cut to fit {@code maxWidth}, with an ellipsis if anything had to go. */
+    static String fit(ToIntFunction<String> width, String text, int maxWidth) {
+        if (width.applyAsInt(text) <= maxWidth) return text;
+        int n = text.length();
+        while (n > 0 && width.applyAsInt(text.substring(0, n) + "…") > maxWidth) n--;
+        return text.substring(0, n) + "…";
+    }
 
     /** Greedy word wrap; a single word wider than {@code maxWidth} is broken by characters. */
     static List<String> wrap(ToIntFunction<String> width, String text, int maxWidth) {
