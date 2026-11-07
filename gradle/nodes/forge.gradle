@@ -13,7 +13,7 @@ int javaVersion = (project.property('java_version') as String).toInteger()
 
 sourceSets.main.java.srcDir("$rootDir/common/src/main/java")
 sourceSets.main.resources.srcDir("$rootDir/common/src/main/resources")
-sourceSets.main.resources.srcDir("$rootDir/forge/src/main/resources")
+sourceSets.main.resources.srcDir("$rootDir/src/forge/resources")
 // This is the Forge node: drop the Fabric (EtmcClient, EtmcModMenu) + NeoForge entry points.
 sourceSets.main.java.exclude('**/EtmcClient.java', '**/EtmcModMenu.java', '**/neoforge/**')
 // Classes and resources in one directory, as the ForgeGradle 7 MDK does: in a dev run (runClient)
