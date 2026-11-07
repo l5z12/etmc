@@ -1,6 +1,6 @@
 // CI's launch test, applied by every loader buildscript (see dev.l5z12.etmc.client.LaunchProbe).
 //
-//   ./gradlew :1.21.10-fabric:runClient -Petmc.launchProbe=true
+//   ./gradlew :mod:1.21.10-fabric:runClient -Petmc.launchProbe=true
 //
 // starts the real game, which probes etmc (native library, mixins, every screen) and quits on its
 // own; runClient then fails unless the probe wrote OK. Each buildscript passes `launchProbeResult` to

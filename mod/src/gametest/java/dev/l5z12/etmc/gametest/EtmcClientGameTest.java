@@ -41,7 +41,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * etmc in a real Minecraft client (Fabric client gametest; this node only, see gradle/nodes/fabric.gradle.kts).
+ * etmc in a real Minecraft client (Fabric client gametest; this node only, see mod/nodes/fabric.gradle.kts).
  *
  * <p>Out of a world: the etmc button on the Multiplayer screen opens the menu, and hosting is offered
  * only with a world open. In a world: hosting it for real — the world opens to LAN, the bundled
