@@ -31,6 +31,7 @@ import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -138,6 +139,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         hosting.get().join();
         try {
             view(ctx, at, "world-menu-hosting", () -> new EtmcScreen(null));
+            holdStatus(ctx);
             ctx.setScreen(() -> new StatusScreen(null));
             ctx.waitForScreen(StatusScreen.class);
             fakeStatus(ctx, 0);
@@ -166,6 +168,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             shot(ctx, at, "hud-under-f3");
             ctx.getInput().pressKey(GLFW.GLFW_KEY_F3);
         } finally {
+            ctx.runOnClient(c -> setManagerField("lastStatusPoll", 0L));
             AtomicReference<CompletableFuture<Void>> leaving = new AtomicReference<>();
             ctx.runOnClient(c -> leaving.set(etmc.leaveAsync()));
             ctx.waitFor(c -> leaving.get().isDone(), 30 * 20);
@@ -316,7 +319,16 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         return out;
     }
 
-    /** Puts {@code peers} made-up players in the status the screens read, until the next real poll. */
+    /**
+     * Stops the manager polling, so {@link #fakeStatus} lasts as long as a step takes. Software
+     * rendering at 1080p can take longer than a poll, and the real status has nobody on the network.
+     */
+    private static void holdStatus(ClientGameTestContext ctx) {
+        ctx.runOnClient(c -> setManagerField("lastStatusPoll", Long.MAX_VALUE));
+        ctx.waitFor(c -> !((AtomicBoolean) managerField("statusPollInFlight")).get());
+    }
+
+    /** Puts {@code peers} made-up players in the status the screens read. */
     private static void fakeStatus(ClientGameTestContext ctx, int peers) {
         List<NetworkStatus.Peer> list = new ArrayList<>();
         for (int i = 0; i < peers; i++) {
@@ -324,15 +336,27 @@ public class EtmcUiGameTest implements FabricClientGameTest {
                     "10.126.126." + (i + 2), i == 0 ? 34 : 60 + i * 40, i % 2 == 1, 1));
         }
         NetworkStatus st = new NetworkStatus(true, "10.126.126.1", list, null, 1);
-        ctx.runOnClient(c -> {
-            try {
-                Field f = EtmcManager.class.getDeclaredField("cachedStatus");
-                f.setAccessible(true);
-                f.set(EtmcManager.get(), st);
-            } catch (ReflectiveOperationException e) {
-                throw new AssertionError(e);
-            }
-        });
+        ctx.runOnClient(c -> setManagerField("cachedStatus", st));
+    }
+
+    private static Object managerField(String name) {
+        try {
+            Field f = EtmcManager.class.getDeclaredField(name);
+            f.setAccessible(true);
+            return f.get(EtmcManager.get());
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void setManagerField(String name, Object value) {
+        try {
+            Field f = EtmcManager.class.getDeclaredField(name);
+            f.setAccessible(true);
+            f.set(EtmcManager.get(), value);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private static int freePort() {
