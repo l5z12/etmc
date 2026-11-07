@@ -212,16 +212,23 @@ public final class EtmcManager {
 
     /** Why hosting can't start right now, or {@code null} if it can. */
     public String hostBlocker() {
-        if (!isReady()) return Msg.tr("etmc.error.no_native_log", "etmc couldn't load its EasyTier library (see the game log).");
-        if (!McScreens.singleplayer()) {
-            return Msg.tr("etmc.host.blocked.no_world",
-                    "Open a singleplayer world first: etmc hosts the world you're playing.");
-        }
+        String world = worldBlocker();
+        if (world != null) return world;
         if (!config.hasRelay()) {
             return Msg.tr("etmc.host.blocked.no_relay", "Add a relay in Settings first: joiners reach you through it.");
         }
         String bad = Relays.firstProblem(config.relays);
         if (bad != null) return Msg.tr("etmc.host.blocked.bad_relay", "Fix the relay in Settings: %s", bad);
+        return null;
+    }
+
+    /** {@link #hostBlocker} without the relay checks, for the screen that can fix those itself. */
+    public String worldBlocker() {
+        if (!isReady()) return Msg.tr("etmc.error.no_native_log", "etmc couldn't load its EasyTier library (see the game log).");
+        if (!McScreens.singleplayer()) {
+            return Msg.tr("etmc.host.blocked.no_world",
+                    "Open a singleplayer world first: etmc hosts the world you're playing.");
+        }
         return null;
     }
 

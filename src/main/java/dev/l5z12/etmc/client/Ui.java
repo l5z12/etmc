@@ -77,6 +77,47 @@ public final class Ui {
     }
     *///?}
 
+    /**
+     * A text box whose contents belong to the screen rather than to its widget. A screen's widgets are
+     * rebuilt when the window is resized or the screen comes back from another one, so a plain text
+     * field forgets what the player typed. This hands out a fresh widget with the text intact.
+     */
+    public static final class Field {
+        private final int maxLength;
+        private String text;
+        //? if yarn {
+        private TextFieldWidget widget;
+        //?} else {
+        /*private EditBox widget;*/
+        //?}
+
+        public Field(int maxLength, String text) {
+            this.maxLength = maxLength;
+            this.text = text;
+        }
+
+        //? if yarn {
+        public TextFieldWidget widget(TextRenderer font, int x, int y, int w, int h, Text label) {
+        //?} else {
+        /*public EditBox widget(Font font, int x, int y, int w, int h, Component label) {*/
+        //?}
+            text = text();
+            widget = textField(font, x, y, w, h, label);
+            widget.setMaxLength(maxLength);
+            setText(widget, text);
+            return widget;
+        }
+
+        public String text() {
+            return widget == null ? text : getText(widget);
+        }
+
+        public void set(String value) {
+            text = value;
+            if (widget != null) setText(widget, value);
+        }
+    }
+
     public static final class Builder {
         //? if yarn {
         private final Text message;
@@ -108,6 +149,11 @@ public final class Ui {
             this.width = width;
             this.height = height;
             return this;
+        }
+
+        /** Where this button will be: x, y, width, height. */
+        public int[] bounds() {
+            return new int[] {x, y, width, height};
         }
 
         //? if yarn && >=1.19.3 {

@@ -200,7 +200,7 @@ public final class EtmcCommands {
             }
             src.feedback("  • " + p.hostname() + " " + (p.ipv4() == null ? "" : p.ipv4())
                     + " " + (p.latencyMs() >= 0 ? p.latencyMs() + "ms" : "")
-                    + (p.relay() ? Msg.tr("etmc.status.peer.relay", "  (via relay)") : Msg.tr("etmc.status.peer.direct", "  (direct)")));
+                    + "  " + (p.relay() ? Msg.tr("etmc.status.peer.relay", "via relay") : Msg.tr("etmc.status.peer.direct", "direct")));
         }
         return 1;
     }

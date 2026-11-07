@@ -1,6 +1,7 @@
 package dev.l5z12.etmc.client;
 
 import dev.l5z12.etmc.client.screen.ConnectUrlScreen;
+import dev.l5z12.etmc.client.screen.EtmcAskScreen;
 import dev.l5z12.etmc.client.screen.EtmcConnectingScreen;
 import dev.l5z12.etmc.client.screen.EtmcNoticeScreen;
 import dev.l5z12.etmc.client.screen.EtmcScreen;
@@ -118,7 +119,7 @@ public final class LaunchProbe {
 
     private static final String[] SCREENS = {
             "EtmcScreen", "HostScreen", "JoinScreen", "SettingsScreen", "StatusScreen",
-            "LinkGeneratorScreen", "ConnectUrlScreen", "EtmcNoticeScreen", "EtmcConnectingScreen",
+            "LinkGeneratorScreen", "ConnectUrlScreen", "EtmcNoticeScreen", "EtmcAskScreen", "EtmcConnectingScreen",
     };
 
     private static String stepName() {
@@ -143,6 +144,7 @@ public final class LaunchProbe {
                     "A long notice, so the wrapping is exercised too: etmc couldn't reach the host over "
                             + "the relay. Check that the relay address is right and that it is running, "
                             + "then try again.\n\nSecond paragraph.");
+            case "EtmcAskScreen": return () -> new EtmcAskScreen(p, "Launch probe", "Go ahead?", () -> {}, () -> {});
             default: return () -> new EtmcConnectingScreen(p, "probe", () -> {}, () -> {},
                     () -> "Waiting for a direct connection to the host");
         }

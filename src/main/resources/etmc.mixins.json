@@ -9,6 +9,7 @@
     "ConnectScreenMixin",
     "DirectConnectScreenMixin",
     "MultiplayerScreenMixin",
+    "PauseScreenMixin",
     "ServerAddressMixin",
     "ServerListPingerMixin"
   ],
