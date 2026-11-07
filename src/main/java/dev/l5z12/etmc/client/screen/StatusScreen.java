@@ -132,14 +132,11 @@ public final class StatusScreen extends EtmcBaseScreen {
         int x = left(w);
         int y = HEADER + 7;
 
-        List<Line> problems = problems(s, st, hosting);
-        boolean relayUp = st.running() && !(st.peers().isEmpty() && st.relayNodes() == 0);
+        List<Line> lines = lines(s, st);
 
         // What this session is, and whether it's healthy.
-        int health = problems.stream().anyMatch(p -> p.color == COLOR_BAD) ? COLOR_BAD
-                : problems.isEmpty() ? COLOR_GOOD : COLOR_WARN;
-        Gfx.fill(ctx, x, y + 1, x + DOT, y + 1 + DOT, health);
-        String relayState = relayUp ? Msg.tr("etmc.status.relay_ok", "Relay connected") : "";
+        Gfx.fill(ctx, x, y + 1, x + DOT, y + 1 + DOT, health(lines));
+        String relayState = st.running() && st.relayNodes() > 0 ? Msg.tr("etmc.status.relay_ok", "Relay connected") : "";
         int headlineW = w - DOT - 4 - (relayState.isEmpty() ? 0 : Wrap.width(font(), relayState) + 8);
         Gfx.text(ctx, font(), Txt.literal(Wrap.fit(font(), headline(code, hosting), headlineW)), x + DOT + 4, y, COLOR_TEXT);
         if (!relayState.isEmpty()) {
@@ -147,8 +144,7 @@ public final class StatusScreen extends EtmcBaseScreen {
         }
         y += LINE_H + 3;
 
-        for (Line p : problems) y = wrapped(ctx, p.text, x, y, w, p.color);
-        for (Line d : details(s, st, code, hosting)) y = wrapped(ctx, d.text, x, y, w, d.color);
+        for (Line line : lines) y = wrapped(ctx, line.text, x, y, w, line.color);
         y += 5;
 
         players(ctx, st, hosting, x, y, w, messageTop() - 2);
@@ -164,7 +160,21 @@ public final class StatusScreen extends EtmcBaseScreen {
         return labelled ? Msg.tr("etmc.status.joined_label", "Joined '%s'", label) : Msg.tr("etmc.status.joined", "Joined");
     }
 
-    /** What's wrong, worst first; a session with nothing in here is healthy. */
+    /** Everything the screen says about this session, above the player table. */
+    public static List<Line> lines(EtmcSession s, NetworkStatus st) {
+        boolean hosting = s.mode() == EtmcSession.Mode.HOST;
+        List<Line> lines = problems(s, st, hosting);
+        lines.addAll(details(s, st, s.currentCode(), hosting));
+        return lines;
+    }
+
+    /** The color of the health light: the worst of what {@code lines} says. */
+    public static int health(List<Line> lines) {
+        if (lines.stream().anyMatch(l -> l.color == COLOR_BAD)) return COLOR_BAD;
+        return lines.stream().anyMatch(l -> l.color == COLOR_WARN) ? COLOR_WARN : COLOR_GOOD;
+    }
+
+    /** What's wrong with the session itself, worst first. */
     private static List<Line> problems(EtmcSession s, NetworkStatus st, boolean hosting) {
         List<Line> lines = new ArrayList<>();
         if (!st.running()) {
@@ -197,25 +207,32 @@ public final class StatusScreen extends EtmcBaseScreen {
             } else if (code.namedHost() != null) {
                 lines.add(new Line(Msg.tr("etmc.status.host_name_unconfirmed", "Host: checked with the key in your "
                         + "link, but Mojang couldn't be reached to confirm they're %s", code.namedHost()), COLOR_WARN));
+            } else if (code.hostKey != null) {
+                lines.add(new Line(Msg.tr("etmc.status.host_checked", "Host: checked with the key in your link"), COLOR_MUTED));
+            } else if (code.isOldHostLink()) {
+                lines.add(new Line(Msg.tr("etmc.status.host_unchecked", "Host: not checked, because your link has no "
+                        + "host key. Ask the host for a new link."), COLOR_WARN));
             } else {
-                lines.add(code.hostKey != null
-                        ? new Line(Msg.tr("etmc.status.host_checked", "Host: checked with the key in your link"), COLOR_MUTED)
-                        : new Line(Msg.tr("etmc.status.host_unchecked", "Host: not checked, because your link has no "
-                                + "host key. Ask the host for a new link."), COLOR_WARN));
+                // This may be a server that can't have a key, so there's no better link to ask for.
+                lines.add(new Line(Msg.tr("etmc.status.host_keyless",
+                        "Host: not checked, because your link has no host key"), COLOR_MUTED));
             }
         }
         if (hosting) {
             lines.add(new Line(Msg.tr("etmc.status.connections", "Game connections: %s", s.activeConnections()), COLOR_MUTED));
-        } else if (s.linkJoin()) {
-            lines.add(new Line(Msg.tr("etmc.status.link_join",
-                    "Connected directly over the network (%s connection(s))", s.activeConnections()), COLOR_MUTED));
         } else {
-            lines.add(new Line(Msg.tr("etmc.status.proxy_join", "Server-list entry: 'etmc: %s' → 127.0.0.1:%s "
-                    + "(%s connection(s))", code == null ? "?" : code.displayLabel(), s.localPort(), s.activeConnections()),
-                    COLOR_MUTED));
+            if (!s.linkJoin()) {
+                lines.add(new Line(Msg.tr("etmc.status.proxy_join", "Server-list entry: 'etmc: %s' → 127.0.0.1:%s",
+                        code == null ? "?" : code.displayLabel(), s.localPort()), COLOR_MUTED));
+            }
+            NetworkStatus.Peer host = code == null ? null : st.peerAt(code.hostIp);
+            if (host != null) {
+                lines.add(new Line(host.relay() ? Msg.tr("etmc.status.route.relay", "Connected to the host through the relay")
+                        : Msg.tr("etmc.status.route.direct", "Connected directly to the host"), COLOR_MUTED));
+            }
         }
-        lines.add(new Line(Msg.tr("etmc.status.address", "Network %s · Address %s · Name %s",
-                code == null ? "?" : code.networkName,
+        lines.add(new Line(Msg.tr("etmc.status.network", "Network %s", code == null ? "?" : code.networkName), COLOR_MUTED));
+        lines.add(new Line(Msg.tr("etmc.status.address", "Address %s · Name %s",
                 st.virtualIp() == null ? Msg.tr("etmc.status.address.waiting", "(waiting for one…)") : st.virtualIp(),
                 s.hostname() == null ? "?" : s.hostname()), COLOR_MUTED));
         return lines;
@@ -264,5 +281,6 @@ public final class StatusScreen extends EtmcBaseScreen {
         return y;
     }
 
-    private record Line(String text, int color) {}
+    /** One line of the screen, in the color it's drawn. */
+    public record Line(String text, int color) {}
 }

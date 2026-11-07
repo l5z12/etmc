@@ -13,6 +13,7 @@ import dev.l5z12.etmc.client.screen.LinkGeneratorScreen;
 import dev.l5z12.etmc.client.screen.SettingsScreen;
 import dev.l5z12.etmc.client.screen.StatusScreen;
 import dev.l5z12.etmc.core.EtmcConfig;
+import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -46,6 +47,9 @@ import java.util.function.Supplier;
 public class EtmcUiGameTest implements FabricClientGameTest {
 
     private static final int[][] WINDOWS = {{640, 480}, {1920, 1080}};
+    /** The status screen's health light. */
+    private static final int GREEN = 0xFF55FF55;
+    private static final int AMBER = 0xFFFFAA00;
     private static final String LONG_TEXT = "etmc couldn't reach the host over the relay. Check that the relay address is "
             + "right and that it is running, then try again. If it keeps happening, ask the host to copy the link again.";
 
@@ -167,12 +171,75 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             ctx.waitTicks(2);
             shot(ctx, at, "hud-under-f3");
             ctx.getInput().pressKey(GLFW.GLFW_KEY_F3);
+
+            joinerStatusMatchesTheSession(ctx, at);
         } finally {
             ctx.runOnClient(c -> setManagerField("lastStatusPoll", 0L));
             AtomicReference<CompletableFuture<Void>> leaving = new AtomicReference<>();
             ctx.runOnClient(c -> leaving.set(etmc.leaveAsync()));
             ctx.waitFor(c -> leaving.get().isDone(), 30 * 20);
         }
+    }
+
+    /**
+     * A joiner's status, from a real session where it read wrong: a link with no host key, and a host
+     * reached over the relay. The light has to agree with the warning, the route with the player
+     * table, and any advice has to be something the player can act on.
+     */
+    private void joinerStatusMatchesTheSession(ClientGameTestContext ctx, String at) {
+        EtmcSession s = EtmcManager.get().session();
+        JoinCode hosted = s.currentCode();
+        List<String> relays = List.of("tcp://127.0.0.1:1");
+        JoinCode oldLink = new JoinCode("lighthearted", "", relays, EtmcConfig.HOST_VIRTUAL_IP, 25565, "");
+        JoinCode serverLink = new JoinCode("lighthearted", "", relays, "10.126.126.7", 25565, "");
+        try {
+            ctx.runOnClient(c -> {
+                setSessionField(s, "mode", EtmcSession.Mode.JOIN);
+                setSessionField(s, "linkJoin", true);
+            });
+            ctx.setScreen(() -> new StatusScreen(null));
+            ctx.waitForScreen(StatusScreen.class);
+
+            joinedOver(ctx, s, oldLink, true);
+            ctx.waitTicks(2);
+            shot(ctx, at, "status-joined-relay");
+            check(ctx, at, "status-joined-relay");
+            expectStatus(ctx, s, at + " old link over the relay", AMBER, "through the relay", "directly");
+
+            joinedOver(ctx, s, oldLink, false);
+            expectStatus(ctx, s, at + " old link, direct", AMBER, "Connected directly", "through the relay");
+
+            joinedOver(ctx, s, serverLink, true);
+            ctx.waitTicks(2);
+            shot(ctx, at, "status-joined-server");
+            expectStatus(ctx, s, at + " link to a server with no key", GREEN, "no host key", "Ask the host");
+        } finally {
+            ctx.runOnClient(c -> {
+                setSessionField(s, "currentCode", hosted);
+                setSessionField(s, "linkJoin", false);
+                setSessionField(s, "mode", EtmcSession.Mode.HOST);
+            });
+            ctx.setScreen(() -> null);
+        }
+    }
+
+    /** Makes {@code s} look joined through {@code link}, with the host relayed or direct. */
+    private static void joinedOver(ClientGameTestContext ctx, EtmcSession s, JoinCode link, boolean relayed) {
+        NetworkStatus.Peer host = new NetworkStatus.Peer("Steve-host", link.hostIp, 86, relayed, relayed ? 2 : 1);
+        NetworkStatus st = new NetworkStatus(true, "10.126.126.2", List.of(host), null, 1);
+        ctx.runOnClient(c -> {
+            setSessionField(s, "currentCode", link);
+            setManagerField("cachedStatus", st);
+        });
+    }
+
+    private void expectStatus(ClientGameTestContext ctx, EtmcSession s, String name, int light, String says, String never) {
+        List<StatusScreen.Line> lines = ctx.computeOnClient(c -> StatusScreen.lines(s, EtmcManager.get().cachedStatus()));
+        if (StatusScreen.health(lines) != light) {
+            problems.add(name + ": the light is " + Integer.toHexString(StatusScreen.health(lines)) + " beside " + lines);
+        }
+        if (lines.stream().noneMatch(l -> l.text().contains(says))) problems.add(name + ": no '" + says + "' in " + lines);
+        if (lines.stream().anyMatch(l -> l.text().contains(never))) problems.add(name + ": '" + never + "' in " + lines);
     }
 
     /** Resizing rebuilds a screen's widgets; what the player typed must come through it. */
@@ -354,6 +421,16 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             Field f = EtmcManager.class.getDeclaredField(name);
             f.setAccessible(true);
             f.set(EtmcManager.get(), value);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static void setSessionField(EtmcSession s, String name, Object value) {
+        try {
+            Field f = EtmcSession.class.getDeclaredField(name);
+            f.setAccessible(true);
+            f.set(s, value);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
