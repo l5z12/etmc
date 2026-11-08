@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -81,6 +82,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             typedTextSurvivesAResize(ctx);
             joinFillsInAndChecksTheLink(ctx);
             enterSubmitsAForm(ctx);
+            tryAgainRunsOnce(ctx);
 
             try (TestSingleplayerContext world = ctx.worldBuilder().create()) {
                 world.getClientWorld().waitForChunksRender();
@@ -89,7 +91,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
                 for (int[] window : WINDOWS) {
                     ctx.getInput().resizeWindow(window[0], window[1]);
                     ctx.waitTicks(2);
-                    inAWorld(ctx, window[0] + "x" + window[1]);
+                    inAWorld(ctx, world, window[0] + "x" + window[1]);
                 }
             }
         } finally {
@@ -111,6 +113,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         view(ctx, at, "generator", () -> new LinkGeneratorScreen(null));
         view(ctx, at, "settings", () -> new SettingsScreen(null));
         view(ctx, at, "notice", () -> new EtmcNoticeScreen(null, "Couldn't reach the host", LONG_TEXT));
+        view(ctx, at, "notice-retry", () -> new EtmcNoticeScreen(null, "Couldn't reach the host", LONG_TEXT, () -> {}));
         view(ctx, at, "ask", () -> new EtmcAskScreen(null, "This link can't check the host", LONG_TEXT, () -> {}, () -> {}));
         view(ctx, at, "connecting", () -> new EtmcConnectingScreen(null, "Steve's world", () -> {}, () -> {},
                 () -> "Reached the network — waiting for the host to show up…"));
@@ -160,7 +163,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         return out;
     }
 
-    private void inAWorld(ClientGameTestContext ctx, String at) {
+    private void inAWorld(ClientGameTestContext ctx, TestSingleplayerContext world, String at) {
         EtmcManager etmc = EtmcManager.get();
         ctx.runOnClient(c -> etmc.config().relays = List.of());
         view(ctx, at, "world-menu-no-relay", () -> new EtmcScreen(null));
@@ -217,6 +220,20 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             ctx.waitTick();
             fakeStatus(ctx, 3);
             shot(ctx, at, "hud");
+            // Boss bars run down the middle: an overlay wide enough to reach them moves below them.
+            world.getServer().runCommand("bossbar add etmc:one \"Ender Dragon\"");
+            world.getServer().runCommand("bossbar add etmc:two \"Raid\"");
+            try {
+                world.getServer().runCommand("bossbar set etmc:one players @a");
+                world.getServer().runCommand("bossbar set etmc:two players @a");
+                ctx.waitTicks(3);
+                shot(ctx, at, "hud-under-boss-bars");
+            } finally {
+                // Or the next window size would start with them showing.
+                world.getServer().runCommand("bossbar remove etmc:one");
+                world.getServer().runCommand("bossbar remove etmc:two");
+            }
+            ctx.waitTicks(2);
             ctx.getInput().pressKey(GLFW.GLFW_KEY_F3);
             ctx.waitTicks(2);
             shot(ctx, at, "hud-under-f3");
@@ -343,6 +360,21 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         ctx.waitTicks(2);
         ctx.getInput().pressKey(GLFW.GLFW_KEY_ENTER);
         ctx.waitForScreen(EtmcScreen.class);
+        ctx.setScreen(() -> null);
+    }
+
+    /** Try again starts one more join, however many times it's clicked, and then turns off. */
+    private void tryAgainRunsOnce(ClientGameTestContext ctx) {
+        AtomicInteger tries = new AtomicInteger();
+        ctx.setScreen(() -> new EtmcNoticeScreen(null, "Couldn't reach the host", LONG_TEXT, tries::incrementAndGet));
+        ctx.waitTicks(2);
+        ctx.clickScreenButton("Try again");
+        ctx.clickScreenButton("Try again");
+        ctx.waitTicks(2);
+        if (tries.get() != 1) problems.add("Try again ran " + tries.get() + " times for two clicks");
+        if (ctx.computeOnClient(c -> EtmcClientGameTest.button(c.currentScreen, "Try again").active)) {
+            problems.add("Try again is still on after it ran");
+        }
         ctx.setScreen(() -> null);
     }
 

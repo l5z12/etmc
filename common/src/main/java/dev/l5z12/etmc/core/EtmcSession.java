@@ -6,6 +6,7 @@ import lombok.Getter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
@@ -132,7 +133,7 @@ public final class EtmcSession {
         state = State.STARTING;
         try {
             this.instName = newInstanceName("host");
-            this.hostname = playerName != null ? sanitizeName(playerName) + "-host" : "server";
+            this.hostname = playerName != null ? sanitizeName(playerName) + NetworkStatus.Peer.HOST_SUFFIX : "server";
             this.lanPort = lanPort;
             this.virtualPort = virtualPort > 0 ? virtualPort : EtmcConfig.DEFAULT_VIRTUAL_PORT;
 
@@ -307,6 +308,12 @@ public final class EtmcSession {
         } catch (Throwable t) {
             return NetworkStatus.empty();
         }
+    }
+
+    /** While hosting, the mesh addresses of the peers in the world (see {@link HostShare#connectedPeers}). */
+    public Set<String> connectedPeers() {
+        HostShare hs = hostShare;
+        return hs == null ? Set.of() : hs.connectedPeers();
     }
 
     public int activeConnections() {

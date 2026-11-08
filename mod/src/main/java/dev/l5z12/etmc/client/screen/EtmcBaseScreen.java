@@ -272,11 +272,25 @@ abstract class EtmcBaseScreen extends Screen {
 
     /** Centred text that stays put, wrapped to {@code w}; returns the y below it. */
     protected int paragraph(String text, int y, int w, int color) {
-        for (String line : Wrap.lines(font(), text, w)) {
+        return paragraph(text, y, w, color, Integer.MAX_VALUE);
+    }
+
+    /** {@link #paragraph(String, int, int, int)}, cut to {@code maxLines} as {@link #wrapped} does. */
+    protected int paragraph(String text, int y, int w, int color, int maxLines) {
+        for (String line : wrapped(text, w, maxLines)) {
             labels.add(new Label(line, this.width / 2, y, color, true));
             y += LINE_H;
         }
         return y;
+    }
+
+    /** {@code text} wrapped to {@code w}, and no more than {@code maxLines} long: a cut ends in an ellipsis. */
+    protected List<String> wrapped(String text, int w, int maxLines) {
+        List<String> lines = Wrap.lines(font(), text, w);
+        if (lines.size() <= maxLines) return lines;
+        List<String> kept = new ArrayList<>(lines.subList(0, maxLines - 1));
+        kept.add(Wrap.fit(font(), String.join(" ", lines.subList(maxLines - 1, lines.size())), w));
+        return kept;
     }
 
     /** Text shown while the mouse is over this area. Unlike a tooltip, it works on a disabled button. */

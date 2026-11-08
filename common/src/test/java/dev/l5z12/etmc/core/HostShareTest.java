@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -46,6 +47,7 @@ class HostShareTest {
         try (Socket world = lan.accept()) {
             Await.until("the bridge to register the peer", () -> share.activeConnections() == 1);
             assertEquals(1, share.totalConnections());
+            assertEquals(Set.of("10.126.126.9"), share.connectedPeers());
 
             peer.deliver("join please".getBytes(StandardCharsets.UTF_8));
             byte[] got = new byte[11];
@@ -69,6 +71,7 @@ class HostShareTest {
 
         Await.until("the unroutable peer to be dropped", peer::isClosed);
         assertEquals(0, share.activeConnections());
+        assertEquals(Set.of(), share.connectedPeers());
     }
 
     @Test

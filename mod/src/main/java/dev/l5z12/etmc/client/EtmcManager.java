@@ -92,7 +92,7 @@ public final class EtmcManager {
     @Getter private volatile String nativeError;
 
     /** Latest status snapshot, refreshed off-thread; the HUD reads this every frame. */
-    @Getter private volatile NetworkStatus cachedStatus = NetworkStatus.empty();
+    @Getter private volatile NetworkStatus cachedStatus = NetworkStatus.UNKNOWN;
     private long lastStatusPoll;
     /** Guards against queueing another status poll behind one that hasn't come back yet. */
     private final AtomicBoolean statusPollInFlight = new AtomicBoolean();
@@ -100,6 +100,8 @@ public final class EtmcManager {
     private LinkAttempt linkAttempt;
     /** Marks the newest {@code etmc://v1/config/} fetch (null when none), so it beats older ones. Client thread only. */
     private Object configFetch;
+    /** The last leave, until it has finished: a join that started before then would find the network up. */
+    private volatile CompletableFuture<Void> leaving = CompletableFuture.completedFuture(null);
 
     // Session-lifetime bookkeeping for tick(); client thread only.
     /** The hosted world has been seen running, so its disappearing means the player left it. */
@@ -452,20 +454,32 @@ public final class EtmcManager {
      * {@link dev.l5z12.etmc.core.EtmcChannel} riding the data plane. Client thread, no world loaded.
      */
     public void connectViaLink(Screen parent, String link) {
-        connectViaLink(parent, link, true);
+        connectViaLink(parent, link, true, null);
     }
 
     /**
      * @param askIfOld whether an old link needs the player's say-so. A hosted config doesn't: it's the
-     *                 owner's to change, and it has no key if the server can't have one.
+     *                 owner's to change, and it has no key if the server can't have one. Nor does Try
+     *                 again, since the player has already said yes.
+     * @param again    what <b>Try again</b> does if this join fails, or {@code null} to join this link again
      */
-    private void connectViaLink(Screen parent, String link, boolean askIfOld) {
+    private void connectViaLink(Screen parent, String link, boolean askIfOld, Runnable again) {
         if (!isReady()) {
             showError(parent, Msg.tr("etmc.join.cant_join", "Can't join"), nativeError != null
                     ? Msg.tr("etmc.error.no_native", "etmc couldn't load its EasyTier library: %s", nativeError)
                     : Msg.tr("etmc.error.no_native_log", "etmc couldn't load its EasyTier library (see the game log)."));
             return;
         }
+        if (!leaving.isDone()) {
+            // The last session is still leaving, as it is just after a failed join, and this one would
+            // find its network still up. Carry on once it's gone, unless the player has moved on.
+            Screen asked = McScreens.current();
+            leaving.whenComplete((v, err) -> McScreens.mc().execute(() -> {
+                if (McScreens.current() == asked) connectViaLink(parent, link, askIfOld, again);
+            }));
+            return;
+        }
+        Runnable retry = again != null ? again : () -> connectViaLink(parent, link, false, null);
         String configUrl = JoinCode.configUrl(link);
         if (configUrl != null) {
             connectViaConfig(parent, configUrl);
@@ -499,16 +513,16 @@ public final class EtmcManager {
             LOGGER.info("[etmc] old link: asking the player before joining");
             McScreens.goTo(oldLinkScreen(parent, () -> {
                 LOGGER.info("[etmc] old link: the player chose to join anyway");
-                startLinkJoin(parent, code);
+                startLinkJoin(parent, code, retry);
             }, () -> LOGGER.info("[etmc] old link: the player cancelled")));
             return;
         }
-        startLinkJoin(parent, code);
+        startLinkJoin(parent, code, retry);
     }
 
-    private void startLinkJoin(Screen parent, JoinCode code) {
+    private void startLinkJoin(Screen parent, JoinCode code, Runnable again) {
         syncPlayerName();
-        LinkAttempt a = new LinkAttempt(parent, code, code.displayLabel());
+        LinkAttempt a = new LinkAttempt(parent, code, code.displayLabel(), again);
         this.linkAttempt = a;
         LOGGER.info("[etmc] etmc:// join: starting link instance for host {}:{} (network '{}')",
                 code.hostIp, code.hostPort, code.networkName);
@@ -524,7 +538,7 @@ public final class EtmcManager {
                     if (err != null) {
                         LOGGER.warn("[etmc] etmc:// join failed: {}", Errors.message(err), Errors.root(err));
                         showError(a.parent, Msg.tr("etmc.join.start_failed.title", "Couldn't start the etmc network"),
-                                Errors.message(err));
+                                Errors.message(err), worthRetrying(err) ? a.again : null);
                         linkAttempt = null;
                         return;
                     }
@@ -552,10 +566,12 @@ public final class EtmcManager {
             if (err != null) {
                 LOGGER.warn("[etmc] couldn't load config link from {}: {}", RemoteConfig.hostOf(url), Errors.message(err));
                 showError(parent, Msg.tr("etmc.join.bad_link.title", "That etmc link doesn't work"),
-                        Msg.tr("etmc.join.config_failed", "Couldn't load its config: %s", Errors.message(err)));
+                        Msg.tr("etmc.join.config_failed", "Couldn't load its config: %s", Errors.message(err)),
+                        () -> connectViaConfig(parent, url));
                 return;
             }
-            connectViaLink(parent, code.encodeLink(), false);
+            // Try again fetches the config again: its owner may have changed it since.
+            connectViaLink(parent, code.encodeLink(), false, () -> connectViaConfig(parent, url));
         }));
     }
 
@@ -610,7 +626,8 @@ public final class EtmcManager {
             LOGGER.warn("[etmc] etmc:// join gave up after {}s: {}", waited / 1000, why);
             linkAttempt = null;
             leaveAsync();
-            showError(a.parent, Msg.tr("etmc.join.unreachable.title", "Couldn't reach the host"), why);
+            showError(a.parent, Msg.tr("etmc.join.unreachable.title", "Couldn't reach the host"), why,
+                    a.again);
         }
     }
 
@@ -711,7 +728,7 @@ public final class EtmcManager {
                         showError(a.parent, Msg.tr("etmc.join.no_world.title", "The host's world isn't open"),
                                 Msg.tr("etmc.join.no_world", "etmc reached the host, but no world answered on "
                                         + "port %s. They may have closed it or stopped hosting: ask them to host "
-                                        + "again and send you the new link.", a.code.hostPort));
+                                        + "again, then try again.", a.code.hostPort), a.again);
                         return;
                     }
                     armAndConnect(target, a.parent, a.label,
@@ -740,7 +757,23 @@ public final class EtmcManager {
     }
 
     private static void showError(Screen parent, String title, String message) {
-        McScreens.goTo(new EtmcNoticeScreen(parent, title, message));
+        showError(parent, title, message, null);
+    }
+
+    /** @param retry what <b>Try again</b> does, or {@code null} where trying again can't help */
+    private static void showError(Screen parent, String title, String message, Runnable retry) {
+        McScreens.goTo(new EtmcNoticeScreen(parent, title, message, retry));
+    }
+
+    /**
+     * Whether joining again could go differently. Not for a link with a damaged host key, or settings
+     * EasyTier refuses: those fail the same way every time.
+     */
+    private static boolean worthRetrying(Throwable err) {
+        Throwable root = Errors.root(err);
+        if (root instanceof IllegalArgumentException) return false;
+        String message = root.getMessage();
+        return message == null || !message.startsWith("parse_config failed:");
     }
 
     /** State for one in-progress {@code etmc://} link join (mutated only on the client thread). */
@@ -748,6 +781,8 @@ public final class EtmcManager {
         final Screen parent;
         final JoinCode code;
         final String label;
+        /** What <b>Try again</b> does if this join fails. */
+        final Runnable again;
         volatile String instName;
         volatile boolean instanceReady;
         volatile boolean proceeded;
@@ -758,19 +793,20 @@ public final class EtmcManager {
         /** What the connecting screen shows under the title. */
         volatile String progress = Msg.tr("etmc.join.progress.start", "Starting the EasyTier network…");
 
-        LinkAttempt(Screen parent, JoinCode code, String label) {
+        LinkAttempt(Screen parent, JoinCode code, String label, Runnable again) {
             this.parent = parent;
             this.code = code;
             this.label = label;
+            this.again = again;
         }
     }
 
     public CompletableFuture<Void> leaveAsync() {
         if (session == null) return CompletableFuture.completedFuture(null);
         boolean hadProxy = session.mode() == EtmcSession.Mode.JOIN && !session.linkJoin();
-        return CompletableFuture.runAsync(() -> session.leave(), worker)
+        CompletableFuture<Void> left = CompletableFuture.runAsync(() -> session.leave(), worker)
                 .thenRun(() -> {
-                    cachedStatus = NetworkStatus.empty();
+                    cachedStatus = NetworkStatus.UNKNOWN;
                     McScreens.mc().execute(() -> {
                         hostWorldSeen = false;
                         proxyJoinPlayed = false;
@@ -781,6 +817,8 @@ public final class EtmcManager {
                         if (hadProxy) McNet.removeJoinEntries();
                     });
                 });
+        leaving = left;
+        return left;
     }
 
     // ------------------------------------------------------------------ periodic tick

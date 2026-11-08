@@ -6,7 +6,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A loose, defensive view of an EasyTier instance's live state, parsed from the JSON returned by
@@ -34,7 +36,38 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
      * A reachable peer. {@code relay} = traffic is routed through another node (not a direct/P2P link);
      * {@code cost} is EasyTier's route cost (1 = direct/p2p, &gt;1 = relayed) for diagnostics.
      */
-    public record Peer(String hostname, String ipv4, int latencyMs, boolean relay, int cost) {}
+    public record Peer(String hostname, String ipv4, int latencyMs, boolean relay, int cost) {
+
+        /** What etmc adds to a host's device name, so the host stands out in EasyTier's own tools. */
+        public static final String HOST_SUFFIX = "-host";
+
+        /**
+         * The name to show for this peer: its device name, less the {@link #HOST_SUFFIX} etmc gives the
+         * host's when this is the host at {@code hostIp}. Nobody else's is cut: an offline account or
+         * another EasyTier device may really be called something ending in "-host".
+         */
+        public String name(String hostIp) {
+            if (hostname == null) return "";
+            return at(hostIp) && hostname.endsWith(HOST_SUFFIX) && hostname.length() > HOST_SUFFIX.length()
+                    ? hostname.substring(0, hostname.length() - HOST_SUFFIX.length()) : hostname;
+        }
+
+        /** Whether this peer has the address {@code ip}. */
+        public boolean at(String ip) {
+            return ip != null && ip.equals(ipv4);
+        }
+
+        /** Whether this peer's address is one of {@code addresses}. */
+        public boolean in(Set<String> addresses) {
+            return ipv4 != null && addresses.contains(ipv4);
+        }
+    }
+
+    /**
+     * What a session shows before its first status arrives. Compare it by identity: it reads like a
+     * network that isn't running, which is wrong for one that has just started.
+     */
+    public static final NetworkStatus UNKNOWN = new NetworkStatus(false, null, List.of(), null, 0);
 
     public static NetworkStatus empty() {
         return new NetworkStatus(false, null, List.of(), null, 0);
@@ -48,9 +81,24 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
     public Peer peerAt(String ipv4) {
         if (ipv4 == null) return null;
         for (Peer p : peers) {
-            if (ipv4.equals(p.ipv4())) return p;
+            if (p.at(ipv4)) return p;
         }
         return null;
+    }
+
+    /**
+     * The peers in the order a player list shows them: the host first, then whoever is in the world,
+     * then everyone else, each by name.
+     *
+     * @param hostIp  the host's address, or {@code null} when this node is the host
+     * @param inWorld the addresses of the peers in the world; empty when that isn't known
+     */
+    public List<Peer> forDisplay(String hostIp, Set<String> inWorld) {
+        List<Peer> sorted = new ArrayList<>(peers);
+        sorted.sort(Comparator.comparing((Peer p) -> !p.at(hostIp))
+                .thenComparing(p -> !p.in(inWorld))
+                .thenComparing(p -> p.name(hostIp), String.CASE_INSENSITIVE_ORDER));
+        return sorted;
     }
 
     /** Peers reachable over a direct (P2P) link — relayed peers are excluded. */

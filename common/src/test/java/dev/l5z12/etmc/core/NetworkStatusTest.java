@@ -2,6 +2,9 @@ package dev.l5z12.etmc.core;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -85,5 +88,28 @@ class NetworkStatusTest {
     @Test
     void aNullPeerListIsTreatedAsEmpty() {
         assertEquals(0, new NetworkStatus(true, null, null, null).peerCount());
+    }
+
+    @Test
+    void onlyTheHostIsNamedWithoutItsSuffix() {
+        NetworkStatus.Peer host = new NetworkStatus.Peer("Steve-host", "10.126.126.1", 1, false, 1);
+        assertEquals("Steve", host.name("10.126.126.1"));
+        assertEquals("Steve-host", host.name(null));
+        // An offline account may really be called this, and it isn't the host.
+        assertEquals("Bob-host", new NetworkStatus.Peer("Bob-host", "10.126.126.2", 1, false, 1).name("10.126.126.1"));
+        assertEquals("-host", new NetworkStatus.Peer("-host", "10.126.126.1", 1, false, 1).name("10.126.126.1"));
+    }
+
+    @Test
+    void theHostComesFirstThenWhoeverIsInTheWorldThenByName() {
+        NetworkStatus.Peer bob = new NetworkStatus.Peer("bob", "10.126.126.4", 1, false, 1);
+        NetworkStatus.Peer alex = new NetworkStatus.Peer("Alex", "10.126.126.3", 1, false, 1);
+        NetworkStatus.Peer carol = new NetworkStatus.Peer("carol", "10.126.126.5", 1, false, 1);
+        NetworkStatus.Peer host = new NetworkStatus.Peer("Steve-host", "10.126.126.1", 1, true, 2);
+        NetworkStatus.Peer unaddressed = new NetworkStatus.Peer("peer-7", null, -1, true, 2);
+        NetworkStatus st = new NetworkStatus(true, "10.126.126.2", List.of(bob, unaddressed, carol, host, alex), null);
+
+        assertEquals(List.of(host, alex, bob, carol, unaddressed), st.forDisplay("10.126.126.1", Set.of()));
+        assertEquals(List.of(carol, alex, bob, unaddressed, host), st.forDisplay(null, Set.of("10.126.126.5")));
     }
 }

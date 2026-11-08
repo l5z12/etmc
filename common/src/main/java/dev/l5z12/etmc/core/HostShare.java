@@ -9,6 +9,8 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.security.GeneralSecurityException;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,7 +51,8 @@ public final class HostShare {
     private final HostTunnel tunnel;
 
     private final AtomicBoolean stopped = new AtomicBoolean(false);
-    private final Set<TcpBridge> bridges = ConcurrentHashMap.newKeySet();
+    /** Every bridge to the world, with the mesh address of the peer it carries ("" if unknown). */
+    private final Map<TcpBridge, String> bridges = new ConcurrentHashMap<>();
     private final AtomicLong totalConnections = new AtomicLong();
     private final AtomicLong connectionSeq = new AtomicLong();
     private final ConnectionLimiter limiter = new ConnectionLimiter();
@@ -186,7 +189,7 @@ public final class HostShare {
         EtmcLog.info("connection from " + peer(acc) + (stream == et ? ": plain, no host check" : ": host key checked"));
         totalConnections.incrementAndGet();
         TcpBridge bridge = new TcpBridge(stream, sock, acc.handle(), bridges::remove);
-        bridges.add(bridge);
+        bridges.put(bridge, acc.peerIp() == null ? "" : acc.peerIp());
         if (stopped.get()) {
             // stop() raced us and has already closed everything it could see — don't leave this one
             // pumping (and holding a socket + mesh stream) after the session is gone.
@@ -218,6 +221,16 @@ public final class HostShare {
         return bridges.size();
     }
 
+    /**
+     * The mesh addresses of the peers with the world open through this host right now. A peer that
+     * only checks whether the world is open shows up here for as long as that takes.
+     */
+    public Set<String> connectedPeers() {
+        Set<String> peers = new HashSet<>(bridges.values());
+        peers.remove("");
+        return peers;
+    }
+
     /** Why this host stopped accepting joiners, or {@code null} while it is healthy. */
     public String failure() {
         return failure;
@@ -236,9 +249,9 @@ public final class HostShare {
         } catch (Throwable ignored) {
         }
         listenerHandle = 0;
-        // Each close() removes its own bridge via the onClose callback, so the set empties itself;
+        // Each close() removes its own bridge via the onClose callback, so the map empties itself;
         // clearing it here instead would drop a bridge that raced in without ever closing it.
-        for (TcpBridge b : bridges) {
+        for (TcpBridge b : bridges.keySet()) {
             b.close();
         }
         Thread t = acceptThread;
