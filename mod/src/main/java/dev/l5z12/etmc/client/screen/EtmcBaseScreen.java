@@ -104,6 +104,8 @@ abstract class EtmcBaseScreen extends Screen {
     private final List<Label> labels = new ArrayList<>();
     private final List<Hint> hints = new ArrayList<>();
     private final List<Runnable> live = new ArrayList<>();
+    /** Where the form ends, if the screen said; see {@link #formEnds}. */
+    private int formBottom = Integer.MIN_VALUE;
 
     //? if yarn {
     protected EtmcBaseScreen(Text title, Screen parent) {
@@ -181,6 +183,7 @@ abstract class EtmcBaseScreen extends Screen {
         labels.clear();
         hints.clear();
         live.clear();
+        formBottom = Integer.MIN_VALUE;
         build();
     }
 
@@ -316,13 +319,32 @@ abstract class EtmcBaseScreen extends Screen {
         add(find.build());
     }
 
+    /**
+     * Says the form ends at {@code y}. The status line grows up from the footer, so on a short screen a
+     * long one would run into a tall form: it's cut to the room left instead, and shown whole when the
+     * mouse is over it.
+     */
+    protected void formEnds(int y) {
+        formBottom = y;
+    }
+
     /** Where the status line starts, for a screen that fills the band and has to stop short of it. */
     protected int messageTop() {
         return bandBottom() - 4 - messageLines().size() * LINE_H;
     }
 
     private List<String> messageLines() {
-        return Wrap.lines(font(), message, col(MESSAGE_W));
+        if (formBottom == Integer.MIN_VALUE) return Wrap.lines(font(), message, col(MESSAGE_W));
+        int room = (bandBottom() - 4 - GAP - formBottom) / LINE_H;
+        return wrapped(message, col(MESSAGE_W), Math.max(1, room));
+    }
+
+    /** The whole status line, if it was cut and the mouse is over it; else {@code null}. */
+    private String cutMessage(int mouseX, int mouseY) {
+        if (formBottom == Integer.MIN_VALUE || mouseY < messageTop() || mouseY >= bandBottom()) return null;
+        int w = col(MESSAGE_W);
+        if (mouseX < left(w) || mouseX >= left(w) + w) return null;
+        return Wrap.lines(font(), message, w).size() > messageLines().size() ? message : null;
     }
 
     /** The title's colour, for a screen that is a warning or an error. */
@@ -357,26 +379,28 @@ abstract class EtmcBaseScreen extends Screen {
     }
 
     private void drawHint(Object ctx, int mouseX, int mouseY) {
+        String text = cutMessage(mouseX, mouseY);
         for (Hint h : hints) {
-            if (mouseX < h.x || mouseX >= h.x + h.w || mouseY < h.y || mouseY >= h.y + h.h) continue;
-            List<String> lines = Wrap.lines(font(), h.text, col(HINT_W));
-            int textW = 0;
-            for (String line : lines) textW = Math.max(textW, Wrap.width(font(), line));
-            int w = textW + 8;
-            int height = lines.size() * LINE_H + 5;
-            int x = Math.max(2, Math.min(mouseX + 8, this.width - w - 2));
-            int y = Math.max(2, mouseY - height - 4);
-            Gfx.fill(ctx, x, y, x + w, y + height, HINT_BG);
-            Gfx.fill(ctx, x, y, x + w, y + 1, HINT_EDGE);
-            Gfx.fill(ctx, x, y + height - 1, x + w, y + height, HINT_EDGE);
-            Gfx.fill(ctx, x, y, x + 1, y + height, HINT_EDGE);
-            Gfx.fill(ctx, x + w - 1, y, x + w, y + height, HINT_EDGE);
-            int ty = y + 3;
-            for (String line : lines) {
-                Gfx.text(ctx, font(), Txt.literal(line), x + 4, ty, COLOR_TEXT);
-                ty += LINE_H;
-            }
-            return;
+            if (text != null) break;
+            if (mouseX >= h.x && mouseX < h.x + h.w && mouseY >= h.y && mouseY < h.y + h.h) text = h.text;
+        }
+        if (text == null) return;
+        List<String> lines = Wrap.lines(font(), text, col(HINT_W));
+        int textW = 0;
+        for (String line : lines) textW = Math.max(textW, Wrap.width(font(), line));
+        int w = textW + 8;
+        int height = lines.size() * LINE_H + 5;
+        int x = Math.max(2, Math.min(mouseX + 8, this.width - w - 2));
+        int y = Math.max(2, mouseY - height - 4);
+        Gfx.fill(ctx, x, y, x + w, y + height, HINT_BG);
+        Gfx.fill(ctx, x, y, x + w, y + 1, HINT_EDGE);
+        Gfx.fill(ctx, x, y + height - 1, x + w, y + height, HINT_EDGE);
+        Gfx.fill(ctx, x, y, x + 1, y + height, HINT_EDGE);
+        Gfx.fill(ctx, x + w - 1, y, x + w, y + height, HINT_EDGE);
+        int ty = y + 3;
+        for (String line : lines) {
+            Gfx.text(ctx, font(), Txt.literal(line), x + 4, ty, COLOR_TEXT);
+            ty += LINE_H;
         }
     }
 

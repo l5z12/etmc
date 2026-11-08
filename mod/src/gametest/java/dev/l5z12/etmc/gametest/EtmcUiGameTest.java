@@ -163,11 +163,21 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         return out;
     }
 
+    /** Opens More options on the Host screen showing now: the tallest form, so the status line is checked too. */
+    private void moreHostOptions(ClientGameTestContext ctx, String at, String name) {
+        ctx.clickScreenButton("More options");
+        ctx.waitTicks(2);
+        shot(ctx, at, name);
+        check(ctx, at, name);
+        for (String p : ctx.computeOnClient(EtmcUiGameTest::messageProblems)) problems.add(at + " " + name + ": " + p);
+    }
+
     private void inAWorld(ClientGameTestContext ctx, TestSingleplayerContext world, String at) {
         EtmcManager etmc = EtmcManager.get();
         ctx.runOnClient(c -> etmc.config().relays = List.of());
         view(ctx, at, "world-menu-no-relay", () -> new EtmcScreen(null));
         view(ctx, at, "world-host-no-relay", () -> new HostScreen(null));
+        moreHostOptions(ctx, at, "world-host-more-no-relay");
 
         String relay = "tcp://127.0.0.1:" + freePort();
         ctx.runOnClient(c -> {
@@ -176,10 +186,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             etmc.config().signHostAccount = true;
         });
         view(ctx, at, "world-host-warnings", () -> new HostScreen(null));
-        ctx.clickScreenButton("More options");
-        ctx.waitTicks(2);
-        shot(ctx, at, "world-host-more-warnings");
-        check(ctx, at, "world-host-more-warnings");
+        moreHostOptions(ctx, at, "world-host-more-warnings");
         ctx.runOnClient(c -> {
             etmc.config().lanAllowOffline = false;
             etmc.config().signHostAccount = false;
@@ -394,17 +401,31 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         if (!ctx.computeOnClient(c -> EtmcClientGameTest.button(c.currentScreen, "Start hosting").active)) {
             problems.add("Start hosting stays off after typing a relay");
         }
+        // More options adds to the form, so what the player has chosen stays in front of them.
+        ctx.clickScreenButton("More options");
+        ctx.waitTicks(2);
+        if (!showsHostChoices(ctx) || !ctx.computeOnClient(c -> hasButton(c, "Offline accounts: OFF"))) {
+            problems.add("HostScreen: More options didn't add to the relay and the cheats choice");
+        }
         ctx.getInput().resizeWindow(1280, 720);
         ctx.waitTicks(2);
         ctx.getInput().resizeWindow(1920, 1080);
         ctx.waitTicks(2);
-        boolean kept = ctx.computeOnClient(c -> c.currentScreen.children().stream()
-                .anyMatch(w -> w instanceof TextFieldWidget f && f.getText().equals("tcp://127.0.0.1:1"))
-                && c.currentScreen.children().stream()
-                .anyMatch(w -> w instanceof ButtonWidget b && b.getMessage().getString().equals("Cheats: ON")));
-        if (!kept) problems.add("HostScreen: a window resize lost the relay or the cheats choice");
+        if (!showsHostChoices(ctx)) problems.add("HostScreen: a window resize lost the relay or the cheats choice");
         ctx.setScreen(() -> null);
         ctx.runOnClient(c -> etmc.config().relays = List.of());
+    }
+
+    /** Whether the Host screen still shows the relay and the cheats choice that the steps above made. */
+    private static boolean showsHostChoices(ClientGameTestContext ctx) {
+        return ctx.computeOnClient(c -> c.currentScreen.children().stream()
+                .anyMatch(w -> w instanceof TextFieldWidget f && f.getText().equals("tcp://127.0.0.1:1"))
+                && hasButton(c, "Cheats: ON"));
+    }
+
+    private static boolean hasButton(MinecraftClient c, String label) {
+        return c.currentScreen.children().stream()
+                .anyMatch(w -> w instanceof ButtonWidget b && b.getMessage().getString().equals(label));
     }
 
     /**

@@ -21,7 +21,7 @@ import java.util.List;
 /**
  * Host the current singleplayer world. The first view is all most players need: the world's label,
  * plus the LAN options vanilla's own "Open to LAN" dialog offers (joiners' game mode, cheats), and a
- * relay if they haven't set one up. <b>More options</b> shows the rest.
+ * relay if they haven't set one up. <b>More options</b> adds the rest below them.
  *
  * <p>The network name and secret default to random values rather than a shared "my-world": on a
  * public relay everyone using the same name and secret lands in the same network, and every etmc host
@@ -72,13 +72,12 @@ public final class HostScreen extends EtmcBaseScreen {
         if (network == null) load();
         int w = col(W);
         int x = left(w);
-        int rows = moreOptions ? 2 : needsRelay ? 2 : 1;
-        int y = formTop(rows * (LINE_H + ROW + GAP) + ROW, 5 * LINE_H);
-        if (moreOptions) {
-            buildMoreOptions(x, y, w);
-        } else {
-            buildBasics(x, y, w);
-        }
+        int boxes = (needsRelay ? 2 : 1) + (moreOptions ? 1 : 0);
+        int buttons = moreOptions ? 2 : 1;
+        int y = formTop(boxes * (LINE_H + ROW + GAP) + buttons * (ROW + GAP) - GAP, 5 * LINE_H);
+        y = buildBasics(x, y, w);
+        if (moreOptions) y = buildMoreOptions(x, y + GAP, w);
+        formEnds(y);
 
         var start = add(footer(Ui.button(Txt.tr("etmc.host.start", "Start hosting"), b -> startHosting()), 0, 3).build());
         add(footer(Ui.button(moreOptions ? Txt.tr("etmc.host.fewer", "Fewer options") : Txt.tr("etmc.host.more", "More options"), b -> {
@@ -93,7 +92,8 @@ public final class HostScreen extends EtmcBaseScreen {
         });
     }
 
-    private void buildBasics(int x, int y, int w) {
+    /** Lays out what every host sees; returns the y below it. */
+    private int buildBasics(int x, int y, int w) {
         label(Msg.tr("etmc.host.label.hint", "World label (what joiners see)"), x, y, w, COLOR_MUTED);
         var labelBox = add(worldLabel.widget(font(), x, y + LINE_H, w, ROW, Txt.tr("etmc.host.label", "World label")));
         y += LINE_H + ROW + GAP;
@@ -127,22 +127,34 @@ public final class HostScreen extends EtmcBaseScreen {
         }), x, y, w, 1, 2);
         hint(cheatsButton, Msg.tr("etmc.host.cheats.help", "Lets everyone use cheats, you included.") + " " + kept);
         add(cheatsButton.build());
+        return y + ROW;
     }
 
-    private void buildMoreOptions(int x, int y, int w) {
-        label(Msg.tr("etmc.host.network.hint", "Network name (unique to you)"), x, y, w, COLOR_MUTED);
-        add(network.widget(font(), x, y + LINE_H, w - NEW_W - GAP, ROW, Txt.tr("etmc.host.network", "Network name")));
+    /**
+     * Lays out the rest under the basics; returns the y below it. The network name and secret share a
+     * row, so a short screen still has room for the status line.
+     */
+    private int buildMoreOptions(int x, int y, int w) {
+        int half = (w - GAP) / 2;
+        int networkW = half - NEW_W - GAP;
+        label(Msg.tr("etmc.host.network", "Network name"), x, y, half, COLOR_MUTED);
+        add(network.widget(font(), x, y + LINE_H, networkW, ROW, Txt.tr("etmc.host.network", "Network name")));
+        hint(x, y + LINE_H, networkW, ROW, Msg.tr("etmc.host.network.help", "Unique to you. Anyone on your relay "
+                + "with the same name and secret lands in the same network."));
         Ui.Builder fresh = Ui.button(Txt.tr("etmc.host.new", "New"), b -> {
             network.set(Secrets.networkName());
             secret.set(Secrets.random());
-        }).dimensions(x + w - NEW_W, y + LINE_H, NEW_W, ROW);
+        }).dimensions(x + half - NEW_W, y + LINE_H, NEW_W, ROW);
         hint(fresh, Msg.tr("etmc.host.new.help", "Pick a new random network name and secret. Links you've already "
                 + "shared stop working."));
         add(fresh.build());
-        y += LINE_H + ROW + GAP;
 
-        label(Msg.tr("etmc.host.secret.hint", "Secret (plain text, never a real password)"), x, y, w, COLOR_WARN);
-        add(secret.widget(font(), x, y + LINE_H, w, ROW, Txt.tr("etmc.host.secret", "Secret")));
+        int secretX = x + half + GAP;
+        int secretW = w - half - GAP;
+        label(Msg.tr("etmc.host.secret.hint", "Secret (not a password)"), secretX, y, secretW, COLOR_WARN);
+        add(secret.widget(font(), secretX, y + LINE_H, secretW, ROW, Txt.tr("etmc.host.secret", "Secret")));
+        hint(secretX, y + LINE_H, secretW, ROW, Msg.tr("etmc.host.secret.help", "Saved as plain text and put in "
+                + "your invite link, so never use a real password."));
         y += LINE_H + ROW + GAP;
 
         Ui.Builder offlineButton = cell(Ui.button(Txt.literal(offlineLabel()), b -> {
@@ -160,6 +172,7 @@ public final class HostScreen extends EtmcBaseScreen {
         var signButton = signBuilder.build();
         signButton.active = McIdentity.supported();
         add(signButton);
+        return y + ROW;
     }
 
     /** Why hosting can't start yet, or {@code null}. An empty relay box is {@code ""}: nothing's wrong, it just needs filling in. */
