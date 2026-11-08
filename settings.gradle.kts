@@ -54,6 +54,9 @@ stonecutter {
         // 26.x Fabric: unobfuscated, official names, own snapshot-Loom node script.
         node("26.3-fabric", "26.3", "nodes/fabric26.gradle")
         node("26.2-fabric", "26.2", "nodes/fabric26.gradle")
+        node("26.1.2-fabric", "26.1.2", "nodes/fabric26.gradle")
+        node("26.1.1-fabric", "26.1.1", "nodes/fabric26.gradle")
+        node("26.1-fabric", "26.1", "nodes/fabric26.gradle")
         node("1.21.11-fabric", "1.21.11")
         node("1.21.10-fabric", "1.21.10")
         node("1.21.9-fabric", "1.21.9")
@@ -82,6 +85,7 @@ stonecutter {
         node("1.18.1-fabric", "1.18.1")
         node("1.18-fabric", "1.18")
         node("1.17.1-fabric", "1.17.1")
+        node("1.17-fabric", "1.17")
         // Legacy line below 1.17 (yarn + Loom reach to 1.14). 1.16.x still fits the post-MatrixStack /
         // Text-based GUI tiers; 1.15/1.14 predate MatrixStack + Text-based widgets, so the facades carry
         // a separate `<1.16` tier (String-typed buttons/labels, single-arg HudRenderCallback, no OrderedText).
@@ -92,11 +96,15 @@ stonecutter {
         node("1.16.1-fabric", "1.16.1")
         node("1.16-fabric", "1.16")
         node("1.15.2-fabric", "1.15.2")
+        node("1.15.1-fabric", "1.15.1")
         node("1.15-fabric", "1.15")
         node("1.14.4-fabric", "1.14.4")
         // Mojmap loader nodes (own buildscript): the shared mod/src/ is processed with fabric=false.
         node("26.3-neoforge", "26.3")
         node("26.2-neoforge", "26.2")
+        node("26.1.2-neoforge", "26.1.2")
+        node("26.1.1-neoforge", "26.1.1")
+        node("26.1-neoforge", "26.1")
         node("1.21.11-neoforge", "1.21.11")
         node("1.21.10-neoforge", "1.21.10")
         node("1.21.9-neoforge", "1.21.9")
@@ -112,11 +120,15 @@ stonecutter {
         node("1.20.6-neoforge", "1.20.6")
         // 1.20.4 is the oldest buildable NeoForge: 1.20.2/1.20.3/1.20.5 only got beta NeoForge builds,
         // which don't publish the `neoforge-moddev-bundle` capability variant ModDevGradle 2.x requires.
-        // The 1.21.2/1.21.6/1.21.7/1.21.9 nodes DO use beta builds (those carry the variant).
+        // The 1.21.2/1.21.6/1.21.7/1.21.9/26.1/26.1.1 nodes DO use beta builds (those carry the variant).
         node("1.20.4-neoforge", "1.20.4")
         // Forge nodes span both eras: EtmcForge guards EventBus 7 (>=1.21.6) vs EventBus 6 (<1.21.6),
         // and the HUD-layer event across 1.21–1.21.5 / 1.21.6-1.21.7 (no API → no overlay) / 1.21.8+.
         node("26.3-forge", "26.3")
+        node("26.2-forge", "26.2")
+        node("26.1.2-forge", "26.1.2")
+        node("26.1.1-forge", "26.1.1")
+        node("26.1-forge", "26.1")
         node("1.21.11-forge", "1.21.11")
         node("1.21.10-forge", "1.21.10")
         node("1.21.9-forge", "1.21.9")

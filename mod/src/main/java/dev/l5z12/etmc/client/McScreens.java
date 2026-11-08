@@ -31,10 +31,10 @@ import net.minecraft.util.Util;
  *
  * <p>Four unrelated things drift across the supported range, and every caller used to carry the ones
  * it needed: the client class ({@code MinecraftClient} on yarn, {@code Minecraft} on mojmap and on
- * unobfuscated 26.x), the navigation call ({@code openScreen} before yarn 1.17, {@code setScreen}
+ * unobfuscated 26.x), the navigation call ({@code openScreen} before yarn 1.17.1, {@code setScreen}
  * through 1.21.x, {@code setScreenAndShow} from 26.x), where the current screen lives
- * ({@code currentScreen} on yarn, {@code screen} on mojmap, {@code gui.screen()} from 26.x), and the
- * clipboard handle ({@code keyboard} on yarn, {@code keyboardHandler} on mojmap).
+ * ({@code currentScreen} on yarn, {@code screen} on mojmap and 26.1, {@code gui.screen()} from 26.2),
+ * and the clipboard handle ({@code keyboard} on yarn, {@code keyboardHandler} on mojmap).
  *
  * <p>Keeping them here means a new Minecraft version is one edit rather than one per caller — the
  * menu keybind, the {@code /etmc menu} and {@code /etmc invite} commands, the manager's
@@ -58,7 +58,7 @@ public final class McScreens {
     public static void goTo(Screen screen) {
         //? if >=26 {
         /*mc().setScreenAndShow(screen);*/
-        //?} else if yarn && <1.17 {
+        //?} else if yarn && <1.17.1 {
         /*mc().openScreen(screen);*/
         //?} else {
         mc().setScreen(screen);
@@ -163,7 +163,7 @@ public final class McScreens {
     public static Screen current() {
         //? if yarn {
         return mc().currentScreen;
-        //?} else if <26 {
+        //?} else if <26.2 {
         /*return mc().screen;*/
         //?} else {
         /*return mc().gui.screen();*/

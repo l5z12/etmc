@@ -58,7 +58,7 @@ jobs:
           - shard: fabric-modern   # 1.20.5 – 26.3
             nodes: '1\.20\.[5-9]-fabric,1\.21(\..*)?-fabric,2[6-9]\..*-fabric'
             caches: fabric-loom
-            launch: '1.21.5-fabric 1.21.11-fabric 26.2-fabric 26.3-fabric'
+            launch: '1.21.5-fabric 1.21.11-fabric 26.1-fabric 26.2-fabric 26.3-fabric'
             gametest: '1.21.10-fabric'
           - shard: forge-legacy    # 1.17.1 – 1.20.6
             nodes: '1\.1[7-9](\..*)?-forge,1\.20(\..*)?-forge'
@@ -69,11 +69,11 @@ jobs:
           - shard: forge-modern    # 1.21 – 26.3
             nodes: '1\.21(\..*)?-forge,2[6-9]\..*-forge'
             caches: minecraftforge
-            launch: '1.21.1-forge 1.21.10-forge 26.3-forge'
+            launch: '1.21.1-forge 1.21.10-forge 26.1-forge 26.3-forge'
           - shard: neoforge
             nodes: '.*-neoforge'
             caches: neoformruntime
-            launch: '1.20.4-neoforge 1.21.1-neoforge 26.2-neoforge 26.3-neoforge'
+            launch: '1.20.4-neoforge 1.21.1-neoforge 26.1-neoforge 26.2-neoforge 26.3-neoforge'
     steps:
       - name: Checkout etmc
         uses: actions/checkout@v7
@@ -358,7 +358,7 @@ jobs:
   # range — so all of them build on ONE worker (loop, no matrix). The only genuine per-platform fan-out
   # is the native matrix in natives.yml. Paper is a standalone build (paper/settings.gradle), so `-p
   # paper` never pulls in (or configures) the Stonecutter loader nodes; the Gradle daemon is reused
-  # across the loop. JDK 17 + 21 are both installed (the per-era compile target); 21 runs Gradle.
+  # across the loop. JDK 17, 21 and 25 are installed (the per-era compile target); 21 runs Gradle.
   # The core tests (common/, its own standalone build) run here too, as this job is a required check.
   paper:
     name: paper (all versions)
@@ -384,12 +384,14 @@ jobs:
             done
           fi
 
-      - name: Set up JDK 17 + 21
+      # The last one listed becomes JAVA_HOME, so 21 stays last: it runs Gradle.
+      - name: Set up JDK 17 + 25 + 21
         uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: |
             17
+            25
             21
 
       - name: Set up Gradle (with caching)
@@ -417,7 +419,7 @@ jobs:
       - name: Build every Paper jar
         run: |
           chmod +x ./gradlew
-          installs="-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64"
+          installs="-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64,JAVA_HOME_25_X64"
           # Java 17 era (MC 1.17 – 1.20.4)
           for v in 1.17 1.17.1 1.18 1.18.1 1.18.2 1.19 1.19.1 1.19.2 1.19.3 1.19.4 1.20 1.20.1 1.20.2 1.20.3 1.20.4; do
             ./gradlew $installs -p paper build -Ppaper_version=$v-R0.1-SNAPSHOT -Ppaper_java=17 --stacktrace
@@ -427,6 +429,11 @@ jobs:
           # longer resolve. 1.20.5 was a ~1-week release superseded by 1.20.6 (Forge skips it too).
           for v in 1.20.6 1.21 1.21.1 1.21.3 1.21.4 1.21.5 1.21.6 1.21.7 1.21.8 1.21.9 1.21.10 1.21.11; do
             ./gradlew $installs -p paper build -Ppaper_version=$v-R0.1-SNAPSHOT -Ppaper_java=21 --stacktrace
+          done
+          # Java 25 era (MC 26.x). From 26.1 paper-api is versioned "<mc>.build.<n>-<channel>", so each
+          # is pinned to a build. Paper has no 26.1 (it starts at 26.1.1), and 26.1.1 only had alpha builds.
+          for v in 26.1.1.build.29-alpha 26.1.2.build.74-stable 26.2.build.135-stable 26.3.build.244-stable; do
+            ./gradlew $installs -p paper build -Ppaper_version=$v -Ppaper_java=25 --stacktrace
           done
 
       - name: Upload Paper jars

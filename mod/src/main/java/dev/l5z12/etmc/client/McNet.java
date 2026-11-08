@@ -164,12 +164,20 @@ public final class McNet {
         if (mode != null) server.setWorldGameType(mode);
         return server.publishServer(net.minecraft.server.MinecraftServer.MultiplayerScope.LAN, cheats, port);
     }
-    *///?} else if >=26 {
+    *///?} else if >=26.2 {
     /*private static boolean publishLan(Minecraft client, IntegratedServer server, String gameMode, boolean cheats,
                                       int port) {
         GameType mode = gameMode != null ? GameType.valueOf(gameMode)
                 : client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
         return server.publishServer(net.minecraft.server.MinecraftServer.MultiplayerScope.LAN, mode, cheats, port);
+    }
+    *///?} else if >=26 {
+    /*// 26.1 has no MultiplayerScope yet (26.2 added it): LAN is the only way to publish.
+    private static boolean publishLan(Minecraft client, IntegratedServer server, String gameMode, boolean cheats,
+                                      int port) {
+        GameType mode = gameMode != null ? GameType.valueOf(gameMode)
+                : client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
+        return server.publishServer(mode, cheats, port);
     }
     *///?}
 
@@ -241,7 +249,8 @@ public final class McNet {
         /*list.save();*/
         //?}
 
-        //? if yarn && >=1.17 {
+        // yarn renamed openScreen to setScreen during 1.17.1; 1.17's last yarn build still has openScreen.
+        //? if yarn && >=1.17.1 {
         if (client.world == null) {
             client.setScreen(new MultiplayerScreen(new TitleScreen()));
         } else {
