@@ -5,23 +5,25 @@ import '@fontsource-variable/jetbrains-mono';
 import '../styles/global.css';
 import TopNav from '../components/TopNav.astro';
 import Footer from '../components/Footer.astro';
+import { i18n, localeInfo, locales, localize, routeOf } from '../i18n';
 
 interface Props {
   title: string;
   description?: string;
 }
 
-const {
-  title,
-  description = 'Play Minecraft with friends over a peer-to-peer connection. No port forwarding, no drivers, no admin rights.',
-} = Astro.props;
+const { locale, t } = i18n(Astro.url);
+const { title, description = t.site.description } = Astro.props;
 
-const fullTitle = title === 'etmc' ? 'etmc: Minecraft multiplayer without port forwarding' : `${title} · etmc`;
-const canonical = new URL(Astro.url.pathname.replace(/(index)?\.html$/, ''), Astro.site ?? 'https://etmc.l5z12.dev').toString();
+const fullTitle = title === 'etmc' ? `etmc: ${t.site.tagline}` : `${title} · etmc`;
+const site = Astro.site ?? 'https://etmc.l5z12.dev';
+const route = routeOf(Astro.url.pathname);
+const urlOf = (l: (typeof locales)[number]) => new URL(localize(route, l), site).toString();
+const canonical = urlOf(locale);
 ---
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang={localeInfo[locale].lang}>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -29,16 +31,19 @@ const canonical = new URL(Astro.url.pathname.replace(/(index)?\.html$/, ''), Ast
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
+    {locales.map((l) => <link rel="alternate" hreflang={localeInfo[l].lang} href={urlOf(l)} />)}
+    <link rel="alternate" hreflang="x-default" href={urlOf('en')} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/icon-512.png" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
-    <meta property="og:image" content={new URL('/icon-512.png', Astro.site).toString()} />
+    <meta property="og:locale" content={localeInfo[locale].og} />
+    <meta property="og:image" content={new URL('/icon-512.png', site).toString()} />
   </head>
   <body>
-    <a class="skip-link" href="#main">Skip to content</a>
+    <a class="skip-link" href="#main">{t.site.skip}</a>
     <TopNav />
     <main id="main">
       <slot />

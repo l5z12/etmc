@@ -6,6 +6,12 @@
  * EasyTier TOML (network identity, relays, addressing) plus an `[etmc] server`
  * extension naming the Minecraft server's mesh address.
  */
+import { config as englishMessages } from '../i18n/en.json';
+import { format } from '../i18n/format';
+
+/** The messages shown for a problem with the form or a link, in the page's language. */
+export type ConfigMessages = typeof englishMessages;
+
 export interface GenInput {
   network: string;
   secret: string;
@@ -51,36 +57,32 @@ const RELAY_NEEDS_PORT = ['tcp', 'udp', 'wg', 'quic', 'faketcp'];
  * `Relays.problem`: the classic mistake is pasting an etmc:// join link where a relay goes, which
  * EasyTier can't dial, so joiners never reach the host.
  */
-export function relayProblem(uri: string): string | null {
+export function relayProblem(uri: string, m: ConfigMessages = englishMessages): string | null {
   const u = (uri || '').trim();
-  if (!u) return 'Empty relay address.';
-  if (/^etmc:\/\//i.test(u)) {
-    return `"${u.slice(0, 40)}…" is an etmc join link, not a relay. A relay looks like tcp://relay.example.com:11010.`;
-  }
+  if (!u) return m.relayEmpty;
+  if (/^etmc:\/\//i.test(u)) return format(m.relayIsLink, { start: u.slice(0, 40) });
   const sep = u.indexOf('://');
-  if (sep <= 0) return `"${u}" has no protocol. Write it like tcp://${u}${u.includes(':') ? '' : ':11010'}.`;
+  if (sep <= 0) return format(m.relayNoScheme, { uri: u, example: `tcp://${u}${u.includes(':') ? '' : ':11010'}` });
   const scheme = u.slice(0, sep).toLowerCase();
-  if (!RELAY_SCHEMES.includes(scheme)) {
-    return `"${scheme}://" isn't a relay protocol EasyTier knows (use tcp://, udp://, ws://, wss://, quic:// or wg://).`;
-  }
+  if (!RELAY_SCHEMES.includes(scheme)) return format(m.relayBadScheme, { scheme });
   let url: URL;
   try {
     url = new URL(u.replace(/^[a-z]+:/i, 'http:'));
   } catch {
-    return `"${u}" isn't a valid address.`;
+    return format(m.relayInvalid, { uri: u });
   }
-  if (!url.hostname) return `"${u}" has no host name.`;
+  if (!url.hostname) return format(m.relayNoHost, { uri: u });
   const explicitPort = /:\d+(\/|$)/.test(u.slice(sep + 3).replace(/^\[[^\]]*\]/, ''));
   if (!explicitPort && RELAY_NEEDS_PORT.includes(scheme)) {
-    return `"${u}" has no port (EasyTier relays usually listen on 11010).`;
+    return format(m.relayNoPort, { uri: u });
   }
   return null;
 }
 
-function relayErrors(relays: string[]): string[] {
+function relayErrors(relays: string[], m: ConfigMessages): string[] {
   const out: string[] = [];
   for (const r of relays) {
-    const p = relayProblem(r);
+    const p = relayProblem(r, m);
     if (p) out.push(p);
   }
   return out;
@@ -90,28 +92,28 @@ function relayErrors(relays: string[]): string[] {
  * What is wrong with a host key, or `null` if it's fine or blank. Mirrors `HostKey.isValid`: a key
  * is 32 bytes of base64url without padding, so 43 characters, and the last one only carries 4 bits.
  */
-export function hostKeyProblem(key: string | undefined): string | null {
+export function hostKeyProblem(key: string | undefined, m: ConfigMessages = englishMessages): string | null {
   const k = (key ?? '').trim();
   if (!k) return null;
   return /^[A-Za-z0-9_-]{42}[AEIMQUYcgkosw048]$/.test(k)
     ? null
-    : 'That host key isn\'t right. Copy it again from /etmc status.';
+    : m.hostKeyBad;
 }
 
-function hostKeyErrors(key: string | undefined): string[] {
-  const p = hostKeyProblem(key);
+function hostKeyErrors(key: string | undefined, m: ConfigMessages): string[] {
+  const p = hostKeyProblem(key, m);
   return p ? [p] : [];
 }
 
-export function validate(i: GenInput): string[] {
+export function validate(i: GenInput, m: ConfigMessages = englishMessages): string[] {
   const errs: string[] = [];
-  if (!i.network.trim()) errs.push('Network name is required.');
-  if (i.relays.length === 0) errs.push('Add at least one relay (EasyTier public node).');
-  errs.push(...relayErrors(i.relays));
-  if (!i.serverIp.trim()) errs.push('Server mesh IP is required.');
-  if (!(i.serverPort > 0 && i.serverPort <= 65535)) errs.push('Server port must be 1–65535.');
-  if (!i.dhcp && !i.ipv4.trim()) errs.push('Static mode needs a client IPv4 (or switch to DHCP).');
-  errs.push(...hostKeyErrors(i.hostKey));
+  if (!i.network.trim()) errs.push(m.networkRequired);
+  if (i.relays.length === 0) errs.push(m.relayRequired);
+  errs.push(...relayErrors(i.relays, m));
+  if (!i.serverIp.trim()) errs.push(m.serverIpRequired);
+  if (!(i.serverPort > 0 && i.serverPort <= 65535)) errs.push(m.serverPortRange);
+  if (!i.dhcp && !i.ipv4.trim()) errs.push(m.staticIpRequired);
+  errs.push(...hostKeyErrors(i.hostKey, m));
   return errs;
 }
 
@@ -158,12 +160,12 @@ export function buildToml(i: GenInput): string {
   return lines.join('\n') + '\n';
 }
 
-export function validatePaper(i: GenInput): string[] {
+export function validatePaper(i: GenInput, m: ConfigMessages = englishMessages): string[] {
   const errs: string[] = [];
-  if (!i.network.trim()) errs.push('Network name is required.');
-  if (i.relays.length === 0) errs.push('Add at least one relay (EasyTier public node).');
-  errs.push(...relayErrors(i.relays));
-  if (!(i.virtualPort > 0 && i.virtualPort <= 65535)) errs.push('Virtual port must be 1–65535.');
+  if (!i.network.trim()) errs.push(m.networkRequired);
+  if (i.relays.length === 0) errs.push(m.relayRequired);
+  errs.push(...relayErrors(i.relays, m));
+  if (!(i.virtualPort > 0 && i.virtualPort <= 65535)) errs.push(m.virtualPortRange);
   return errs;
 }
 
@@ -223,15 +225,15 @@ function b64urlUtf8(json: string): string {
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export function validateJoinLink(i: GenInput): string[] {
+export function validateJoinLink(i: GenInput, m: ConfigMessages = englishMessages): string[] {
   const errs: string[] = [];
-  if (!i.network.trim()) errs.push('Network name is required.');
+  if (!i.network.trim()) errs.push(m.networkRequired);
   // A link without a relay gives joiners no way to reach the host.
-  if (i.relays.length === 0) errs.push('Add the host\'s relay: without one, joiners have no way to reach the host.');
-  errs.push(...relayErrors(i.relays));
-  if (!i.serverIp.trim()) errs.push('Host mesh IP is required.');
-  if (!(i.serverPort > 0 && i.serverPort <= 65535)) errs.push('Host port must be 1–65535.');
-  errs.push(...hostKeyErrors(i.hostKey));
+  if (i.relays.length === 0) errs.push(m.hostRelayRequired);
+  errs.push(...relayErrors(i.relays, m));
+  if (!i.serverIp.trim()) errs.push(m.hostIpRequired);
+  if (!(i.serverPort > 0 && i.serverPort <= 65535)) errs.push(m.hostPortRange);
+  errs.push(...hostKeyErrors(i.hostKey, m));
   return errs;
 }
 
@@ -267,17 +269,15 @@ export type JoinLinkFields = Pick<GenInput, 'network' | 'secret' | 'relays' | 's
  * whitespace, a bare payload and any `etmc://<version>/` prefix, and falls back to the same host
  * defaults. Throws an Error with a message fit to show the user.
  */
-export function decodeJoinLink(text: string): JoinLinkFields {
+export function decodeJoinLink(text: string, m: ConfigMessages = englishMessages): JoinLinkFields {
   let s = (text ?? '').trim();
-  if (!s) throw new Error('Paste an etmc:// link.');
+  if (!s) throw new Error(m.linkEmpty);
   const config = /^etmc:\/\/([^/]+)\/config\//i.exec(s);
   if (config) {
-    throw new Error(config[1].toLowerCase() === 'v1'
-      ? 'This link loads its details from a config URL, so there\'s nothing in it to read.'
-      : 'This link needs a newer version of etmc.');
+    throw new Error(config[1].toLowerCase() === 'v1' ? m.linkIsConfig : m.linkNewer);
   }
   if (/^etmc:\/\//i.test(s)) s = s.slice(s.lastIndexOf('/') + 1).trim();
-  if (!/^[A-Za-z0-9_-]*={0,2}$/.test(s)) throw new Error('This isn\'t a valid etmc:// link.');
+  if (!/^[A-Za-z0-9_-]*={0,2}$/.test(s)) throw new Error(m.linkInvalid);
 
   const b64 = s.replace(/=+$/, '').replace(/-/g, '+').replace(/_/g, '/');
   let json: string;
@@ -285,7 +285,7 @@ export function decodeJoinLink(text: string): JoinLinkFields {
     const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
     json = new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
   } catch {
-    throw new Error('This isn\'t a valid etmc:// link.');
+    throw new Error(m.linkInvalid);
   }
 
   let jc: unknown = null;
@@ -293,22 +293,22 @@ export function decodeJoinLink(text: string): JoinLinkFields {
     try {
       jc = JSON.parse(json);
     } catch {
-      throw new Error('This link is damaged. Ask for a new one.');
+      throw new Error(m.linkDamaged);
     }
   }
   if (jc !== null && (typeof jc !== 'object' || Array.isArray(jc))) {
-    throw new Error('This link is damaged. Ask for a new one.');
+    throw new Error(m.linkDamaged);
   }
 
   const f = (jc ?? {}) as Record<string, unknown>;
   const text_ = (v: unknown) => (typeof v === 'string' ? v : '');
   const network = text_(f.networkName);
-  if (!network.trim()) throw new Error('This link has no network name.');
+  if (!network.trim()) throw new Error(m.linkNoNetwork);
 
   // A damaged key is refused, as the mod refuses it: losing it here would turn off the host check.
   const hostKey = f.hostKey === undefined || f.hostKey === null ? undefined : text_(f.hostKey);
-  if (hostKey !== undefined && (!hostKey.trim() || hostKeyProblem(hostKey))) {
-    throw new Error('This link is damaged. Ask for a new one.');
+  if (hostKey !== undefined && (!hostKey.trim() || hostKeyProblem(hostKey, m))) {
+    throw new Error(m.linkDamaged);
   }
 
   const relays = Array.isArray(f.relays) ? f.relays.filter((r): r is string => typeof r === 'string') : [];

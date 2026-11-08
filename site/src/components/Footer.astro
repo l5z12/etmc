@@ -1,16 +1,29 @@
+---
+import { i18n, localeInfo, locales, localize, routeOf } from '../i18n';
+
+const { locale, t, link } = i18n(Astro.url);
+const route = routeOf(Astro.url.pathname);
+---
+
 <footer class="site-footer ink">
   <div class="wrap">
     <div>
       <span class="name">etmc</span>
-      <p>Free software under the GPL-3.0. Not affiliated with Mojang or Microsoft.</p>
+      <p>{t.footer.about}</p>
     </div>
-    <nav aria-label="Footer">
-      <a href="/docs/getting-started">Docs</a>
-      <a href="/generator">Generator</a>
-      <a href="/compare">Compare</a>
-      <a href="https://github.com/L5Z12/etmc/releases">Download</a>
+    <nav aria-label={t.footer.label}>
+      <a href={link('/docs/getting-started')}>{t.nav.docs}</a>
+      <a href={link('/generator')}>{t.nav.generator}</a>
+      <a href={link('/compare')}>{t.nav.compare}</a>
+      <a href="https://github.com/L5Z12/etmc/releases">{t.nav.download}</a>
       <a href="https://github.com/L5Z12/etmc">GitHub</a>
       <a href="https://github.com/EasyTier/EasyTier">EasyTier</a>
+    </nav>
+    <nav class="languages" aria-label={t.site.language}>
+      {locales.map((l) => (
+        <a href={localize(route, l)} hreflang={localeInfo[l].lang} lang={localeInfo[l].lang}
+          aria-current={l === locale ? 'true' : undefined}>{localeInfo[l].name}</a>
+      ))}
     </nav>
   </div>
 </footer>

@@ -1,0 +1,323 @@
+{
+  "site": {
+    "tagline": "無需連接埠轉送的 Minecraft 多人遊戲",
+    "description": "透過點對點連線和朋友一起玩 Minecraft。不用連接埠轉送、不用安裝驅動程式，也不需要管理員權限。",
+    "skip": "跳至內容",
+    "language": "語言"
+  },
+  "nav": {
+    "label": "主要",
+    "docs": "說明文件",
+    "generator": "產生器",
+    "compare": "比較",
+    "download": "下載"
+  },
+  "footer": {
+    "label": "頁尾",
+    "about": "依據 GPL-3.0 授權的自由軟體。與 Mojang 或 Microsoft 沒有隸屬關係。"
+  },
+  "docs": {
+    "label": "說明文件",
+    "pager": "上一頁與下一頁",
+    "previous": "上一頁",
+    "next": "下一頁",
+    "pages": {
+      "getting-started": "開始使用",
+      "hosting": "開放世界",
+      "joining": "加入世界",
+      "connect-url": "設定檔 URL",
+      "commands": "指令",
+      "compatibility": "模組相容性"
+    }
+  },
+  "home": {
+    "title": "傳個連結。",
+    "titleAccent": "一起玩。",
+    "lead": "etmc 是一款 Minecraft 模組，能透過點對點網路把你的世界開放給好友。不用連接埠轉送、不用額外安裝任何東西，也不需要管理員權限。",
+    "download": "下載 etmc",
+    "guide": "閱讀指南",
+    "skip": "跳過路由器設定。",
+    "usualTitle": "平常的做法",
+    "usual": [
+      "登入你的路由器",
+      "為你的電腦指定固定的本機 IP",
+      "轉送連接埠 25565",
+      "查詢你的公開 IP",
+      "發現你的 ISP 不允許這麼做",
+      "放棄，然後付錢租用伺服器代管"
+    ],
+    "betterTitle": "使用 etmc",
+    "better": [
+      "<strong>新增一個中繼。</strong>只需要做一次。",
+      "<strong>按下 <kbd>G</kbd></strong>，然後選擇「開放此世界」。",
+      "<strong>傳送連結。</strong>好友將連結貼到「直接連線」即可。"
+    ],
+    "howItWorks": "看看運作方式",
+    "compareLink": "已經在用 ZeroTier、Tailscale 或 Hamachi？<a href=\"/compare\">看看 etmc 的比較</a>。",
+    "loadersTitle": "在你玩遊戲的地方都能用",
+    "loaders": "支援 Windows、Linux 和 macOS，搭配你原本就在用的模組載入器。",
+    "modsTitle": "你的模組都還在",
+    "mods": "對 Minecraft 來說，它就是一般伺服器，所以其他模組照常運作，包括 ViaFabricPlus。",
+    "gameTitle": "全部都在遊戲裡",
+    "game": "不用 VPN 應用程式、不用驅動程式，也不會跳出管理員提示。它會隨著你的世界啟動和停止。",
+    "freeTitle": "免費且開源",
+    "free": "etmc 採用 GPL-3.0，並建構於 <a href=\"https://github.com/EasyTier/EasyTier\">EasyTier</a> 之上。中繼由你選擇，因此不需要帳號，也沒有公司從中介入。",
+    "serverTitle": "在架設伺服器嗎？",
+    "server": "Paper 外掛能讓你的伺服器加入網路。一分鐘內就能建立設定檔，然後把一條連結分享給你的玩家。",
+    "serverButton": "開啟產生器"
+  },
+  "route": {
+    "title": "能直連時就直連，不能時就經中繼。",
+    "body": "中繼會幫玩家互相認識。接著 etmc 會嘗試建立直連；如果網路阻擋，遊戲便改經中繼繼續進行。",
+    "toggle": "連線類型",
+    "direct": "直連",
+    "relay": "經中繼",
+    "directNote": "當網路允許時，遊戲流量會直接在玩家之間傳輸，延遲最低。",
+    "relayNote": "適用於嚴格限制的網路，例如某些學校或行動網路。仍然可以玩，只是延遲稍高。",
+    "diagram": "兩名玩家直接連線或透過中繼連線",
+    "you": "你",
+    "friend": "你的朋友",
+    "relayNode": "中繼"
+  },
+  "scene": {
+    "label": "兩座以橋相連的漂浮島嶼，資料在兩者之間穿梭"
+  },
+  "compare": {
+    "title": "比較",
+    "description": "etmc 與 EasyTier、ZeroTier、Tailscale、Cloudflare Mesh、Hamachi、e4mc、Essential 和 playit.gg 的比較。",
+    "heading": "etmc 的比較",
+    "intro": "和朋友一起玩的方式有很多。以下說明 etmc 適合的位置，以及什麼情況下其他工具更適合你。",
+    "columns": {
+      "tool": "工具",
+      "runs": "運作形式",
+      "route": "遊戲流量",
+      "friends": "好友需要",
+      "free": "免費方案",
+      "account": "帳號",
+      "code": "授權"
+    },
+    "games": "為遊戲打造",
+    "networks": "一般網路",
+    "rows": {
+      "etmc": {
+        "runs": "模組",
+        "route": "直連，或經中繼",
+        "friends": "etmc 與你的連結",
+        "free": "免費，含社群節點",
+        "account": "不需要。離線帳號也能用",
+        "code": "GPL-3.0"
+      },
+      "e4mc": {
+        "runs": "模組，僅限房主",
+        "route": "一律經由反向通道",
+        "friends": "不需要任何東西",
+        "free": "免費，未列出限制",
+        "account": "未列出",
+        "code": "MIT"
+      },
+      "essential": {
+        "runs": "模組",
+        "route": "點對點，由房主作為伺服器",
+        "friends": "與房主相同的模組",
+        "free": "免費，同時 8 名玩家",
+        "account": "Minecraft 帳號",
+        "code": "原始碼公開，保留所有權利"
+      },
+      "playit": {
+        "runs": "應用程式，僅限房主",
+        "route": "一律經由 playit 的通道",
+        "friends": "不需要任何東西",
+        "free": "Minecraft 免費。進階方案每月 3 美元起",
+        "account": "房主需要",
+        "code": "—"
+      },
+      "easytier": {
+        "runs": "應用程式",
+        "route": "直連，或經由共享節點",
+        "friends": "EasyTier",
+        "free": "免費，含社群節點",
+        "account": "不需要",
+        "code": "LGPL-3.0"
+      },
+      "zerotier": {
+        "runs": "應用程式",
+        "route": "直連，以中繼作為備援",
+        "friends": "ZeroTier，以及你的核准",
+        "free": "10 台裝置、1 個網路，非商業用途",
+        "account": "建立網路時需要",
+        "code": "MPL，另有部分原始碼公開"
+      },
+      "tailscale": {
+        "runs": "應用程式",
+        "route": "直連，或經由 Tailscale 的中繼",
+        "friends": "Tailscale 與登入",
+        "free": "6 名使用者，非商業用途",
+        "account": "需要登入",
+        "code": "用戶端為 BSD-3-Clause"
+      },
+      "cloudflare": {
+        "runs": "應用程式",
+        "route": "一律經由 Cloudflare 的網路",
+        "friends": "Cloudflare One Client",
+        "free": "50 名使用者與 50 個節點",
+        "account": "Cloudflare 帳號",
+        "code": "—"
+      },
+      "hamachi": {
+        "runs": "應用程式",
+        "route": "直連網狀網路，或中央閘道",
+        "friends": "Hamachi",
+        "free": "每個網路 5 台電腦",
+        "account": "需要帳號",
+        "code": "—"
+      }
+    },
+    "checked": "2026 年 11 月 5 日查證。破折號代表我們無法從專案自己的頁面確認。價格和限制可能變動，決定前請查看各專案的網站。",
+    "picksTitle": "該用哪一個？",
+    "picks": [
+      {
+        "title": "最低延遲",
+        "body": "使用能讓玩家直接連線的工具，例如 etmc、EasyTier、ZeroTier 或 Tailscale。直連需要網路允許。"
+      },
+      {
+        "title": "不想安裝任何東西的好友",
+        "body": "使用 e4mc 或 playit.gg，並接受較高的延遲。好友可以從原版 Minecraft 加入，但所有流量都會繞道經由通道。"
+      },
+      {
+        "title": "全部都在遊戲裡",
+        "body": "使用 etmc 或 Essential。不需要另外執行應用程式。etmc 也不需要自己的帳號。"
+      },
+      {
+        "title": "同一個網路不只玩 Minecraft",
+        "body": "使用 EasyTier、ZeroTier 或 Tailscale。它們會連接整台裝置，因此也適用於其他遊戲和工具。"
+      },
+      {
+        "title": "不讓公司居中介入",
+        "body": "使用 etmc 或 EasyTier。選擇社群節點或自行架設中繼，不需要註冊帳號。"
+      }
+    ],
+    "easytierTitle": "etmc 與 EasyTier",
+    "easytier": [
+      "etmc 建構於 <a href=\"https://github.com/EasyTier/EasyTier\">EasyTier</a> 之上，因此底層是相同的網路。EasyTier 是一套由你自己執行的一般工具。etmc 將它放進 Minecraft 並處理設定，不需要建立網路介面卡，也不用一直開著應用程式。",
+      "它們也能搭配使用。etmc 玩家可以使用<a href=\"/docs/connect-url\">設定檔 URL</a> 加入執行原版 EasyTier 的伺服器。"
+    ],
+    "shortTitle": "etmc 的不足之處",
+    "short": [
+      "<strong>每個人都需要安裝模組。</strong>好友無法從原版 Minecraft 加入。",
+      "<strong>你必須新增中繼。</strong>它不是內建的，但免費的社群節點就能用。",
+      "<strong>僅限 Minecraft。</strong>它不會連接其他東西。",
+      "<strong>你的金鑰不受保護。</strong>它以明文儲存，請保持隨機。"
+    ],
+    "sourcesTitle": "來源",
+    "sources": {
+      "colon": "：",
+      "comma": "、",
+      "launchPost": "發布文章",
+      "client": "用戶端",
+      "projectPage": "專案頁面",
+      "repository": "程式碼儲存庫",
+      "hostingGuide": "開放世界指南",
+      "productPage": "產品頁面",
+      "pricing": "價格",
+      "connections": "連線",
+      "windowsSetup": "Windows 設定",
+      "gettingStarted": "開始使用",
+      "faq": "常見問答",
+      "licence": "授權"
+    },
+    "owners": "所有產品名稱皆屬其各自所有者。etmc 與這些產品均無隸屬關係。"
+  },
+  "generator": {
+    "title": "產生器",
+    "description": "在瀏覽器中建立 Paper 伺服器設定檔、玩家設定檔或 etmc:// 加入連結，或讀取現有的連結。",
+    "intro": "建立伺服器設定檔或邀請連結，或讀取你已有的連結。你輸入的內容都不會離開瀏覽器。",
+    "modes": "要產生什麼",
+    "paper": "Paper 伺服器",
+    "player": "玩家設定檔",
+    "link": "加入連結",
+    "paperIntro": "建立 Paper 伺服器上 etmc 外掛的設定檔。",
+    "playerIntro": "建立讓玩家從 URL 加入的設定檔。",
+    "linkIntro": "用你的網路資訊建立 <code>etmc://</code> 連結。",
+    "load": "載入連結",
+    "loadHint": "（選填，用來讀取或修改）",
+    "network": "網路名稱",
+    "secret": "金鑰",
+    "secretHint": "（公開伺服器可留空）",
+    "newSecret": "產生新的隨機金鑰",
+    "secretWarning": "<strong>你的金鑰不受保護。</strong>它會以明文儲存，任何取得你的連結或設定檔的人都能讀取。請保持隨機，且切勿使用你在其他地方使用的密碼。",
+    "relays": "中繼",
+    "relaysHint": "（每行一個）",
+    "dhcp": "自動分配玩家 IP",
+    "playerIp": "玩家 IP",
+    "playerIpHint": "（若不自動分配）",
+    "serverIp": "伺服器 IP",
+    "serverIpHint": "（網路中的位址）",
+    "port": "連接埠",
+    "serverName": "伺服器名稱",
+    "serverNameHint": "（顯示於遊戲中）",
+    "hostKey": "主機金鑰",
+    "hostKeyHint": "（來自 /etmc status，讓玩家確認是你的伺服器）",
+    "copy": "複製",
+    "download": "下載",
+    "copyLink": "複製連結",
+    "nextSteps": "後續步驟",
+    "paperSteps": [
+      "在伺服器上把檔案儲存為 <code>plugins/etmc/config.yml</code>。",
+      "重新啟動伺服器，或執行 <code>/etmc reload</code>。",
+      "從伺服器記錄檔複製 <code>etmc://</code> 連結，或執行 <code>/etmc link</code>。",
+      "將連結分享給你的玩家。"
+    ],
+    "playerSteps": [
+      "確認你的伺服器以伺服器 IP 加入 EasyTier 網路。它不需要 etmc。",
+      "將檔案放在公開的 HTTPS URL 上。",
+      "在 URL 前面加上 <code>etmc://v1/config/</code>，並分享該連結。玩家將它貼到<strong>新增伺服器</strong>或<strong>直接連線</strong>。"
+    ],
+    "linkSteps": [
+      "確認在網路中可透過伺服器 IP 和連接埠連上房主。",
+      "將連結傳給玩家。他們會將它貼到<strong>新增伺服器</strong>或<strong>直接連線</strong>。"
+    ],
+    "linkNote": "任何取得連結的人都能加入，也能讀取其中的金鑰。",
+    "script": {
+      "hostPort": "房主連接埠",
+      "networkPort": "網路連接埠",
+      "serverPort": "伺服器連接埠",
+      "joinLink": "加入連結",
+      "loaded": "已載入「{name}」。你可以在下方編輯。",
+      "copied": "已複製",
+      "copyFailed": "無法複製。請選取文字後自行複製。",
+      "downloaded": "已下載 {file}"
+    }
+  },
+  "notFound": {
+    "title": "找不到頁面",
+    "description": "此頁面不存在。",
+    "body": "此頁面不存在或已經移動。",
+    "home": "首頁",
+    "docs": "說明文件"
+  },
+  "config": {
+    "relayEmpty": "中繼位址為空。",
+    "relayIsLink": "「{start}…」是 etmc 加入連結，不是中繼。中繼的格式類似 tcp://relay.example.com:11010。",
+    "relayNoScheme": "「{uri}」缺少協定。請寫成 {example}。",
+    "relayBadScheme": "「{scheme}://」不是 EasyTier 支援的中繼協定（請使用 tcp://, udp://, ws://, wss://, quic:// 或 wg://）。",
+    "relayInvalid": "「{uri}」不是有效的位址。",
+    "relayNoHost": "「{uri}」缺少主機名稱。",
+    "relayNoPort": "「{uri}」缺少連接埠（EasyTier 中繼通常監聽 11010）。",
+    "hostKeyBad": "主機金鑰不正確。請從 /etmc status 重新複製。",
+    "networkRequired": "請輸入網路名稱。",
+    "relayRequired": "請至少新增一個中繼（EasyTier 公共節點）。",
+    "serverIpRequired": "請輸入伺服器虛擬 IP。",
+    "serverPortRange": "伺服器連接埠必須在 1–65535 之間。",
+    "staticIpRequired": "靜態模式需要用戶端 IPv4（或改用 DHCP）。",
+    "virtualPortRange": "虛擬連接埠必須在 1–65535 之間。",
+    "hostRelayRequired": "請填寫房主的中繼：沒有中繼，好友就無法連上房主。",
+    "hostIpRequired": "請輸入房主虛擬 IP。",
+    "hostPortRange": "房主連接埠必須在 1–65535 之間。",
+    "linkEmpty": "請貼上 etmc:// 連結。",
+    "linkIsConfig": "此連結會從設定檔 URL 載入詳細資訊，因此本身沒有可讀取的內容。",
+    "linkNewer": "此連結需要更新版本的 etmc。",
+    "linkInvalid": "這不是有效的 etmc:// 連結。",
+    "linkDamaged": "此連結已損壞。請索取新的連結。",
+    "linkNoNetwork": "此連結缺少網路名稱。"
+  }
+}

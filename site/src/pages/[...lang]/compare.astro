@@ -1,0 +1,104 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { i18n, localePaths } from '../../i18n';
+
+export const getStaticPaths = localePaths;
+
+const { t: { compare: t }, link, html } = i18n(Astro.url);
+
+const columns = ['runs', 'route', 'friends', 'free', 'account', 'code'] as const;
+
+type Tool = { id: keyof typeof t.rows; name: string; url: string; ours?: boolean };
+
+const games: Tool[] = [
+  { id: 'etmc', name: 'etmc', url: link('/docs/getting-started'), ours: true },
+  { id: 'e4mc', name: 'e4mc', url: 'https://modrinth.com/mod/e4mc' },
+  { id: 'essential', name: 'Essential', url: 'https://essential.gg/wiki/start-hosting' },
+  { id: 'playit', name: 'playit.gg', url: 'https://playit.gg/pricing' },
+];
+
+const networks: Tool[] = [
+  { id: 'easytier', name: 'EasyTier', url: 'https://github.com/EasyTier/EasyTier' },
+  { id: 'zerotier', name: 'ZeroTier', url: 'https://www.zerotier.com/pricing' },
+  { id: 'tailscale', name: 'Tailscale', url: 'https://tailscale.com/pricing' },
+  { id: 'cloudflare', name: 'Cloudflare Mesh', url: 'https://blog.cloudflare.com/mesh/' },
+  { id: 'hamachi', name: 'Hamachi', url: 'https://www.vpn.net/' },
+];
+
+const s = t.sources;
+const sources = [
+  ['Cloudflare Mesh', [[s.launchPost, 'https://blog.cloudflare.com/mesh/'], [s.client, 'https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/cloudflare-one-client/download/']]],
+  ['e4mc', [[s.projectPage, 'https://modrinth.com/mod/e4mc']]],
+  ['EasyTier', [[s.repository, 'https://github.com/EasyTier/EasyTier']]],
+  ['Essential', [[s.hostingGuide, 'https://essential.gg/wiki/start-hosting'], [s.projectPage, 'https://modrinth.com/mod/essential']]],
+  ['Hamachi', [[s.productPage, 'https://www.vpn.net/']]],
+  ['playit.gg', [[s.pricing, 'https://playit.gg/pricing']]],
+  ['Tailscale', [[s.pricing, 'https://tailscale.com/pricing'], [s.connections, 'https://tailscale.com/kb/1257/connection-types'], [s.windowsSetup, 'https://tailscale.com/kb/1022/install-windows'], [s.repository, 'https://github.com/tailscale/tailscale']]],
+  ['ZeroTier', [[s.pricing, 'https://www.zerotier.com/pricing'], [s.gettingStarted, 'https://docs.zerotier.com/start/'], [s.faq, 'https://docs.zerotier.com/faq/'], [s.licence, 'https://github.com/zerotier/ZeroTierOne/blob/dev/LICENSE.txt']]],
+] as const;
+---
+
+<BaseLayout title={t.title} description={t.description}>
+  <div class="ink">
+    <div class="wrap page-title">
+      <h1>{t.heading}</h1>
+      <p>{t.intro}</p>
+    </div>
+  </div>
+
+  <div class="wrap compare-page">
+    <table class="versus">
+      <thead>
+        <tr>
+          <th scope="col">{t.columns.tool}</th>
+          {columns.map((key) => <th scope="col">{t.columns[key]}</th>)}
+        </tr>
+      </thead>
+      {([[t.games, games], [t.networks, networks]] as const).map(([group, tools]) => (
+        <tbody>
+          <tr class="group"><th colspan={columns.length + 1} scope="colgroup">{group}</th></tr>
+          {tools.map((tool) => (
+            <tr class={tool.ours ? 'ours' : undefined}>
+              <th scope="row"><a href={tool.url}>{tool.name}</a></th>
+              {columns.map((key) => <td data-label={t.columns[key]}>{t.rows[tool.id][key]}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      ))}
+    </table>
+    <p class="muted table-note">{t.checked}</p>
+
+    <h2 class="big">{t.picksTitle}</h2>
+    <div class="picks">
+      {t.picks.map((pick) => (
+        <div class="tile">
+          <h3>{pick.title}</h3>
+          <p>{pick.body}</p>
+        </div>
+      ))}
+    </div>
+
+    <div class="compare-notes">
+      <section>
+        <h2>{t.easytierTitle}</h2>
+        {t.easytier.map((paragraph) => <p set:html={html(paragraph)} />)}
+      </section>
+
+      <section>
+        <h2>{t.shortTitle}</h2>
+        <ul>{t.short.map((item) => <li set:html={item} />)}</ul>
+      </section>
+    </div>
+
+    <h2>{t.sourcesTitle}</h2>
+    <ul class="sources">
+      {sources.map(([name, links]) => (
+        <li>
+          <strong>{name}{s.colon}</strong>{' '}
+          {links.map(([label, url], i) => <>{i > 0 && s.comma}<a href={url}>{label}</a></>)}
+        </li>
+      ))}
+    </ul>
+    <p class="muted table-note">{t.owners}</p>
+  </div>
+</BaseLayout>

@@ -1,10 +1,13 @@
 ---
-const path = Astro.url.pathname.replace(/(index)?\.html$/, '').replace(/\/$/, '') || '/';
+import { i18n, localeInfo, locales, localize, routeOf } from '../i18n';
+
+const { locale, t, link } = i18n(Astro.url);
+const route = routeOf(Astro.url.pathname);
 ---
 
-<header class="site-header ink" style={path === '/' ? 'background:none' : undefined}>
+<header class="site-header ink" style={route === '/' ? 'background:none' : undefined}>
   <div class="wrap">
-    <a class="brand" href="/">
+    <a class="brand" href={link('/')}>
       <svg class="mark" viewBox="0 0 512 512" aria-hidden="true">
         <g transform="rotate(-45 256 256)">
           <rect class="a" x="152" y="230" width="104" height="52" />
@@ -15,12 +18,43 @@ const path = Astro.url.pathname.replace(/(index)?\.html$/, '').replace(/\/$/, ''
       </svg>
       etmc
     </a>
-    <nav aria-label="Main">
-      <a href="/docs/getting-started" aria-current={path.startsWith('/docs') ? 'page' : undefined}>Docs</a>
-      <a href="/generator" aria-current={path === '/generator' ? 'page' : undefined}>Generator</a>
-      <a href="/compare" aria-current={path === '/compare' ? 'page' : undefined}>Compare</a>
+    <nav aria-label={t.nav.label}>
+      <a href={link('/docs/getting-started')} aria-current={route.startsWith('/docs') ? 'page' : undefined}>{t.nav.docs}</a>
+      <a href={link('/generator')} aria-current={route === '/generator' ? 'page' : undefined}>{t.nav.generator}</a>
+      <a class="compare" href={link('/compare')} aria-current={route === '/compare' ? 'page' : undefined}>{t.nav.compare}</a>
       <a class="github" href="https://github.com/L5Z12/etmc">GitHub</a>
-      <a class="btn primary small" href="https://github.com/L5Z12/etmc/releases">Download</a>
+      <details class="lang-menu">
+        <summary title={t.site.language}>
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9S9.5 5.6 12 3z" />
+          </svg>
+          <span class="sr-only">{t.site.language}: </span>{localeInfo[locale].short}
+        </summary>
+        <ul>
+          {locales.map((l) => (
+            <li>
+              <a href={localize(route, l)} hreflang={localeInfo[l].lang} lang={localeInfo[l].lang}
+                aria-current={l === locale ? 'true' : undefined}>{localeInfo[l].name}</a>
+            </li>
+          ))}
+        </ul>
+      </details>
+      <a class="btn primary small" href="https://github.com/L5Z12/etmc/releases">{t.nav.download}</a>
     </nav>
   </div>
 </header>
+
+<script>
+  // Close the language menu on a click elsewhere or on Escape, as a menu would.
+  const menu = document.querySelector<HTMLDetailsElement>('.lang-menu')!;
+  document.addEventListener('click', (e) => {
+    if (menu.open && !menu.contains(e.target as Node)) menu.open = false;
+  });
+  menu.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && menu.open) {
+      menu.open = false;
+      menu.querySelector('summary')!.focus();
+    }
+  });
+</script>

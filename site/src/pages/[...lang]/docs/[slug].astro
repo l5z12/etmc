@@ -1,0 +1,27 @@
+---
+import { getCollection } from 'astro:content';
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import { locales, localizeLinks } from '../../../i18n';
+
+// Every English page in every language. A page that isn't translated yet shows the English one.
+export async function getStaticPaths() {
+  const docs = await getCollection('docs');
+  const find = (locale: string, slug: string) => docs.find((entry) => entry.id === `${locale}/${slug}`);
+  return docs
+    .filter((entry) => entry.id.startsWith('en/'))
+    .flatMap((english) => {
+      const slug = english.id.slice('en/'.length);
+      return locales.map((locale) => ({
+        params: { lang: locale === 'en' ? undefined : locale, slug },
+        props: { entry: find(locale, slug) ?? english, locale },
+      }));
+    });
+}
+
+const { entry, locale } = Astro.props;
+const body = localizeLinks(entry.rendered?.html ?? '', locale);
+---
+
+<DocsLayout title={entry.data.title} description={entry.data.description}>
+  <Fragment set:html={body} />
+</DocsLayout>

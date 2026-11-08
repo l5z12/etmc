@@ -1,0 +1,323 @@
+{
+  "site": {
+    "tagline": "Minecraft multiplayer without port forwarding",
+    "description": "Play Minecraft with friends over a peer-to-peer connection. No port forwarding, no drivers, no admin rights.",
+    "skip": "Skip to content",
+    "language": "Language"
+  },
+  "nav": {
+    "label": "Main",
+    "docs": "Docs",
+    "generator": "Generator",
+    "compare": "Compare",
+    "download": "Download"
+  },
+  "footer": {
+    "label": "Footer",
+    "about": "Free software under the GPL-3.0. Not affiliated with Mojang or Microsoft."
+  },
+  "docs": {
+    "label": "Docs",
+    "pager": "Next and previous pages",
+    "previous": "Previous",
+    "next": "Next",
+    "pages": {
+      "getting-started": "Getting started",
+      "hosting": "Hosting",
+      "joining": "Joining",
+      "connect-url": "Config URLs",
+      "commands": "Commands",
+      "compatibility": "Mod compatibility"
+    }
+  },
+  "home": {
+    "title": "Send a link.",
+    "titleAccent": "Play together.",
+    "lead": "etmc is a Minecraft mod that opens your world to friends over a peer-to-peer network. No port forwarding, nothing else to install, no admin rights.",
+    "download": "Download etmc",
+    "guide": "Read the guide",
+    "skip": "Skip the router settings.",
+    "usualTitle": "The usual way",
+    "usual": [
+      "Log in to your router",
+      "Give your PC a fixed local IP",
+      "Forward port 25565",
+      "Look up your public IP",
+      "Find out your ISP doesn't allow it",
+      "Give up and pay for hosting"
+    ],
+    "betterTitle": "With etmc",
+    "better": [
+      "<strong>Add a relay.</strong> You only do this once.",
+      "<strong>Press <kbd>G</kbd></strong> and choose Host this world.",
+      "<strong>Send the link.</strong> Friends paste it into Direct Connect."
+    ],
+    "howItWorks": "See how it works",
+    "compareLink": "Already using ZeroTier, Tailscale or Hamachi? <a href=\"/compare\">See how etmc compares</a>.",
+    "loadersTitle": "Works where you play",
+    "loaders": "On Windows, Linux and macOS, with the loader you already use.",
+    "modsTitle": "Your mods stay",
+    "mods": "To Minecraft it's a normal server, so other mods keep working, including ViaFabricPlus.",
+    "gameTitle": "All in the game",
+    "game": "No VPN app, no driver and no admin prompt. It starts and stops with your world.",
+    "freeTitle": "Free and open source",
+    "free": "etmc is GPL-3.0 and built on <a href=\"https://github.com/EasyTier/EasyTier\">EasyTier</a>. You choose the relay, so there's no account and no company in the middle.",
+    "serverTitle": "Running a server?",
+    "server": "The Paper plugin puts your server on the network. Create its config in a minute, then share one link with your players.",
+    "serverButton": "Open the generator"
+  },
+  "route": {
+    "title": "Direct when it can be. Relayed when it can't.",
+    "body": "A relay introduces the players. etmc then tries for a direct connection, and if a network blocks it, the game carries on through the relay.",
+    "toggle": "Connection type",
+    "direct": "Direct",
+    "relay": "Through the relay",
+    "directNote": "When the networks allow it, game traffic goes straight between players, for the lowest ping.",
+    "relayNote": "For strict networks, like some school or mobile connections. It still works, with a little more ping.",
+    "diagram": "Two players connected directly or through a relay",
+    "you": "You",
+    "friend": "Your friend",
+    "relayNode": "Relay"
+  },
+  "scene": {
+    "label": "Two floating islands joined by a bridge, with data crossing between them"
+  },
+  "compare": {
+    "title": "Compare",
+    "description": "How etmc compares with EasyTier, ZeroTier, Tailscale, Cloudflare Mesh, Hamachi, e4mc, Essential and playit.gg.",
+    "heading": "How etmc compares",
+    "intro": "There are plenty of ways to play with friends. Here's where etmc fits, and when something else suits you better.",
+    "columns": {
+      "tool": "Tool",
+      "runs": "Runs as",
+      "route": "Game traffic goes",
+      "friends": "Friends need",
+      "free": "Free plan",
+      "account": "Account",
+      "code": "Code"
+    },
+    "games": "Made for games",
+    "networks": "General networks",
+    "rows": {
+      "etmc": {
+        "runs": "Mod",
+        "route": "Direct, or through a relay",
+        "friends": "etmc and your link",
+        "free": "Free, with community nodes",
+        "account": "None. Offline accounts work",
+        "code": "GPL-3.0"
+      },
+      "e4mc": {
+        "runs": "Mod, host only",
+        "route": "Always through a reverse tunnel",
+        "friends": "Nothing",
+        "free": "Free, no limit listed",
+        "account": "None listed",
+        "code": "MIT"
+      },
+      "essential": {
+        "runs": "Mod",
+        "route": "Peer-to-peer, with the host as the server",
+        "friends": "The same mods as the host",
+        "free": "Free, 8 players at once",
+        "account": "Minecraft account",
+        "code": "Source available, all rights reserved"
+      },
+      "playit": {
+        "runs": "App, host only",
+        "route": "Always through playit's tunnel",
+        "friends": "Nothing",
+        "free": "Free for Minecraft. Premium from $3 a month",
+        "account": "Host needs one",
+        "code": "—"
+      },
+      "easytier": {
+        "runs": "App",
+        "route": "Direct, or through a shared node",
+        "friends": "EasyTier",
+        "free": "Free, with community nodes",
+        "account": "None",
+        "code": "LGPL-3.0"
+      },
+      "zerotier": {
+        "runs": "App",
+        "route": "Direct, with relaying as a fallback",
+        "friends": "ZeroTier, and your approval",
+        "free": "10 devices, 1 network, non-commercial",
+        "account": "Needed to create a network",
+        "code": "MPL, plus source-available parts"
+      },
+      "tailscale": {
+        "runs": "App",
+        "route": "Direct, or through Tailscale's relays",
+        "friends": "Tailscale and a login",
+        "free": "6 users, non-commercial",
+        "account": "Login needed",
+        "code": "Client is BSD-3-Clause"
+      },
+      "cloudflare": {
+        "runs": "App",
+        "route": "Always through Cloudflare's network",
+        "friends": "Cloudflare One Client",
+        "free": "50 users and 50 nodes",
+        "account": "Cloudflare account",
+        "code": "—"
+      },
+      "hamachi": {
+        "runs": "App",
+        "route": "Direct mesh, or a central gateway",
+        "friends": "Hamachi",
+        "free": "5 computers per network",
+        "account": "Account needed",
+        "code": "—"
+      }
+    },
+    "checked": "Checked on 5 November 2026. A dash means we couldn't confirm it from the project's own pages. Prices and limits change, so check each project's site before you decide.",
+    "picksTitle": "Which one should you use?",
+    "picks": [
+      {
+        "title": "The lowest ping",
+        "body": "Use a tool that can connect players directly, like etmc, EasyTier, ZeroTier or Tailscale. Direct connections need networks that allow them."
+      },
+      {
+        "title": "Friends who won't install anything",
+        "body": "Use e4mc or playit.gg, and accept higher ping. Friends join from plain Minecraft, but all traffic takes a detour through a tunnel."
+      },
+      {
+        "title": "Everything inside the game",
+        "body": "Use etmc or Essential. There's no separate app to run. etmc also needs no account of its own."
+      },
+      {
+        "title": "One network for more than Minecraft",
+        "body": "Use EasyTier, ZeroTier or Tailscale. They connect whole devices, so they work with other games and tools."
+      },
+      {
+        "title": "No company in the middle",
+        "body": "Use etmc or EasyTier. Pick a community node or run your own relay, with no account to sign up for."
+      }
+    ],
+    "easytierTitle": "etmc and EasyTier",
+    "easytier": [
+      "etmc is built on <a href=\"https://github.com/EasyTier/EasyTier\">EasyTier</a>, so they're the same network underneath. EasyTier is a general tool that you run yourself. etmc puts it inside Minecraft and handles the setup, with no adapter to create and no app to keep open.",
+      "They also work together. An etmc player can join a server that runs plain EasyTier, using a <a href=\"/docs/connect-url\">config URL</a>."
+    ],
+    "shortTitle": "Where etmc falls short",
+    "short": [
+      "<strong>Everyone needs the mod.</strong> Friends can't join from plain Minecraft.",
+      "<strong>You have to add a relay.</strong> It isn't built in, but a free community node works.",
+      "<strong>It's only for Minecraft.</strong> It won't connect anything else.",
+      "<strong>Your secret isn't protected.</strong> It's plain text, so keep it random."
+    ],
+    "sourcesTitle": "Sources",
+    "sources": {
+      "colon": ":",
+      "comma": ", ",
+      "launchPost": "Launch post",
+      "client": "Client",
+      "projectPage": "Project page",
+      "repository": "Repository",
+      "hostingGuide": "Hosting guide",
+      "productPage": "Product page",
+      "pricing": "Pricing",
+      "connections": "Connections",
+      "windowsSetup": "Windows setup",
+      "gettingStarted": "Getting started",
+      "faq": "FAQ",
+      "licence": "Licence"
+    },
+    "owners": "All product names belong to their owners. etmc isn't affiliated with any of them."
+  },
+  "generator": {
+    "title": "Generator",
+    "description": "Create a Paper server config, a player config or an etmc:// join link, or read an existing link, in your browser.",
+    "intro": "Create a server config or an invite link, or read a link you already have. Nothing you enter leaves your browser.",
+    "modes": "What to generate",
+    "paper": "Paper server",
+    "player": "Player config",
+    "link": "Join link",
+    "paperIntro": "Create the config for the etmc plugin on a Paper server.",
+    "playerIntro": "Create a config file for players to join from a URL.",
+    "linkIntro": "Create an <code>etmc://</code> link from your network details.",
+    "load": "Load a link",
+    "loadHint": "(optional, to read or change it)",
+    "network": "Network name",
+    "secret": "Secret",
+    "secretHint": "(leave empty for a public server)",
+    "newSecret": "New random secret",
+    "secretWarning": "<strong>Your secret isn't protected.</strong> It's saved as plain text, and anyone with your link or config can read it. Keep it random, and never use a password you use anywhere else.",
+    "relays": "Relays",
+    "relaysHint": "(one per line)",
+    "dhcp": "Assign player IPs automatically",
+    "playerIp": "Player IP",
+    "playerIpHint": "(if not automatic)",
+    "serverIp": "Server IP",
+    "serverIpHint": "(on the network)",
+    "port": "Port",
+    "serverName": "Server name",
+    "serverNameHint": "(shown in the game)",
+    "hostKey": "Host key",
+    "hostKeyHint": "(from /etmc status, so players can confirm it's your server)",
+    "copy": "Copy",
+    "download": "Download",
+    "copyLink": "Copy link",
+    "nextSteps": "Next steps",
+    "paperSteps": [
+      "Save the file as <code>plugins/etmc/config.yml</code> on your server.",
+      "Restart the server, or run <code>/etmc reload</code>.",
+      "Copy the <code>etmc://</code> link from the server log, or run <code>/etmc link</code>.",
+      "Share the link with your players."
+    ],
+    "playerSteps": [
+      "Make sure your server is on the EasyTier network at the server IP. It doesn't need etmc.",
+      "Host the file at a public HTTPS URL.",
+      "Put <code>etmc://v1/config/</code> in front of the URL and share that link. Players paste it into <strong>Add Server</strong> or <strong>Direct Connect</strong>."
+    ],
+    "linkSteps": [
+      "Make sure the host is reachable on the network at the server IP and port.",
+      "Send players the link. They paste it into <strong>Add Server</strong> or <strong>Direct Connect</strong>."
+    ],
+    "linkNote": "Anyone with the link can join, and can read the secret inside it.",
+    "script": {
+      "hostPort": "Host port",
+      "networkPort": "Network port",
+      "serverPort": "Server port",
+      "joinLink": "Join link",
+      "loaded": "Loaded \"{name}\". You can edit it below.",
+      "copied": "Copied",
+      "copyFailed": "Couldn't copy. Select the text and copy it yourself.",
+      "downloaded": "Downloaded {file}"
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "description": "This page doesn't exist.",
+    "body": "This page doesn't exist or has moved.",
+    "home": "Home",
+    "docs": "Docs"
+  },
+  "config": {
+    "relayEmpty": "Empty relay address.",
+    "relayIsLink": "\"{start}…\" is an etmc join link, not a relay. A relay looks like tcp://relay.example.com:11010.",
+    "relayNoScheme": "\"{uri}\" has no protocol. Write it like {example}.",
+    "relayBadScheme": "\"{scheme}://\" isn't a relay protocol EasyTier knows (use tcp://, udp://, ws://, wss://, quic:// or wg://).",
+    "relayInvalid": "\"{uri}\" isn't a valid address.",
+    "relayNoHost": "\"{uri}\" has no host name.",
+    "relayNoPort": "\"{uri}\" has no port (EasyTier relays usually listen on 11010).",
+    "hostKeyBad": "That host key isn't right. Copy it again from /etmc status.",
+    "networkRequired": "Network name is required.",
+    "relayRequired": "Add at least one relay (EasyTier public node).",
+    "serverIpRequired": "Server mesh IP is required.",
+    "serverPortRange": "Server port must be 1–65535.",
+    "staticIpRequired": "Static mode needs a client IPv4 (or switch to DHCP).",
+    "virtualPortRange": "Virtual port must be 1–65535.",
+    "hostRelayRequired": "Add the host's relay: without one, joiners have no way to reach the host.",
+    "hostIpRequired": "Host mesh IP is required.",
+    "hostPortRange": "Host port must be 1–65535.",
+    "linkEmpty": "Paste an etmc:// link.",
+    "linkIsConfig": "This link loads its details from a config URL, so there's nothing in it to read.",
+    "linkNewer": "This link needs a newer version of etmc.",
+    "linkInvalid": "This isn't a valid etmc:// link.",
+    "linkDamaged": "This link is damaged. Ask for a new one.",
+    "linkNoNetwork": "This link has no network name."
+  }
+}

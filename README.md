@@ -7,7 +7,9 @@ Play Minecraft with friends over a peer-to-peer [EasyTier](https://github.com/Ea
 Paper server, then share one link.
 
 **[Download](https://github.com/L5Z12/etmc/releases)** ·
-**[Documentation](https://etmc.l5z12.dev/docs/getting-started)**
+**[Documentation](https://etmc.l5z12.dev/docs/getting-started)** ·
+[简体中文](https://etmc.l5z12.dev/zh-cn/docs/getting-started) ·
+[繁體中文](https://etmc.l5z12.dev/zh-tw/docs/getting-started)
 
 etmc runs on Fabric, NeoForge and Forge clients, and on Paper servers. Everyone who plays needs it
 installed.
