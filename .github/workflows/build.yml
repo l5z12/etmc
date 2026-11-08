@@ -335,6 +335,8 @@ jobs:
             mod/versions/*/build/launch-probe.txt
             mod/versions/*/run/logs/latest.log
             mod/versions/*/run/crash-reports/
+            mod/versions/*/runs/main/client/logs/latest.log
+            mod/versions/*/runs/main/client/crash-reports/
             mod/versions/*/build/run/clientGameTest/logs/latest.log
             mod/versions/*/build/run/clientGameTest/crash-reports/
             mod/versions/*/build/run/clientGameTest/screenshots/
