@@ -18,6 +18,14 @@ import java.util.Set;
  */
 public final class Relays {
 
+    /**
+     * A list of public EasyTier nodes and how often each is up. Most players have no relay of their
+     * own, so everywhere etmc asks for one, it sends them here.
+     */
+    public static final String PUBLIC_LIST = "https://ruixuan.online/uptime/easytier";
+    /** {@link #PUBLIC_LIST} as it reads in a sentence. */
+    public static final String PUBLIC_LIST_TEXT = "ruixuan.online/uptime/easytier";
+
     /** Schemes EasyTier dials as peers. */
     private static final Set<String> SCHEMES =
             Set.of("tcp", "udp", "ws", "wss", "wg", "quic", "faketcp", "txt", "srv", "http", "https");

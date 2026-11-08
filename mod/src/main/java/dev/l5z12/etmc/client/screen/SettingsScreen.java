@@ -54,9 +54,11 @@ public final class SettingsScreen extends EtmcBaseScreen {
         int y = formTop(2 * LINE_H + ROW + 6 + ROW + 6 + LINE_H + ROW, 3 * LINE_H);
 
         label(Msg.tr("etmc.settings.relays.hint", "Relays, for hosting (commas or spaces between them)"), x, y, w, COLOR_MUTED);
-        add(relays.widget(font(), x, y + LINE_H, w, ROW, Txt.tr("etmc.settings.relays", "Relays")));
-        hint(x, y + LINE_H, w, ROW, Msg.tr("etmc.host.relay.help", "Any EasyTier node works, such as tcp://relay.example.com:11010. "
-                + "See etmc.l5z12.dev/docs/getting-started."));
+        int boxW = w - FIND_RELAY_W - GAP;
+        add(relays.widget(font(), x, y + LINE_H, boxW, ROW, Txt.tr("etmc.settings.relays", "Relays")));
+        hint(x, y + LINE_H, boxW, ROW, Msg.tr("etmc.host.relay.help", "Any EasyTier node works, such as tcp://relay.example.com:11010. "
+                + "For a public one, see %s.", Relays.PUBLIC_LIST_TEXT));
+        findRelay(x + boxW + GAP, y + LINE_H);
         y += LINE_H + ROW + 2;
         label(Msg.tr("etmc.settings.relays.example", "e.g. tcp://relay.example.com:11010"), x, y, w, COLOR_MUTED);
         y += LINE_H + 6;

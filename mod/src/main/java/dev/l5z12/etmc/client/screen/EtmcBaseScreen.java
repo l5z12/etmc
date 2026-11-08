@@ -6,6 +6,8 @@ import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.client.Wrap;
+import dev.l5z12.etmc.core.Msg;
+import dev.l5z12.etmc.core.Relays;
 //? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -83,6 +85,8 @@ abstract class EtmcBaseScreen extends Screen {
     /** The header and footer around the content band. */
     protected static final int HEADER = 28;
     protected static final int FOOTER = 30;
+    /** A {@link #findRelay} button's width. */
+    protected static final int FIND_RELAY_W = 76;
 
     /** Even the narrowest screen keeps this much clear on each side. */
     private static final int SIDE = 10;
@@ -283,6 +287,19 @@ abstract class EtmcBaseScreen extends Screen {
     protected void hint(Ui.Builder button, String text) {
         int[] b = button.bounds();
         hint(b[0], b[1], b[2], b[3], text);
+    }
+
+    /**
+     * Adds a button, {@link #FIND_RELAY_W} wide, that offers the public relay list. It goes beside a
+     * relay box: most players have no relay of their own, and nothing else in the game says where to
+     * find one.
+     */
+    protected void findRelay(int x, int y) {
+        Ui.Builder find = Ui.button(Txt.tr("etmc.relay.find", "Find a relay"),
+                b -> McScreens.openLink(this, Relays.PUBLIC_LIST)).dimensions(x, y, FIND_RELAY_W, ROW);
+        hint(find, Msg.tr("etmc.relay.find.help", "Opens %s, a list of public EasyTier nodes and how often each "
+                + "is up. Copy one's address into the box.", Relays.PUBLIC_LIST_TEXT));
+        add(find.build());
     }
 
     /** Where the status line starts, for a screen that fills the band and has to stop short of it. */

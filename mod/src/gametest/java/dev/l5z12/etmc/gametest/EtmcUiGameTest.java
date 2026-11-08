@@ -16,10 +16,12 @@ import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.NetworkStatus;
+import dev.l5z12.etmc.core.Relays;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.ConfirmLinkScreen;
 import net.minecraft.client.gui.screen.GameMenuScreen;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -356,6 +358,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         ctx.getInput().typeChars("tcp://127.0.0.1:1");
         ctx.clickScreenButton("Cheats: OFF");
         ctx.waitTicks(2);
+        findRelayAsksFirstAndComesBack(ctx);
         if (!ctx.computeOnClient(c -> EtmcClientGameTest.button(c.currentScreen, "Start hosting").active)) {
             problems.add("Start hosting stays off after typing a relay");
         }
@@ -370,6 +373,21 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         if (!kept) problems.add("HostScreen: a window resize lost the relay or the cheats choice");
         ctx.setScreen(() -> null);
         ctx.runOnClient(c -> etmc.config().relays = List.of());
+    }
+
+    /**
+     * Find a relay offers the public relay list on the game's own link prompt, and comes back to the
+     * screen it left. The prompt's Copy button answers it without starting a browser on the CI machine.
+     */
+    private void findRelayAsksFirstAndComesBack(ClientGameTestContext ctx) {
+        ctx.clickScreenButton("Find a relay");
+        ctx.waitForScreen(ConfirmLinkScreen.class);
+        ctx.takeScreenshot("ui-find-relay");
+        ctx.clickScreenButton("chat.copy");
+        ctx.waitForScreen(HostScreen.class);
+        String copied = ctx.computeOnClient(c -> McScreens.getClipboard());
+        if (!copied.equals(Relays.PUBLIC_LIST)) problems.add("Find a relay offered '" + copied + "'");
+        ctx.runOnClient(c -> McScreens.setClipboard("not a link either")); // the game ignores an empty one
     }
 
     private void pauseMenuReachesEtmc(ClientGameTestContext ctx) {

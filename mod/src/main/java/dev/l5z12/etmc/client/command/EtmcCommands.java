@@ -230,7 +230,8 @@ public final class EtmcCommands {
     private static int relayList(Src src) {
         ModConfig cfg = EtmcManager.get().config();
         if (cfg.relays.isEmpty()) {
-            src.feedback(Msg.tr("etmc.cmd.relay.none", "No relays configured. /etmc relay add <uri>"));
+            src.feedback(Msg.tr("etmc.cmd.relay.none", "No relays configured. Add one with /etmc relay add <uri>. "
+                    + "For a public one, see %s.", Relays.PUBLIC_LIST_TEXT));
         } else {
             src.feedback(Msg.tr("etmc.cmd.relay.list", "Relays:"));
             for (String r : cfg.relays) src.feedback("  • " + r);

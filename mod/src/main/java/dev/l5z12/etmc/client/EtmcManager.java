@@ -215,7 +215,8 @@ public final class EtmcManager {
         String world = worldBlocker();
         if (world != null) return world;
         if (!config.hasRelay()) {
-            return Msg.tr("etmc.host.blocked.no_relay", "Add a relay in Settings first: joiners reach you through it.");
+            return Msg.tr("etmc.host.blocked.no_relay", "Add a relay in Settings first: joiners reach you through it. "
+                    + "For a public one, see %s.", Relays.PUBLIC_LIST_TEXT);
         }
         String bad = Relays.firstProblem(config.relays);
         if (bad != null) return Msg.tr("etmc.host.blocked.bad_relay", "Fix the relay in Settings: %s", bad);

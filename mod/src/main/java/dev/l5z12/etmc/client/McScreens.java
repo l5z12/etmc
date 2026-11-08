@@ -7,6 +7,20 @@ import net.minecraft.client.gui.screen.Screen;
 /*import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;*/
 //?}
+// yarn named the link prompt ConfirmChatLinkScreen until 1.19.1; mojmap always called it ConfirmLinkScreen.
+//? if yarn && >=1.19.1 {
+import net.minecraft.client.gui.screen.ConfirmLinkScreen;
+//?} else if yarn {
+/*import net.minecraft.client.gui.screen.ConfirmChatLinkScreen;*/
+//?} else {
+/*import net.minecraft.client.gui.screens.ConfirmLinkScreen;*/
+//?}
+// mojmap moved Util from net.minecraft into net.minecraft.util at 1.21.11.
+//? if yarn || >=1.21.11 {
+import net.minecraft.util.Util;
+//?} else {
+/*import net.minecraft.Util;*/
+//?}
 
 /**
  * The one place that knows how <em>this</em> Minecraft build hands you the client and its screen.
@@ -45,6 +59,29 @@ public final class McScreens {
         //?} else {
         mc().setScreen(screen);
         //?}
+    }
+
+    /**
+     * Offers to open {@code url} in the browser, on the game's own prompt (which can also copy it),
+     * then returns to {@code back}. Client thread.
+     */
+    public static void openLink(Screen back, String url) {
+        //? if yarn && >=1.19.1 {
+        goTo(new ConfirmLinkScreen(open -> linkAnswered(back, url, open), url, true));
+        //?} else if yarn {
+        /*goTo(new ConfirmChatLinkScreen(open -> linkAnswered(back, url, open), url, true));*/
+        //?} else {
+        /*goTo(new ConfirmLinkScreen(open -> linkAnswered(back, url, open), url, true));*/
+        //?}
+    }
+
+    private static void linkAnswered(Screen back, String url, boolean open) {
+        //? if yarn {
+        if (open) Util.getOperatingSystem().open(url);
+        //?} else {
+        /*if (open) Util.getPlatform().openUri(url);*/
+        //?}
+        goTo(back);
     }
 
     /** The system clipboard's contents, or {@code ""} when it holds no text — never null. */

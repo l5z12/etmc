@@ -101,7 +101,9 @@ public final class HostScreen extends EtmcBaseScreen {
 
         if (needsRelay) {
             label(Msg.tr("etmc.host.relay.hint", "Relay (joiners reach you through it)"), x, y, w, COLOR_WARN);
-            var relayBox = add(relay.widget(font(), x, y + LINE_H, w, ROW, Txt.tr("etmc.settings.relays", "Relays")));
+            var relayBox = add(relay.widget(font(), x, y + LINE_H, w - FIND_RELAY_W - GAP, ROW,
+                    Txt.tr("etmc.settings.relays", "Relays")));
+            findRelay(x + w - FIND_RELAY_W, y + LINE_H);
             y += LINE_H + ROW + GAP;
             //? if >=1.17 {
             setInitialFocus(relayBox);
@@ -180,7 +182,7 @@ public final class HostScreen extends EtmcBaseScreen {
         String blocker = blocker();
         if ("".equals(blocker)) {
             setMessage(Msg.tr("etmc.host.relay.help", "Any EasyTier node works, such as tcp://relay.example.com:11010. "
-                    + "See etmc.l5z12.dev/docs/getting-started."), COLOR_MUTED);
+                    + "For a public one, see %s.", Relays.PUBLIC_LIST_TEXT), COLOR_MUTED);
             return;
         }
         String warning = offline ? Msg.tr("etmc.host.offline.warning",
