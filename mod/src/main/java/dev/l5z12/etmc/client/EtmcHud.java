@@ -11,8 +11,11 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.Font;*/
 //?}
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A compact status overlay shown while an etmc session is active: a light for how the session is
@@ -45,6 +48,15 @@ public final class EtmcHud {
     private static final int PING_POOR = 300;
     /** Longest EasyTier error shown in the overlay; the Status screen shows it in full. */
     private static final int MAX_ERROR_CHARS = 60;
+    /** The width vanilla's toasts take at the top right, which the overlay keeps clear of. */
+    private static final int TOAST_W = 160;
+    /** The narrowest the overlay's text gets, however little room the toasts leave. */
+    private static final int MIN_TEXT_W = 100;
+    /** Vanilla's boss bars: 182 wide and centred, 5 tall, the first at y 12 and each next one 19 lower. */
+    private static final int BOSS_HALF_W = 91;
+    private static final int BOSS_BAR_H = 5;
+    private static final int BOSS_TOP = 12;
+    private static final int BOSS_STEP = 19;
 
     /** False on versions whose loader offers no HUD hook (the overlay simply can't be drawn there). */
     private static volatile boolean available = true;
@@ -69,6 +81,13 @@ public final class EtmcHud {
     private static EtmcSession.Mode cachedMode;
     private static String cachedFailure;
     private static int cachedLight;
+    /** {@link #cachedLines} laid out at {@link #cachedRowsW}. */
+    private static List<Row> cachedRows = List.of();
+    private static List<Line> cachedRowsFrom;
+    private static int cachedRowsW;
+    /** The boss overlay's map of bars, once found; render thread only. */
+    private static Field bossBars;
+    private static boolean bossBarsUnreadable;
 
     private EtmcHud() {}
 
@@ -92,52 +111,145 @@ public final class EtmcHud {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options.hudHidden) return;
         TextRenderer tr = client.textRenderer;
+        Object bosses = client.inGameHud.getBossBarHud();
         //?} else if <26 {
         /*Minecraft client = Minecraft.getInstance();
         if (client.options.hideGui) return;
-        Font tr = client.font;*/
+        Font tr = client.font;
+        Object bosses = client.gui.getBossOverlay();*/
         //?} else {
         /*Minecraft client = Minecraft.getInstance();
         if (client.gui.hud.isHidden()) return;
-        Font tr = client.font;*/
+        Font tr = client.font;
+        Object bosses = client.gui.hud.getBossOverlay();*/
         //?}
-        List<Line> lines = lines(s, m.cachedStatus());
-
+        // 1.14 has no getWindow(), only the field.
+        //? if yarn && <1.15 {
+        /*var window = client.window;*/
+        //?} else {
+        var window = client.getWindow();
+        //?}
         //? if yarn {
+        int screenW = window.getScaledWidth();
+        int screenH = window.getScaledHeight();
         int lineH = tr.fontHeight + 1;
         //?} else {
-        /*int lineH = tr.lineHeight + 1;*/
+        /*int screenW = window.getGuiScaledWidth();
+        int screenH = window.getGuiScaledHeight();
+        int lineH = tr.lineHeight + 1;*/
         //?}
-        int leftW = LIGHT + 3;
+
+        // Toasts slide in at the top right, and at the smallest GUI a wide overlay reached under them.
+        int maxTextW = Math.max(MIN_TEXT_W, screenW - TOAST_W - 2 * MARGIN - 2 * PADDING);
+        List<Row> rows = rows(tr, lines(s, m.cachedStatus()), maxTextW);
+        int leftW = 0;
         int rightW = 0;
         int wholeW = 0;
-        for (Line l : lines) {
-            if (l.right.isEmpty()) {
-                wholeW = Math.max(wholeW, Wrap.width(tr, l.left));
+        for (Row r : rows) {
+            int w = Wrap.width(tr, r.left) + (r.light ? LIGHT + 3 : 0);
+            if (r.right.isEmpty()) {
+                wholeW = Math.max(wholeW, w);
             } else {
-                leftW = Math.max(leftW, Wrap.width(tr, l.left));
-                rightW = Math.max(rightW, Wrap.width(tr, l.right));
+                leftW = Math.max(leftW, w);
+                rightW = Math.max(rightW, Wrap.width(tr, r.right));
             }
         }
-        int textW = Math.max(wholeW + LIGHT + 3, rightW == 0 ? leftW : leftW + COLUMN_GAP + rightW);
+        int textW = Math.max(wholeW, rightW == 0 ? leftW : leftW + COLUMN_GAP + rightW);
         int boxW = textW + PADDING * 2;
-        int boxH = lines.size() * lineH + PADDING * 2 - 1;
+        int boxH = rows.size() * lineH + PADDING * 2 - 1;
+        // Boss bars run down the middle of the top: an overlay wide enough to reach them goes below.
+        int top = MARGIN;
+        if (MARGIN + boxW + MARGIN > screenW / 2 - BOSS_HALF_W) {
+            top = Math.max(top, bossBarsBottom(bosses, screenH) + MARGIN);
+        }
 
-        Gfx.fill(ctx, MARGIN, MARGIN, MARGIN + boxW, MARGIN + boxH, BG);
+        Gfx.fill(ctx, MARGIN, top, MARGIN + boxW, top + boxH, BG);
         int x = MARGIN + PADDING;
-        int ty = MARGIN + PADDING;
+        int ty = top + PADDING;
+        for (Row r : rows) {
+            int tx = x;
+            if (r.light) {
+                Gfx.fill(ctx, x, ty + 1, x + LIGHT, ty + 1 + LIGHT, cachedLight);
+                tx += LIGHT + 3;
+            }
+            Gfx.text(ctx, tr, Txt.literal(r.left), tx, ty, r.leftColor);
+            if (!r.right.isEmpty()) {
+                Gfx.text(ctx, tr, Txt.literal(r.right), x + textW - Wrap.width(tr, r.right), ty, r.rightColor);
+            }
+            ty += lineH;
+        }
+    }
+
+    /**
+     * {@code lines} laid out to fit {@code maxW}: names cut short beside the widest ping, and notes
+     * wrapped, since a cut warning would lose what it says. Cached like the lines themselves.
+     */
+    //? if yarn {
+    private static List<Row> rows(TextRenderer tr, List<Line> lines, int maxW) {
+    //?} else {
+    /*private static List<Row> rows(Font tr, List<Line> lines, int maxW) {*/
+    //?}
+        if (lines == cachedRowsFrom && maxW == cachedRowsW) return cachedRows;
+        int rightW = 0;
+        for (Line l : lines) {
+            if (!l.right.isEmpty()) rightW = Math.max(rightW, Wrap.width(tr, l.right));
+        }
+        List<Row> rows = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             Line l = lines.get(i);
             if (i == 0) {
-                Gfx.fill(ctx, x, ty + 1, x + LIGHT, ty + 1 + LIGHT, cachedLight);
-                Gfx.text(ctx, tr, Txt.literal(l.left), x + LIGHT + 3, ty, l.leftColor);
+                rows.add(new Row(Wrap.fit(tr, l.left, maxW - LIGHT - 3), l.leftColor, "", 0, true));
+            } else if (l.right.isEmpty()) {
+                for (String part : Wrap.lines(tr, l.left, maxW)) rows.add(new Row(part, l.leftColor, "", 0, false));
             } else {
-                Gfx.text(ctx, tr, Txt.literal(l.left), x, ty, l.leftColor);
+                rows.add(new Row(Wrap.fit(tr, l.left, maxW - COLUMN_GAP - rightW), l.leftColor, l.right, l.rightColor, false));
             }
-            if (!l.right.isEmpty()) {
-                Gfx.text(ctx, tr, Txt.literal(l.right), x + textW - Wrap.width(tr, l.right), ty, l.rightColor);
+        }
+        cachedRowsFrom = lines;
+        cachedRowsW = maxW;
+        cachedRows = List.copyOf(rows);
+        return cachedRows;
+    }
+
+    /**
+     * Where the boss bars end, or 0 with none showing. Vanilla draws the first at y 12 and each next
+     * one 19 lower, and stops once the next would start below a third of the screen.
+     */
+    private static int bossBarsBottom(Object overlay, int screenH) {
+        int bars = bossBarCount(overlay);
+        if (bars == 0) return 0;
+        int y = BOSS_TOP;
+        for (int i = 0; i < bars; i++) {
+            y += BOSS_STEP;
+            if (y >= screenH / 3) break;
+        }
+        return y - BOSS_STEP + BOSS_BAR_H;
+    }
+
+    /**
+     * How many boss bars are showing. Their map isn't public, and its name differs across versions
+     * and mappings, so it's found by type. If it can't be read, the overlay just stays at the top.
+     */
+    private static int bossBarCount(Object overlay) {
+        if (overlay == null || bossBarsUnreadable) return 0;
+        try {
+            if (bossBars == null) {
+                for (Class<?> c = overlay.getClass(); c != null && bossBars == null; c = c.getSuperclass()) {
+                    for (Field f : c.getDeclaredFields()) {
+                        if (Modifier.isStatic(f.getModifiers()) || !Map.class.isAssignableFrom(f.getType())) continue;
+                        f.setAccessible(true);
+                        bossBars = f;
+                        break;
+                    }
+                }
+                if (bossBars == null) throw new NoSuchFieldException("no map of boss bars");
             }
-            ty += lineH;
+            Map<?, ?> shown = (Map<?, ?>) bossBars.get(overlay);
+            return shown == null ? 0 : shown.size();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            bossBarsUnreadable = true;
+            EtmcManager.LOGGER.warn("[etmc] can't see the boss bars, so the overlay may cover them: {}", e.toString());
+            return 0;
         }
     }
 
@@ -203,4 +315,7 @@ public final class EtmcHud {
     }
 
     private record Line(String left, int leftColor, String right, int rightColor) {}
+
+    /** One line as drawn: {@code light} puts the health light before it. */
+    private record Row(String left, int leftColor, String right, int rightColor, boolean light) {}
 }

@@ -89,7 +89,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
                 for (int[] window : WINDOWS) {
                     ctx.getInput().resizeWindow(window[0], window[1]);
                     ctx.waitTicks(2);
-                    inAWorld(ctx, window[0] + "x" + window[1]);
+                    inAWorld(ctx, world, window[0] + "x" + window[1]);
                 }
             }
         } finally {
@@ -160,7 +160,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         return out;
     }
 
-    private void inAWorld(ClientGameTestContext ctx, String at) {
+    private void inAWorld(ClientGameTestContext ctx, TestSingleplayerContext world, String at) {
         EtmcManager etmc = EtmcManager.get();
         ctx.runOnClient(c -> etmc.config().relays = List.of());
         view(ctx, at, "world-menu-no-relay", () -> new EtmcScreen(null));
@@ -217,6 +217,16 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             ctx.waitTick();
             fakeStatus(ctx, 3);
             shot(ctx, at, "hud");
+            // Boss bars run down the middle: an overlay wide enough to reach them moves below them.
+            world.getServer().runCommand("bossbar add etmc:one \"Ender Dragon\"");
+            world.getServer().runCommand("bossbar add etmc:two \"Raid\"");
+            world.getServer().runCommand("bossbar set etmc:one players @a");
+            world.getServer().runCommand("bossbar set etmc:two players @a");
+            ctx.waitTicks(3);
+            shot(ctx, at, "hud-under-boss-bars");
+            world.getServer().runCommand("bossbar remove etmc:one");
+            world.getServer().runCommand("bossbar remove etmc:two");
+            ctx.waitTicks(2);
             ctx.getInput().pressKey(GLFW.GLFW_KEY_F3);
             ctx.waitTicks(2);
             shot(ctx, at, "hud-under-f3");
