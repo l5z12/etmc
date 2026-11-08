@@ -1,0 +1,19 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { i18n, localePaths } from '../../i18n';
+
+export const getStaticPaths = localePaths;
+
+const { t: { notFound: t }, link } = i18n(Astro.url);
+---
+
+<BaseLayout title={t.title} description={t.description}>
+  <div class="wrap lost">
+    <h1>{t.title}</h1>
+    <p class="muted">{t.body}</p>
+    <div class="actions">
+      <a class="btn primary" href={link('/')}>{t.home}</a>
+      <a class="btn" href={link('/docs/getting-started')}>{t.docs}</a>
+    </div>
+  </div>
+</BaseLayout>

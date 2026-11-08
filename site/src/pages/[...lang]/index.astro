@@ -1,0 +1,81 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import VoxelScene from '../../components/VoxelScene.astro';
+import RouteDemo from '../../components/RouteDemo.astro';
+import Block from '../../components/Block.astro';
+import { i18n, localePaths } from '../../i18n';
+
+export const getStaticPaths = localePaths;
+
+const { t: { home: t }, link, html } = i18n(Astro.url);
+---
+
+<BaseLayout title="etmc">
+  <section class="hero ink">
+    <div class="wrap hero-grid">
+      <div>
+        <h1>{t.title}<br /><span>{t.titleAccent}</span></h1>
+        <p class="lead">{t.lead}</p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/L5Z12/etmc/releases">{t.download}</a>
+          <a class="btn" href={link('/docs/getting-started')}>{t.guide}</a>
+        </div>
+      </div>
+      <VoxelScene />
+    </div>
+  </section>
+
+  <section class="wrap compare">
+    <h2 class="big">{t.skip}</h2>
+    <div class="compare-grid">
+      <div class="usual">
+        <h3>{t.usualTitle}</h3>
+        <ol>{t.usual.map((step) => <li>{step}</li>)}</ol>
+      </div>
+      <div class="better">
+        <h3>{t.betterTitle}</h3>
+        <ol>{t.better.map((step) => <li set:html={step} />)}</ol>
+        <a class="btn primary" href={link('/docs/getting-started')}>{t.howItWorks}</a>
+      </div>
+    </div>
+    <p class="compare-link" set:html={html(t.compareLink)} />
+  </section>
+
+  <section class="ink band">
+    <div class="wrap"><RouteDemo /></div>
+  </section>
+
+  <section class="wrap tiles">
+    <div class="tile wide">
+      <Block color="#62d0e0" />
+      <h3>{t.loadersTitle}</h3>
+      <p>{t.loaders}</p>
+      <ul class="tags"><li>Fabric</li><li>NeoForge</li><li>Forge</li><li>Paper</li></ul>
+    </div>
+    <div class="tile">
+      <Block color="#5fae6b" />
+      <h3>{t.modsTitle}</h3>
+      <p>{t.mods}</p>
+    </div>
+    <div class="tile">
+      <Block color="#fcdc5f" />
+      <h3>{t.gameTitle}</h3>
+      <p>{t.game}</p>
+    </div>
+    <div class="tile wide">
+      <Block color="#c0564f" />
+      <h3>{t.freeTitle}</h3>
+      <p set:html={html(t.free)} />
+    </div>
+  </section>
+
+  <section class="server">
+    <div class="wrap">
+      <div>
+        <h2 class="big">{t.serverTitle}</h2>
+        <p>{t.server}</p>
+      </div>
+      <a class="btn dark" href={link('/generator')}>{t.serverButton}</a>
+    </div>
+  </section>
+</BaseLayout>

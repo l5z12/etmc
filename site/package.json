@@ -9,13 +9,16 @@
     "deploy": "astro build && wrangler deploy",
     "check": "astro check",
     "test": "bun test",
+    "translate": "bun scripts/translate.ts",
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/markdown-remark": "^7.2.0",
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",
     "@fontsource-variable/instrument-sans": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
-    "astro": "^6.4.7"
+    "astro": "^6.4.7",
+    "remark-cjk-friendly": "^2.3.4"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",

@@ -1,5 +1,8 @@
 ---
 import { island, project, renderCubes, shade, tree, type Cube } from '../lib/iso';
+import { i18n } from '../i18n';
+
+const { t } = i18n(Astro.url);
 
 const CREAM = '#f4f1e8';
 const CYAN = '#62d0e0';
@@ -76,7 +79,7 @@ const links = [project(0, 3.5, 3), project(1, NEAR_Y - 4, 3)];
 ---
 
 <svg class="scene" viewBox="-690 -250 930 790" role="img"
-  aria-label="Two floating islands joined by a bridge, with data crossing between them">
+  aria-label={t.scene.label}>
   <g class="float">
     <g set:html={renderCubes(far)} />
     <g set:html={renderCubes(bridge)} />

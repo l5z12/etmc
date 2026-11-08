@@ -28,6 +28,19 @@
   --gutter: 28px;
 }
 
+/* Chinese pages: the Latin fonts have no CJK glyphs, so name a system CJK font for each script. */
+:root:lang(zh-CN) {
+  --cjk: 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', 'Noto Sans SC', 'Source Han Sans SC';
+}
+:root:lang(zh-TW) {
+  --cjk: 'PingFang TC', 'Microsoft JhengHei', 'Noto Sans CJK TC', 'Noto Sans TC', 'Source Han Sans TC';
+}
+:root:lang(zh) {
+  --display: 'Bricolage Grotesque Variable', var(--cjk), system-ui, sans-serif;
+  --sans: 'Instrument Sans Variable', var(--cjk), system-ui, sans-serif;
+  --mono: 'JetBrains Mono Variable', ui-monospace, Consolas, var(--cjk), monospace;
+}
+
 .ink {
   --bg: var(--night);
   --surface: #1e1e27;
@@ -92,6 +105,8 @@ kbd {
 .wrap { max-width: var(--page); margin-inline: auto; padding-inline: var(--gutter); }
 .muted { color: var(--muted); }
 
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
 .skip-link { position: absolute; left: -999px; }
 .skip-link:focus { left: 12px; top: 12px; z-index: 10; padding: 8px 12px; background: var(--paper); color: var(--ink); }
 
@@ -129,8 +144,19 @@ kbd {
 .mark .a { fill: var(--cream); }
 .mark .b { fill: var(--cyan); }
 .site-header nav { display: flex; align-items: center; gap: 24px; }
-.site-header nav a:not(.btn) { color: var(--muted); font-weight: 600; font-size: 0.98rem; text-decoration: none; }
+.site-header nav a:not(.btn) { color: var(--muted); font-weight: 600; font-size: 0.98rem; text-decoration: none; white-space: nowrap; }
 .site-header nav a:not(.btn):hover, .site-header nav a[aria-current] { color: var(--ink); }
+
+.lang-menu { position: relative; }
+.lang-menu summary { display: flex; align-items: center; gap: 6px; min-height: 38px; color: var(--muted); font-weight: 600; font-size: 0.98rem; list-style: none; cursor: pointer; }
+.lang-menu summary::-webkit-details-marker { display: none; }
+.lang-menu summary:hover, .lang-menu[open] summary { color: var(--ink); }
+.lang-menu svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.lang-menu ul { position: absolute; right: 0; top: calc(100% + 6px); z-index: 3; min-width: 9.5em; margin: 0; padding: 6px 0; list-style: none; background: var(--surface); border: 2px solid var(--line); box-shadow: 5px 5px 0 var(--cyan); }
+.lang-menu li { margin: 0; }
+.site-header .lang-menu a { display: block; padding: 7px 16px; color: var(--ink); }
+.site-header .lang-menu a:hover { background: var(--sunken); }
+.site-header .lang-menu a[aria-current] { color: var(--accent); }
 
 .site-footer { padding-block: 44px; }
 .site-footer .wrap { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 18px 40px; }
@@ -138,6 +164,9 @@ kbd {
 .site-footer p { margin: 0; color: var(--muted); font-size: 0.95rem; }
 .site-footer nav { display: flex; flex-wrap: wrap; gap: 22px; }
 .site-footer nav a { color: var(--ink); font-weight: 600; font-size: 0.95rem; }
+.site-footer .languages { flex-basis: 100%; gap: 18px; }
+.site-footer .languages a { color: var(--muted); font-weight: 500; }
+.site-footer .languages a[aria-current] { color: var(--ink); text-decoration: none; }
 
 /* Home */
 
@@ -238,10 +267,10 @@ kbd {
 .pager span { display: block; color: var(--muted); font-size: 0.85rem; font-weight: 500; }
 .pager .next-page { grid-column: 2; text-align: right; }
 
-.commands { width: 100%; margin-bottom: 16px; border-collapse: collapse; }
-.commands th, .commands td { padding: 11px 14px 11px 0; border-bottom: 2px solid var(--soft-line); text-align: left; vertical-align: top; }
-.commands th { border-bottom-color: var(--ink); font: 700 0.8rem var(--mono); text-transform: uppercase; }
-.commands td:first-child { width: 46%; }
+.prose table { width: 100%; margin-bottom: 16px; border-collapse: collapse; }
+.prose th, .prose td { padding: 11px 14px 11px 0; border-bottom: 2px solid var(--soft-line); text-align: left; vertical-align: top; }
+.prose th { border-bottom-color: var(--ink); font: 700 0.8rem var(--mono); text-transform: uppercase; }
+.prose td:first-child { width: 46%; }
 
 /* Generator */
 
@@ -313,14 +342,24 @@ kbd {
   .tool-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* The header drops links that are also in the footer, so the language menu still fits. */
+@media (max-width: 760px) {
+  .site-header .github { display: none; }
+}
+
+@media (max-width: 640px) {
+  .site-header nav { gap: 16px; }
+  .site-header .compare { display: none; }
+}
+
 @media (max-width: 480px) {
   :root { --gutter: 18px; }
   .site-header .wrap { gap: 14px; height: 64px; }
   .site-header nav { gap: 14px; }
-  .site-header .btn, .site-header .github { display: none; }
+  .site-header .btn { display: none; }
   .hero { margin-top: -64px; padding-top: 64px; }
   .pair { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  .commands td:first-child { width: 50%; }
+  .prose td:first-child { width: 50%; }
   .pager { grid-template-columns: minmax(0, 1fr); }
   .pager .next-page { grid-column: auto; }
 }
@@ -328,3 +367,9 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   .btn, .pager a { transition: none; }
 }
+
+/* Chinese text: tight Latin letter-spacing and line-heights crowd CJK glyphs, and CJK fonts have no italics. */
+:lang(zh) h1, :lang(zh) h2, :lang(zh) h3, :lang(zh) .big, :lang(zh) .page-title h1 { letter-spacing: 0; line-height: 1.2; }
+:lang(zh) .hero h1 { letter-spacing: 0; line-height: 1.12; }
+:lang(zh) body { line-height: 1.75; }
+:lang(zh) em { font-style: normal; font-weight: 600; }

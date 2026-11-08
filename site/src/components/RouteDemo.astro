@@ -1,5 +1,8 @@
 ---
 import { renderCubes, type Cube } from '../lib/iso';
+import { i18n } from '../i18n';
+
+const { route: t } = i18n(Astro.url).t;
 
 const block = (color: string): string => {
   const cubes: Cube[] = [];
@@ -13,19 +16,18 @@ const viaRelay = 'M 140 215 L 360 110 L 580 215';
 
 <div class="route" id="route" data-route="direct">
   <div class="route-copy">
-    <h2>Direct when it can be. Relayed when it can't.</h2>
-    <p>A relay introduces the players. etmc then tries for a direct connection, and if a network blocks it, the
-      game carries on through the relay.</p>
+    <h2>{t.title}</h2>
+    <p>{t.body}</p>
 
-    <div class="route-toggle" role="group" aria-label="Connection type">
-      <button type="button" data-set="direct" aria-pressed="true">Direct</button>
-      <button type="button" data-set="relay" aria-pressed="false">Through the relay</button>
+    <div class="route-toggle" role="group" aria-label={t.toggle}>
+      <button type="button" data-set="direct" aria-pressed="true">{t.direct}</button>
+      <button type="button" data-set="relay" aria-pressed="false">{t.relay}</button>
     </div>
-    <p class="route-note" data-for="direct">When the networks allow it, game traffic goes straight between players, for the lowest ping.</p>
-    <p class="route-note" data-for="relay">For strict networks, like some school or mobile connections. It still works, with a little more ping.</p>
+    <p class="route-note" data-for="direct">{t.directNote}</p>
+    <p class="route-note" data-for="relay">{t.relayNote}</p>
   </div>
 
-  <svg viewBox="0 24 720 290" role="img" aria-label="Two players connected directly or through a relay">
+  <svg viewBox="0 24 720 290" role="img" aria-label={t.diagram}>
     <path class="wire intro" d={viaRelay} />
     <path class="wire direct" d={direct} />
     <path class="wire relay" d={viaRelay} />
@@ -39,9 +41,9 @@ const viaRelay = 'M 140 215 L 360 110 L 580 215';
     <g transform="translate(580 218)" set:html={block('#62d0e0')} />
     <g transform="translate(360 112) scale(.75)" set:html={block('#fcdc5f')} />
 
-    <text x="140" y="298" text-anchor="middle">You</text>
-    <text x="580" y="298" text-anchor="middle">Your friend</text>
-    <text x="360" y="54" text-anchor="middle">Relay</text>
+    <text x="140" y="298" text-anchor="middle">{t.you}</text>
+    <text x="580" y="298" text-anchor="middle">{t.friend}</text>
+    <text x="360" y="54" text-anchor="middle">{t.relayNode}</text>
   </svg>
 </div>
 

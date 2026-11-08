@@ -82,6 +82,22 @@ Rebuild natives with the `natives.yml` workflow. `easytier-update.yml` also prop
 
 Run `bun run dev` in `site/` to work on it, and `bun run deploy` to publish it.
 
+The site is in English, Simplified Chinese (`/zh-cn/`) and Traditional Chinese (`/zh-tw/`). Each page in
+`src/pages/[...lang]/` is built once for every language, and only its text is translated. Write English only:
+
+- Docs go in `src/content/docs/en/` as Markdown. Add a new page to the list in `DocsLayout.astro` and its name to
+  `docs.pages` in `src/i18n/en.json`.
+- All other text goes in `src/i18n/en.json`. `astro check` fails if a translation is missing a key.
+- Link to other pages with root paths such as `/docs/hosting`. Each language's page points them at its own pages.
+
+After changing English text, run `DEEPSEEK_API_KEY=... bun run translate` in `site/`. It writes
+`src/content/docs/zh-*/` and `src/i18n/zh-*.json`, sending only the files whose English changed, with their current
+translation, so unchanged sentences keep their wording. It uses the mod's `zh_cn.json` and `zh_tw.json` as a
+glossary, so button names match the game. `bun run translate --check` lists translations that are out of date, and
+`bun run translate --force <path>` redoes one. Until a docs page is translated, its other languages show the English.
+
+You can fix a translation by hand. The fix stays until its English changes.
+
 ## Release
 
 Push a `v*` tag.

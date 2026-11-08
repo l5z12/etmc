@@ -1,23 +1,19 @@
 ---
 import BaseLayout from './BaseLayout.astro';
+import { i18n, routeOf } from '../i18n';
 
 interface Props {
   title: string;
   description?: string;
 }
 const { title, description } = Astro.props;
+const { t, link } = i18n(Astro.url);
 
-const path = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '');
+const route = routeOf(Astro.url.pathname);
 
-const pages = [
-  { href: '/docs/getting-started', label: 'Getting started' },
-  { href: '/docs/hosting', label: 'Hosting' },
-  { href: '/docs/joining', label: 'Joining' },
-  { href: '/docs/connect-url', label: 'Config URLs' },
-  { href: '/docs/commands', label: 'Commands' },
-  { href: '/docs/compatibility', label: 'Mod compatibility' },
-];
-const at = pages.findIndex((p) => p.href === path);
+const pages = (['getting-started', 'hosting', 'joining', 'connect-url', 'commands', 'compatibility'] as const)
+  .map((slug) => ({ route: `/docs/${slug}`, href: link(`/docs/${slug}`), label: t.docs.pages[slug] }));
+const at = pages.findIndex((p) => p.route === route);
 const previous = pages[at - 1];
 const next = pages[at + 1];
 ---
@@ -30,18 +26,18 @@ const next = pages[at + 1];
     </div>
   </div>
   <div class="wrap docs">
-    <nav class="docs-nav" aria-label="Docs">
+    <nav class="docs-nav" aria-label={t.docs.label}>
       <ul>
         {pages.map((p) => (
-          <li><a href={p.href} aria-current={path === p.href ? 'page' : undefined}>{p.label}</a></li>
+          <li><a href={p.href} aria-current={route === p.route ? 'page' : undefined}>{p.label}</a></li>
         ))}
       </ul>
     </nav>
     <article class="prose">
       <slot />
-      <nav class="pager" aria-label="Next and previous pages">
-        {previous && <a href={previous.href}><span>Previous</span>{previous.label}</a>}
-        {next && <a class="next-page" href={next.href}><span>Next</span>{next.label}</a>}
+      <nav class="pager" aria-label={t.docs.pager}>
+        {previous && <a href={previous.href}><span>{t.docs.previous}</span>{previous.label}</a>}
+        {next && <a class="next-page" href={next.href}><span>{t.docs.next}</span>{next.label}</a>}
       </nav>
     </article>
   </div>
