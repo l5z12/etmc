@@ -524,7 +524,7 @@ public final class EtmcManager {
                     if (err != null) {
                         LOGGER.warn("[etmc] etmc:// join failed: {}", Errors.message(err), Errors.root(err));
                         showError(a.parent, Msg.tr("etmc.join.start_failed.title", "Couldn't start the etmc network"),
-                                Errors.message(err));
+                                Errors.message(err), retryJoin(a.parent, code));
                         linkAttempt = null;
                         return;
                     }
@@ -552,7 +552,8 @@ public final class EtmcManager {
             if (err != null) {
                 LOGGER.warn("[etmc] couldn't load config link from {}: {}", RemoteConfig.hostOf(url), Errors.message(err));
                 showError(parent, Msg.tr("etmc.join.bad_link.title", "That etmc link doesn't work"),
-                        Msg.tr("etmc.join.config_failed", "Couldn't load its config: %s", Errors.message(err)));
+                        Msg.tr("etmc.join.config_failed", "Couldn't load its config: %s", Errors.message(err)),
+                        () -> connectViaConfig(parent, url));
                 return;
             }
             connectViaLink(parent, code.encodeLink(), false);
@@ -610,7 +611,8 @@ public final class EtmcManager {
             LOGGER.warn("[etmc] etmc:// join gave up after {}s: {}", waited / 1000, why);
             linkAttempt = null;
             leaveAsync();
-            showError(a.parent, Msg.tr("etmc.join.unreachable.title", "Couldn't reach the host"), why);
+            showError(a.parent, Msg.tr("etmc.join.unreachable.title", "Couldn't reach the host"), why,
+                    retryJoin(a.parent, a.code));
         }
     }
 
@@ -711,7 +713,7 @@ public final class EtmcManager {
                         showError(a.parent, Msg.tr("etmc.join.no_world.title", "The host's world isn't open"),
                                 Msg.tr("etmc.join.no_world", "etmc reached the host, but no world answered on "
                                         + "port %s. They may have closed it or stopped hosting: ask them to host "
-                                        + "again and send you the new link.", a.code.hostPort));
+                                        + "again, then try again.", a.code.hostPort), retryJoin(a.parent, a.code));
                         return;
                     }
                     armAndConnect(target, a.parent, a.label,
@@ -740,7 +742,21 @@ public final class EtmcManager {
     }
 
     private static void showError(Screen parent, String title, String message) {
-        McScreens.goTo(new EtmcNoticeScreen(parent, title, message));
+        showError(parent, title, message, null);
+    }
+
+    /** @param retry what <b>Try again</b> does, or {@code null} where trying again can't help */
+    private static void showError(Screen parent, String title, String message, Runnable retry) {
+        McScreens.goTo(new EtmcNoticeScreen(parent, title, message, retry));
+    }
+
+    /**
+     * Joins {@code code} again, for <b>Try again</b>, without asking about an old link a second time.
+     * It queues behind the worker first: the failed attempt left the network there, and a join that
+     * started before that finished would find the network still up.
+     */
+    private Runnable retryJoin(Screen parent, JoinCode code) {
+        return () -> worker.execute(() -> McScreens.mc().execute(() -> connectViaLink(parent, code.encodeLink(), false)));
     }
 
     /** State for one in-progress {@code etmc://} link join (mutated only on the client thread). */

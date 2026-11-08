@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -81,6 +82,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             typedTextSurvivesAResize(ctx);
             joinFillsInAndChecksTheLink(ctx);
             enterSubmitsAForm(ctx);
+            tryAgainRunsOnce(ctx);
 
             try (TestSingleplayerContext world = ctx.worldBuilder().create()) {
                 world.getClientWorld().waitForChunksRender();
@@ -111,6 +113,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         view(ctx, at, "generator", () -> new LinkGeneratorScreen(null));
         view(ctx, at, "settings", () -> new SettingsScreen(null));
         view(ctx, at, "notice", () -> new EtmcNoticeScreen(null, "Couldn't reach the host", LONG_TEXT));
+        view(ctx, at, "notice-retry", () -> new EtmcNoticeScreen(null, "Couldn't reach the host", LONG_TEXT, () -> {}));
         view(ctx, at, "ask", () -> new EtmcAskScreen(null, "This link can't check the host", LONG_TEXT, () -> {}, () -> {}));
         view(ctx, at, "connecting", () -> new EtmcConnectingScreen(null, "Steve's world", () -> {}, () -> {},
                 () -> "Reached the network — waiting for the host to show up…"));
@@ -353,6 +356,21 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         ctx.waitTicks(2);
         ctx.getInput().pressKey(GLFW.GLFW_KEY_ENTER);
         ctx.waitForScreen(EtmcScreen.class);
+        ctx.setScreen(() -> null);
+    }
+
+    /** Try again starts one more join, however many times it's clicked, and then turns off. */
+    private void tryAgainRunsOnce(ClientGameTestContext ctx) {
+        AtomicInteger tries = new AtomicInteger();
+        ctx.setScreen(() -> new EtmcNoticeScreen(null, "Couldn't reach the host", LONG_TEXT, tries::incrementAndGet));
+        ctx.waitTicks(2);
+        ctx.clickScreenButton("Try again");
+        ctx.clickScreenButton("Try again");
+        ctx.waitTicks(2);
+        if (tries.get() != 1) problems.add("Try again ran " + tries.get() + " times for two clicks");
+        if (ctx.computeOnClient(c -> EtmcClientGameTest.button(c.currentScreen, "Try again").active)) {
+            problems.add("Try again is still on after it ran");
+        }
         ctx.setScreen(() -> null);
     }
 
