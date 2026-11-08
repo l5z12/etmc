@@ -66,10 +66,10 @@ jobs:
             # 1.17.1 and 1.18.x aren't launchable in a ForgeGradle 7 dev run (their BootstrapLauncher isn't
             # accessible to FG7's launcher), so 1.19.2 stands in as the oldest Forge.
             launch: '1.19.2-forge 1.20.1-forge'
-          - shard: forge-modern    # 1.21 – 1.21.11
+          - shard: forge-modern    # 1.21 – 26.3
             nodes: '1\.21(\..*)?-forge,2[6-9]\..*-forge'
             caches: minecraftforge
-            launch: '1.21.1-forge 1.21.10-forge'
+            launch: '1.21.1-forge 1.21.10-forge 26.3-forge'
           - shard: neoforge
             nodes: '.*-neoforge'
             caches: neoformruntime
@@ -97,8 +97,8 @@ jobs:
           echo "Bundled natives:"
           find common/src/main/resources/natives -type f -printf '  %p (%s bytes)\n'
 
-      # Fabric nodes need JDK 17 (1.17.1–1.20.1), 21 (1.20.6–1.21.10 + loaders) and 25 (26.x, Fabric
-      # and NeoForge); ForgeGradle's mavenizer needs JDK 8. setup-java exports JAVA_HOME_<ver>_X64
+      # Nodes need JDK 17 (up to 1.20.4), 21 (1.20.5–1.21.11) and 25 (26.x, every loader);
+      # ForgeGradle's mavenizer needs JDK 8. setup-java exports JAVA_HOME_<ver>_X64
       # for each; we hand them all to Gradle's toolchain locator so no JDK is auto-downloaded.
       - name: Set up JDK 8 (Forge mavenizer)
         uses: actions/setup-java@v6
@@ -278,11 +278,16 @@ jobs:
           LAUNCH: ${{ matrix.launch }}
           GAMETEST: ${{ matrix.gametest }}
         run: |
-          if ! command -v xvfb-run >/dev/null || [ ! -d /usr/lib/x86_64-linux-gnu/dri ]; then
-            sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends xvfb libgl1-mesa-dri libglx-mesa0
+          if ! command -v xvfb-run >/dev/null || [ ! -d /usr/lib/x86_64-linux-gnu/dri ] \
+              || [ ! -e /usr/lib/x86_64-linux-gnu/libEGL_mesa.so.0 ]; then
+            sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends xvfb libgl1-mesa-dri \
+              libglx-mesa0 libegl1 libegl-mesa0
           fi
           export JAVA_TOOL_OPTIONS="-Dorg.gradle.java.installations.paths=$JAVA_HOME_8_X64,$JAVA_HOME_17_X64,$JAVA_HOME_21_X64,$JAVA_HOME_25_X64"
           export LIBGL_ALWAYS_SOFTWARE=1
+          # 26.3 opens its window through SDL, and Xvfb's GLX has no visual for the one it asks for
+          # ("Couldn't find matching GLX visual"). Mesa's EGL does. GLFW, before 26.3, ignores this.
+          export SDL_VIDEO_FORCE_EGL=1
           tasks=""; nodes=""
           for n in $LAUNCH; do tasks="$tasks :mod:$n:runClient"; nodes="$nodes,$n"; done
           for n in $GAMETEST; do tasks="$tasks :mod:$n:runClientGameTest"; nodes="$nodes,$n"; done
