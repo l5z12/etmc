@@ -39,7 +39,11 @@ import net.minecraft.client.option.KeyBinding;
 //?} else if yarn {
 /*import net.minecraft.client.options.KeyBinding;*/
 //?}
+// 26.3 replaced GLFW with SDL, which numbers keys differently, so 26.x takes the key from
+// InputConstants, and leaves out the input type, which 26.3 renamed (KEYSYM -> KEYBOARD).
+//? if yarn {
 import org.lwjgl.glfw.GLFW;
+//?}
 import org.apache.logging.log4j.Logger;
 
 /**
@@ -74,7 +78,7 @@ public final class EtmcClient implements ClientModInitializer {
                 "key.etmc.open_menu", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.misc"));
         *///?} else {
         /*openMenuKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
-                "key.etmc.open_menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, KeyMapping.Category.MISC));*/
+                "key.etmc.open_menu", InputConstants.KEY_G, KeyMapping.Category.MISC));*/
         //?}
 
         //? if >=1.16.2 {

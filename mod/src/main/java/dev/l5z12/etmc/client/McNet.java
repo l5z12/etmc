@@ -61,7 +61,8 @@ public final class McNet {
      * client thread.
      *
      * <p>If the world is already open to LAN (the player used vanilla's dialog), that is reused as is.
-     * Otherwise it is opened with {@code gameMode} for joiners ({@code null} = the host's current mode)
+     * Otherwise it is opened with {@code gameMode} for joiners ({@code null} = the host's current mode;
+     * from 26.3 this sets the world's game mode, see {@code publishLan})
      * and {@code cheats} — which, as in vanilla's dialog, applies to the host too.
      * {@code allowOffline} applies either way, because the login check reads it for each joiner.
      */
@@ -139,11 +140,7 @@ public final class McNet {
                     cf.complete(port);
                     return;
                 }
-                int chosen = freePort();
-                GameType mode = gameMode != null ? GameType.valueOf(gameMode)
-                        : client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
-                boolean ok = server.publishServer(
-                        net.minecraft.server.MinecraftServer.MultiplayerScope.LAN, mode, cheats, chosen);
+                boolean ok = publishLan(client, server, gameMode, cheats, freePort());
                 if (!ok) {
                     cf.completeExceptionally(new IllegalStateException(Msg.tr("etmc.lan.failed", "Failed to open the world to LAN.")));
                     return;
@@ -156,6 +153,25 @@ public final class McNet {
         //?}
         return cf;
     }
+
+    // 26.3 dropped the game mode a LAN world gave joiners: they get the world's own game mode, and the
+    // host keeps a separate one. So joiners' mode is set on the world, which unlike before lasts after
+    // the session, as it does when the player changes it in vanilla's World Options.
+    //? if >=26.3 {
+    /*private static boolean publishLan(Minecraft client, IntegratedServer server, String gameMode, boolean cheats,
+                                      int port) {
+        GameType mode = gameMode != null ? GameType.valueOf(gameMode) : server.getPersonalGameMode();
+        if (mode != null) server.setWorldGameType(mode);
+        return server.publishServer(net.minecraft.server.MinecraftServer.MultiplayerScope.LAN, cheats, port);
+    }
+    *///?} else if >=26 {
+    /*private static boolean publishLan(Minecraft client, IntegratedServer server, String gameMode, boolean cheats,
+                                      int port) {
+        GameType mode = gameMode != null ? GameType.valueOf(gameMode)
+                : client.gameMode != null ? client.gameMode.getPlayerMode() : GameType.SURVIVAL;
+        return server.publishServer(net.minecraft.server.MinecraftServer.MultiplayerScope.LAN, mode, cheats, port);
+    }
+    *///?}
 
     /** Minecraft turns this check on for every LAN world, and only skips it for in-memory connections. */
     private static void allowOfflineAccounts(IntegratedServer server, boolean allow) {

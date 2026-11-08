@@ -29,7 +29,10 @@ sourceSets.each {
 apply from: "$rootDir/mod/nodes/launch-probe.gradle"
 
 minecraft {
-    mappings channel: 'official', version: project.property('deps.minecraft')
+    // 26.x ships unobfuscated, with nothing to map, so Forge's 26.x MDK sets no mappings.
+    if (!project.property('deps.minecraft').toString().startsWith('26.')) {
+        mappings channel: 'official', version: project.property('deps.minecraft')
+    }
     runs {
         register('client') {
             // Forge takes mixin configs from the jar manifest (MixinConfigs, below); a dev run has

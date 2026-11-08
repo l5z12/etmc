@@ -31,6 +31,8 @@ replay_pid*
 build/
 out/
 run/
+# ForgeGradle 7's dev runs
+runs/
 scratch/
 *.iml
 

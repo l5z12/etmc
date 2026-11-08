@@ -3,7 +3,7 @@ package dev.l5z12.etmc.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import dev.l5z12.etmc.client.screen.EtmcScreen;
 import net.minecraft.client.KeyMapping;
-//? if >=1.19 {
+//? if >=1.19 && <26 {
 import org.lwjgl.glfw.GLFW;
 //?}
 
@@ -17,11 +17,15 @@ public final class EtmcKey {
 
     public static final KeyMapping OPEN_MENU = new KeyMapping(
             "key.etmc.open_menu",
-            InputConstants.Type.KEYSYM,
-            //? if >=1.19 {
-            GLFW.GLFW_KEY_G,
+            // 26.x: leave out the input type, which 26.3 renamed (KEYSYM -> KEYBOARD) and which defaults
+            // to the keyboard. 26.3 also replaced GLFW with SDL, which numbers keys differently, so the
+            // key comes from InputConstants.
+            //? if >=26 {
+            /*InputConstants.KEY_G,
+            *///?} else if >=1.19 {
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G,
             //?} else {
-            /*InputConstants.getKey("key.keyboard.g").getValue(),*/
+            /*InputConstants.Type.KEYSYM, InputConstants.getKey("key.keyboard.g").getValue(),*/
             //?}
             //? if >=1.21.9 {
             KeyMapping.Category.MISC);

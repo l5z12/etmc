@@ -121,7 +121,7 @@ tasks.processResources {
     val mixinCompat = if (javaVersion <= 17) "JAVA_17" else "JAVA_21"
     // The Fabric API umbrella mod's id is "fabric" pre-rename and "fabric-api" after; the renamed jars
     // still `provides` "fabric", EXCEPT 26.x which dropped that alias. Every node on this buildscript is
-    // <26, so depending on "fabric" covers them all (26.2 uses fabric26.gradle → "fabric-api").
+    // <26, so depending on "fabric" covers them all (26.x uses fabric26.gradle → "fabric-api").
     val fabricApiId = "fabric"
     inputs.property("version", project.version)
     inputs.property("minecraft_dependency", minecraftDependency)

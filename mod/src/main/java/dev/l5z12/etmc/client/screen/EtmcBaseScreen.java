@@ -44,6 +44,9 @@ import net.minecraft.client.input.KeyInput;
 //?} else if >=1.21.9 {
 /*import net.minecraft.client.input.KeyEvent;*/
 //?}
+//? if >=26 {
+/*import com.mojang.blaze3d.platform.InputConstants;*/
+//?}
 
 import java.util.ArrayList;
 import java.util.List;
@@ -97,8 +100,14 @@ abstract class EtmcBaseScreen extends Screen {
     private static final int BAND_EDGE = 0x30FFFFFF;
     private static final int HINT_BG = 0xF0100010;
     private static final int HINT_EDGE = 0xFF3C2A6A;
+    // GLFW key codes until 26.3 switched to SDL scancodes; InputConstants has the right ones on 26.x.
+    //? if >=26 {
+    /*private static final int KEY_ENTER = InputConstants.KEY_RETURN;
+    private static final int KEY_KP_ENTER = InputConstants.KEY_NUMPADENTER;
+    *///?} else {
     private static final int KEY_ENTER = 257;
     private static final int KEY_KP_ENTER = 335;
+    //?}
 
     /** What {@link #build} declared; each list lasts until the next rebuild. */
     private final List<Label> labels = new ArrayList<>();

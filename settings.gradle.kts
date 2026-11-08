@@ -51,7 +51,8 @@ stonecutter {
             if (wanted(name)) version(name, mc).buildscript(buildscript)
         }
 
-        // 26.2-fabric: unobfuscated, official names, own snapshot-Loom node script.
+        // 26.x Fabric: unobfuscated, official names, own snapshot-Loom node script.
+        node("26.3-fabric", "26.3", "nodes/fabric26.gradle")
         node("26.2-fabric", "26.2", "nodes/fabric26.gradle")
         node("1.21.11-fabric", "1.21.11")
         node("1.21.10-fabric", "1.21.10")
@@ -94,6 +95,7 @@ stonecutter {
         node("1.15-fabric", "1.15")
         node("1.14.4-fabric", "1.14.4")
         // Mojmap loader nodes (own buildscript): the shared mod/src/ is processed with fabric=false.
+        node("26.3-neoforge", "26.3")
         node("26.2-neoforge", "26.2")
         node("1.21.11-neoforge", "1.21.11")
         node("1.21.10-neoforge", "1.21.10")
@@ -114,6 +116,7 @@ stonecutter {
         node("1.20.4-neoforge", "1.20.4")
         // Forge nodes span both eras: EtmcForge guards EventBus 7 (>=1.21.6) vs EventBus 6 (<1.21.6),
         // and the HUD-layer event across 1.21–1.21.5 / 1.21.6-1.21.7 (no API → no overlay) / 1.21.8+.
+        node("26.3-forge", "26.3")
         node("1.21.11-forge", "1.21.11")
         node("1.21.10-forge", "1.21.10")
         node("1.21.9-forge", "1.21.9")

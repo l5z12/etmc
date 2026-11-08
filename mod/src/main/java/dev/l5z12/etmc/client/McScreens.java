@@ -15,8 +15,12 @@ import net.minecraft.client.gui.screen.ConfirmLinkScreen;
 //?} else {
 /*import net.minecraft.client.gui.screens.ConfirmLinkScreen;*/
 //?}
-// mojmap moved Util from net.minecraft into net.minecraft.util at 1.21.11.
-//? if yarn || >=1.21.11 {
+// mojmap moved Util from net.minecraft into net.minecraft.util at 1.21.11. 26.3 takes links as URIs and
+// opens them through Blaze3D (it replaced GLFW with SDL).
+//? if >=26.3 {
+/*import com.mojang.blaze3d.Blaze3D;
+import java.net.URI;
+*///?} else if yarn || >=1.21.11 {
 import net.minecraft.util.Util;
 //?} else {
 /*import net.minecraft.Util;*/
@@ -70,6 +74,8 @@ public final class McScreens {
         goTo(new ConfirmLinkScreen(open -> linkAnswered(back, url, open), url, true));
         //?} else if yarn {
         /*goTo(new ConfirmChatLinkScreen(open -> linkAnswered(back, url, open), url, true));*/
+        //?} else if >=26.3 {
+        /*goTo(new ConfirmLinkScreen(open -> linkAnswered(back, url, open), URI.create(url), true));*/
         //?} else {
         /*goTo(new ConfirmLinkScreen(open -> linkAnswered(back, url, open), url, true));*/
         //?}
@@ -78,6 +84,8 @@ public final class McScreens {
     private static void linkAnswered(Screen back, String url, boolean open) {
         //? if yarn {
         if (open) Util.getOperatingSystem().open(url);
+        //?} else if >=26.3 {
+        /*if (open) Blaze3D.openUri(URI.create(url));*/
         //?} else {
         /*if (open) Util.getPlatform().openUri(url);*/
         //?}

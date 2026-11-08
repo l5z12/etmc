@@ -37,7 +37,8 @@ import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 //?}
 import net.minecraftforge.event.TickEvent;
-//? if >=1.21.6 {
+//? if >=26 {
+//?} else if >=1.21.6 {
 import net.minecraftforge.eventbus.api.bus.BusGroup;
 //?} else {
 /*import net.minecraftforge.common.MinecraftForge;
@@ -62,8 +63,10 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 public final class EtmcForge {
 
     public EtmcForge() {
-        // Mod bus + open-menu keybind.
-        //? if >=1.21.6 {
+        // Mod bus + open-menu keybind. From 26.x, mod-bus events have their own BUS, as game-bus ones do.
+        //? if >=26 {
+        /*RegisterKeyMappingsEvent.BUS.addListener(e -> e.register(EtmcKey.OPEN_MENU));
+        *///?} else if >=1.21.6 {
         BusGroup modBus = FMLJavaModLoadingContext.get().getModBusGroup();
         RegisterKeyMappingsEvent.getBus(modBus).addListener(e -> e.register(EtmcKey.OPEN_MENU));
         //?} else if >=1.19 {
@@ -78,7 +81,11 @@ public final class EtmcForge {
         // 1.21 and 1.21.6/1.21.7 have no HUD-layer registration API, but Forge fires its chat-overlay
         // event with the frame's GuiGraphics every frame the HUD draws (F1 skips it, as it does the
         // layers); the overlay draws from that, so it only hides while the chat box is open.
-        //? if >=1.21.11 {
+        //? if >=26 {
+        /*AddGuiOverlayLayersEvent.BUS.addListener(e ->
+                e.getLayeredDraw().add(Identifier.fromNamespaceAndPath("etmc", "status"),
+                        (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));
+        *///?} else if >=1.21.11 {
         /*AddGuiOverlayLayersEvent.getBus(modBus).addListener(e ->
                 e.getLayeredDraw().add(Identifier.fromNamespaceAndPath("etmc", "status"),
                         (guiGraphics, deltaTracker) -> EtmcHud.render(guiGraphics)));*/
