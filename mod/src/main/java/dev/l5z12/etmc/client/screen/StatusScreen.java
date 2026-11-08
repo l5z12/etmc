@@ -152,7 +152,8 @@ public final class StatusScreen extends EtmcBaseScreen {
         players(ctx, s, st, code, x, y, w, messageTop() - 2);
     }
 
-    private static String headline(JoinCode code, boolean hosting) {
+    /** What this session is: hosting or joined, and the world's label when it has one. */
+    static String headline(JoinCode code, boolean hosting) {
         String network = code == null ? "?" : code.networkName;
         String label = code == null ? null : code.displayLabel();
         boolean labelled = label != null && !label.equals(network);
