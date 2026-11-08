@@ -44,6 +44,13 @@ neoForge {
     }
 }
 
+// A node can pin a newer NeoForm runtime than this MDG's default (2.0.18) with deps.neoform_runtime.
+// 26.3 needs one: the source transformer bundled with 2.0.18 widens HolderSet.Named.contents() to
+// public but not the anonymous subclass that overrides it, so recompiling Minecraft fails.
+findProperty("deps.neoform_runtime")?.let { nfrt ->
+    extensions.configure<net.neoforged.nfrtgradle.NeoFormRuntimeExtension> { version = nfrt as String }
+}
+
 dependencies {
     // FFM is used on Java 21+, so JNA is compile-only here (not bundled).
     compileOnly("net.java.dev.jna:jna:${property("jna_version")}")

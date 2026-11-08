@@ -51,7 +51,8 @@ stonecutter {
             if (wanted(name)) version(name, mc).buildscript(buildscript)
         }
 
-        // 26.2-fabric: unobfuscated, official names, own snapshot-Loom node script.
+        // 26.x Fabric: unobfuscated, official names, own snapshot-Loom node script.
+        node("26.3-fabric", "26.3", "nodes/fabric26.gradle")
         node("26.2-fabric", "26.2", "nodes/fabric26.gradle")
         node("1.21.11-fabric", "1.21.11")
         node("1.21.10-fabric", "1.21.10")
@@ -94,6 +95,7 @@ stonecutter {
         node("1.15-fabric", "1.15")
         node("1.14.4-fabric", "1.14.4")
         // Mojmap loader nodes (own buildscript): the shared mod/src/ is processed with fabric=false.
+        node("26.3-neoforge", "26.3")
         node("26.2-neoforge", "26.2")
         node("1.21.11-neoforge", "1.21.11")
         node("1.21.10-neoforge", "1.21.10")
