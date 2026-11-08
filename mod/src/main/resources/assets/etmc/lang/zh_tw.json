@@ -268,6 +268,5 @@
   "etmc.url.server.hint": "伺服器 ip:連接埠（設定檔中有 [etmc] server 時可不填）",
   "etmc.url.timeout": "伺服器傳送設定檔的時間過長",
   "etmc.url.too_large": "設定檔過大（超過 %s KB）",
-  "key.categories.etmc": "etmc",
   "key.etmc.open_menu": "開啟 etmc 選單"
 }

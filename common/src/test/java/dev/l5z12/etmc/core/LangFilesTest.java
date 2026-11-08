@@ -36,9 +36,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 class LangFilesTest {
 
     /** Keys used through Minecraft's own translation (keybinds), not through Msg.tr. */
-    private static final Map<String, String> NON_CODE_KEYS = Map.of(
-            "key.categories.etmc", "etmc",
-            "key.etmc.open_menu", "Open etmc menu");
+    private static final Map<String, String> NON_CODE_KEYS = Map.of("key.etmc.open_menu", "Open etmc menu");
 
     private static final Pattern CALL = Pattern.compile(
             "(?:Msg|Txt)\\.tr\\(\\s*\"(etmc\\.[a-z0-9_.]+)\"\\s*,\\s*((?:\"(?:\\\\.|[^\"\\\\])*\"\\s*\\+?\\s*)+)");

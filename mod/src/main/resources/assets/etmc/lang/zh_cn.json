@@ -268,6 +268,5 @@
   "etmc.url.server.hint": "服务器 ip:端口（配置中有 [etmc] server 时可不填）",
   "etmc.url.timeout": "服务器发送配置的时间过长",
   "etmc.url.too_large": "配置过大（超过 %s KB）",
-  "key.categories.etmc": "etmc",
   "key.etmc.open_menu": "打开 etmc 菜单"
 }
