@@ -104,9 +104,11 @@ public final class EtmcCommands {
             src.error(Msg.tr("etmc.cmd.host.usage", "Usage: /etmc host <network> [secret]"));
             return 0;
         }
-        // No secret given: make one up rather than host an open network anyone can stumble into.
-        String sec = secret == null || secret.isBlank() ? Secrets.random() : secret;
         ModConfig cfg = m.config();
+        // No secret given: keep the last one, as the Host screen does, so links already shared still
+        // work. The first time, make one up rather than host an open network anyone can stumble into.
+        String sec = secret != null && !secret.isBlank() ? secret
+                : cfg.lastSecret != null && !cfg.lastSecret.isBlank() ? cfg.lastSecret : Secrets.random();
         String label = cfg.lastLabel == null || cfg.lastLabel.isBlank() 
                 ? Msg.tr("etmc.host.default_label", "%s's world", m.playerName()) : cfg.lastLabel;
         String mode = cfg.lanGameMode == null || cfg.lanGameMode.isBlank() ? null : cfg.lanGameMode;
@@ -366,8 +368,6 @@ public final class EtmcCommands {
 
     private static String defaultNetworkName() {
         String last = EtmcManager.get().config().lastNetworkName;
-        return last == null || last.isBlank()
-                ? "etmc-" + Integer.toHexString((int) (System.nanoTime() & 0xFFFFFF))
-                : last;
+        return last == null || last.isBlank() ? Secrets.networkName() : last;
     }
 }

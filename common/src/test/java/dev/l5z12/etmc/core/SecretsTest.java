@@ -23,6 +23,17 @@ class SecretsTest {
     }
 
     @Test
+    void networkNamesAreRandomWithNoLookAlikes() {
+        Set<String> seen = new HashSet<>();
+        for (int i = 0; i < 200; i++) {
+            String n = Secrets.networkName();
+            assertTrue(n.matches("etmc-[a-km-np-z2-9]{6}"), n);
+            seen.add(n);
+        }
+        assertTrue(seen.size() > 190, "only " + seen.size() + " distinct names in 200");
+    }
+
+    @Test
     void onlyTheShippedDefaultCounts() {
         assertTrue(Secrets.isDefault("change-me"));
         assertFalse(Secrets.isDefault("x7k2m9qpv4ta"));

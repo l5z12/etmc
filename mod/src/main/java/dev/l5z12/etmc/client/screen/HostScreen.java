@@ -9,13 +9,13 @@ import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.Relays;
+import dev.l5z12.etmc.core.Secrets;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
 //?} else {
 /*import net.minecraft.client.gui.screens.Screen;*/
 //?}
 
-import java.security.SecureRandom;
 import java.util.List;
 
 /**
@@ -31,7 +31,6 @@ public final class HostScreen extends EtmcBaseScreen {
 
     /** Joiner game-mode choices: blank = whatever mode the host is in now. */
     private static final String[] MODES = {"", "SURVIVAL", "CREATIVE", "ADVENTURE", "SPECTATOR"};
-    private static final SecureRandom RANDOM = new SecureRandom();
     private static final int W = 260;
     private static final int NEW_W = 36;
 
@@ -57,8 +56,8 @@ public final class HostScreen extends EtmcBaseScreen {
     private void load() {
         EtmcManager m = EtmcManager.get();
         ModConfig cfg = m.config();
-        network = new Ui.Field(64, orDefault(cfg.lastNetworkName, "etmc-" + random(6)));
-        secret = new Ui.Field(128, orDefault(cfg.lastSecret, random(12)));
+        network = new Ui.Field(64, orDefault(cfg.lastNetworkName, Secrets.networkName()));
+        secret = new Ui.Field(128, orDefault(cfg.lastSecret, Secrets.random()));
         worldLabel = new Ui.Field(64, orDefault(cfg.lastLabel, Msg.tr("etmc.host.default_label", "%s's world", m.playerName())));
         relay = new Ui.Field(2048, cfg.relaysAsText());
         needsRelay = !cfg.hasRelay() || Relays.firstProblem(cfg.relays) != null;
@@ -134,8 +133,8 @@ public final class HostScreen extends EtmcBaseScreen {
         label(Msg.tr("etmc.host.network.hint", "Network name (unique to you)"), x, y, w, COLOR_MUTED);
         add(network.widget(font(), x, y + LINE_H, w - NEW_W - GAP, ROW, Txt.tr("etmc.host.network", "Network name")));
         Ui.Builder fresh = Ui.button(Txt.tr("etmc.host.new", "New"), b -> {
-            network.set("etmc-" + random(6));
-            secret.set(random(12));
+            network.set(Secrets.networkName());
+            secret.set(Secrets.random());
         }).dimensions(x + w - NEW_W, y + LINE_H, NEW_W, ROW);
         hint(fresh, Msg.tr("etmc.host.new.help", "Pick a new random network name and secret. Links you've already "
                 + "shared stop working."));
@@ -264,13 +263,6 @@ public final class HostScreen extends EtmcBaseScreen {
             if (MODES[i].equalsIgnoreCase(mode == null ? "" : mode)) return i;
         }
         return 0;
-    }
-
-    private static String random(int len) {
-        String alphabet = "abcdefghijkmnpqrstuvwxyz23456789"; // no 0/o, 1/l: it may be read aloud
-        StringBuilder b = new StringBuilder(len);
-        for (int i = 0; i < len; i++) b.append(alphabet.charAt(RANDOM.nextInt(alphabet.length())));
-        return b.toString();
     }
 
     private static String orDefault(String s, String def) {

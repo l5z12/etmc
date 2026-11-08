@@ -18,8 +18,20 @@ public final class Secrets {
     private Secrets() {}
 
     public static String random() {
-        StringBuilder b = new StringBuilder(LENGTH);
-        for (int i = 0; i < LENGTH; i++) b.append(ALPHABET.charAt(RANDOM.nextInt(ALPHABET.length())));
+        return random(LENGTH);
+    }
+
+    /**
+     * A random network name. Not a shared one like "my-world": on a public relay, everyone with the
+     * same name and secret lands on one network.
+     */
+    public static String networkName() {
+        return "etmc-" + random(6);
+    }
+
+    private static String random(int length) {
+        StringBuilder b = new StringBuilder(length);
+        for (int i = 0; i < length; i++) b.append(ALPHABET.charAt(RANDOM.nextInt(ALPHABET.length())));
         return b.toString();
     }
 
