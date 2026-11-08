@@ -352,6 +352,7 @@ jobs:
   # is the native matrix in natives.yml. Paper is a standalone build (paper/settings.gradle), so `-p
   # paper` never pulls in (or configures) the Stonecutter loader nodes; the Gradle daemon is reused
   # across the loop. JDK 17 + 21 are both installed (the per-era compile target); 21 runs Gradle.
+  # The core tests (common/, its own standalone build) run here too, as this job is a required check.
   paper:
     name: paper (all versions)
     runs-on: ubuntu-latest
@@ -392,17 +393,18 @@ jobs:
           # default branch by default, so PR reruns would otherwise start cold every time.
           cache-read-only: false
 
-      # A host and a joiner over the real bundled EasyTier library (linux-x86_64), once per backend:
-      # JNA on Java 17, FFM on Java 21. This is what catches a library whose ABI or behaviour no
-      # longer matches etmc — see NativeSmokeTest and easytier-update.yml.
-      - name: Native smoke test (real EasyTier, JNA + FFM)
+      # The core's unit tests, then a host and a joiner over the real bundled EasyTier library
+      # (linux-x86_64), once per backend: JNA on Java 17, FFM on Java 21. The native test is what
+      # catches a library whose ABI or behaviour no longer matches etmc — see NativeSmokeTest and
+      # easytier-update.yml.
+      - name: Core tests + native smoke test (real EasyTier, JNA + FFM)
         run: |
           chmod +x ./gradlew
           installs="-Dorg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_21_X64"
-          # Each JDK needs a paper-api it can compile against (1.20.5+ requires Java 21).
-          for pair in 17:1.20.4 21:1.21.10; do
-            ./gradlew $installs -p paper test --tests '*NativeSmokeTest' -Ppaper_java=${pair%%:*} \
-              -Ppaper_version=${pair#*:}-R0.1-SNAPSHOT -Petmc.nativeSmoke=true --stacktrace
+          for java in 17 21; do
+            ./gradlew $installs -p common test -Pjava_version=$java --stacktrace
+            ./gradlew $installs -p common test --tests '*NativeSmokeTest' -Pjava_version=$java \
+              -Petmc.nativeSmoke=true --stacktrace
           done
 
       - name: Build every Paper jar

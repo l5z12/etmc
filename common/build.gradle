@@ -1,0 +1,63 @@
+plugins {
+    id 'java'
+}
+
+// The networking core (FFI, protocol, bundled EasyTier natives) on its own: this build compiles it
+// and runs its tests. Its jar isn't shipped. The client nodes (mod/nodes/) and the Paper plugin
+// (paper/) compile these sources straight into their own jars, each at its own Java release.
+
+base {
+    archivesName = 'etmc-common'
+}
+
+repositories {
+    mavenCentral()
+}
+
+int javaVersion = (project.property('java_version') as String).toInteger()
+
+dependencies {
+    // Provided wherever the core runs: Minecraft bundles gson and netty, and so does a Paper server.
+    compileOnly "com.google.code.gson:gson:${project.gson_version}"
+    compileOnly "io.netty:netty-transport:${project.netty_version}"
+    // JNA backend (the Java 17 fallback). Each consumer decides whether to bundle it.
+    compileOnly "net.java.dev.jna:jna:${project.jna_version}"
+    // Lombok generates the accessors; compile-time only.
+    compileOnly "org.projectlombok:lombok:${project.lombok_version}"
+    annotationProcessor "org.projectlombok:lombok:${project.lombok_version}"
+
+    testImplementation platform("org.junit:junit-bom:${project.junit_version}")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    // compileOnly for main, so the test classpath has to bring its own copies.
+    testImplementation "com.google.code.gson:gson:${project.gson_version}"
+    testImplementation "io.netty:netty-transport:${project.netty_version}"
+    // NativeSmokeTest drives the real native through JNA when the test JVM is Java 17.
+    testImplementation "net.java.dev.jna:jna:${project.jna_version}"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    // -Petmc.nativeSmoke=true runs NativeSmokeTest against the bundled EasyTier library (CI does).
+    systemProperty 'etmc.nativeSmoke', (project.findProperty('etmc.nativeSmoke') ?: 'false').toString()
+    // -Petmc.writeLang=true makes LangFilesTest regenerate en_us.json from the code instead of failing.
+    systemProperty 'etmc.writeLang', (project.findProperty('etmc.writeLang') ?: 'false').toString()
+    // LangFilesTest reads the client's language files and source, which are outside this build.
+    inputs.dir("$rootDir/../mod/src/main/resources/assets/etmc/lang")
+    inputs.dir("$rootDir/../mod/src/main/java")
+    testLogging {
+        events 'failed'
+        exceptionFormat = 'full'
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = javaVersion
+    it.options.encoding = 'UTF-8'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(javaVersion)
+    }
+}

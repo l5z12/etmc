@@ -8,7 +8,8 @@ The README and the website are for players. Developer docs go here, and in code 
   - `src/`: one tree for every loader and version. `src/forge/` and `src/neoforge/` hold those loaders' metadata
   - `nodes/`: the build script for each loader
   - `versions/`: the dependency versions for each node
-- `common/`: the networking core and the EasyTier natives
+- `common/`: the networking core and the EasyTier natives, a separate Gradle build for its tests. The mod and the
+  plugin compile its sources into their own jars
 - `paper/`: the Paper plugin, a separate Gradle build
 - `site/`: the website
 
@@ -27,9 +28,11 @@ Put your proxy and JDK 8 path in `~/.gradle/gradle.properties`, not the repo's `
 ## Test
 
 ```bash
-./gradlew -p paper test   # core tests
-cd site && bun test       # site tests
+./gradlew -p common test   # core tests
+cd site && bun test        # site tests
 ```
+
+The core tests run on JDK 17. Pass `-Pjava_version=21` to run them on another JDK.
 
 The `etmc://` link and TOML output exist twice: in `JoinCode` and `Toml`, and in `site/src/lib/genConfig.ts`.
 Change both together, and keep the vectors in `WireFormatTest` and `genConfig.test.ts` in sync.
