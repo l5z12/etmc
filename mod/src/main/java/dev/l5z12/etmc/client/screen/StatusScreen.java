@@ -19,6 +19,8 @@ import net.minecraft.client.gui.screen.Screen;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
+import java.util.function.UnaryOperator;
 
 /**
  * Live session status. It leads with what the player needs at a glance: what this session is, any
@@ -147,7 +149,7 @@ public final class StatusScreen extends EtmcBaseScreen {
         for (Line line : lines) y = wrapped(ctx, line.text, x, y, w, line.color);
         y += 5;
 
-        players(ctx, st, hosting, x, y, w, messageTop() - 2);
+        players(ctx, s, st, code, x, y, w, messageTop() - 2);
     }
 
     private static String headline(JoinCode code, boolean hosting) {
@@ -218,9 +220,7 @@ public final class StatusScreen extends EtmcBaseScreen {
                         "Host: not checked, because your link has no host key"), COLOR_MUTED));
             }
         }
-        if (hosting) {
-            lines.add(new Line(Msg.tr("etmc.status.connections", "Game connections: %s", s.activeConnections()), COLOR_MUTED));
-        } else {
+        if (!hosting) {
             if (!s.linkJoin()) {
                 lines.add(new Line(Msg.tr("etmc.status.proxy_join", "Server-list entry: 'etmc: %s' → 127.0.0.1:%s",
                         code == null ? "?" : code.displayLabel(), s.localPort()), COLOR_MUTED));
@@ -238,12 +238,20 @@ public final class StatusScreen extends EtmcBaseScreen {
         return lines;
     }
 
-    /** The player table, stopping at {@code bottom}. */
-    private void players(Object ctx, NetworkStatus st, boolean hosting, int x, int y, int w, int bottom) {
-        Gfx.text(ctx, font(), Txt.tr("etmc.status.peers", "Players on the network (%s, direct %s):",
-                st.peerCount(), st.directPeerCount()), x, y, COLOR_TEXT);
+    /**
+     * The player table, stopping at {@code bottom}. A host sees who's in their world, since being on
+     * the network isn't the same as playing; a joiner can only tell which of them is the host.
+     */
+    private void players(Object ctx, EtmcSession s, NetworkStatus st, JoinCode code, int x, int y, int w, int bottom) {
+        boolean hosting = s.mode() == EtmcSession.Mode.HOST;
+        Set<String> inWorld = hosting ? s.connectedPeers() : Set.of();
+        String hostIp = hosting || code == null ? null : code.hostIp;
+        Gfx.text(ctx, font(), hosting
+                ? Txt.tr("etmc.status.peers.hosting", "Players on the network (%s, %s in your world):",
+                        st.peerCount(), st.inWorldCount(inWorld))
+                : Txt.tr("etmc.status.peers", "Players on the network (%s):", st.peerCount()), x, y, COLOR_TEXT);
         y += LINE_H + 2;
-        List<NetworkStatus.Peer> peers = st.peers();
+        List<NetworkStatus.Peer> peers = st.forDisplay(hostIp, inWorld);
         if (peers.isEmpty()) {
             Gfx.text(ctx, font(), hosting ? Txt.tr("etmc.status.peers.none_host", "Nobody yet: share your invite link")
                     : Txt.tr("etmc.status.peers.none", "Nobody yet"), x, y, COLOR_MUTED);
@@ -259,13 +267,25 @@ public final class StatusScreen extends EtmcBaseScreen {
                 return;
             }
             NetworkStatus.Peer p = peers.get(i);
-            Gfx.text(ctx, font(), Txt.literal(Wrap.fit(font(), p.hostname(), nameW)), x, y, COLOR_TEXT);
+            boolean away = hosting && (p.ipv4() == null || !inWorld.contains(p.ipv4()));
+            String name = p.ipv4() != null && p.ipv4().equals(hostIp)
+                    ? tagged(n -> Msg.tr("etmc.status.peer.host", "%s (host)", n), p.name(), nameW)
+                    : away ? tagged(n -> Msg.tr("etmc.status.peer.away", "%s (not in your world)", n), p.name(), nameW)
+                    : Wrap.fit(font(), p.name(), nameW);
+            Gfx.text(ctx, font(), Txt.literal(name), x, y, away ? COLOR_MUTED : COLOR_TEXT);
             String ping = p.latencyMs() >= 0 ? p.latencyMs() + " ms" : "—";
             Gfx.text(ctx, font(), Txt.literal(ping), pingRight - Wrap.width(font(), ping), y, pingColor(p.latencyMs()));
             String route = p.relay() ? Msg.tr("etmc.status.peer.relay", "via relay") : Msg.tr("etmc.status.peer.direct", "direct");
             Gfx.text(ctx, font(), Txt.literal(route), routeRight - Wrap.width(font(), route), y, p.relay() ? COLOR_WARN : COLOR_MUTED);
             y += LINE_H;
         }
+    }
+
+    /** {@code name} with a note around it, cutting the name rather than the note to fit {@code w}. */
+    private String tagged(UnaryOperator<String> note, String name, int w) {
+        String full = note.apply(name);
+        if (Wrap.width(font(), full) <= w) return full;
+        return note.apply(Wrap.fit(font(), name, Math.max(0, w - Wrap.width(font(), note.apply("")))));
     }
 
     private static int pingColor(int ms) {

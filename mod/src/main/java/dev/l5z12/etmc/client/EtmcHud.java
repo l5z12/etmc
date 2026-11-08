@@ -1,6 +1,7 @@
 package dev.l5z12.etmc.client;
 
 import dev.l5z12.etmc.core.EtmcSession;
+import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.NetworkStatus;
 //? if yarn {
@@ -16,6 +17,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * A compact status overlay shown while an etmc session is active: a light for how the session is
@@ -35,8 +37,8 @@ public final class EtmcHud {
     private static final int BAD = 0xFFFF5555;
     /** Peers listed before collapsing the rest into a "+n more" line. */
     private static final int MAX_PEERS = 6;
-    /** A Minecraft name, plus "-host"; anything longer is cut. */
-    private static final int MAX_NAME_CHARS = 21;
+    /** The longest Minecraft name; anything longer is cut. */
+    private static final int MAX_NAME_CHARS = 16;
     /** Overlay box: inset from the screen corner, and padding between its edge and the text. */
     private static final int MARGIN = 4;
     private static final int PADDING = 3;
@@ -287,15 +289,19 @@ public final class EtmcHud {
             light = BAD;
         }
 
-        List<NetworkStatus.Peer> peers = st.peers();
+        // The host first, as on the Status screen. Who is in the world isn't shown here: it changes
+        // without a new status, and the overlay is rebuilt only when the status changes.
+        JoinCode code = s.currentCode();
+        String hostIp = mode == EtmcSession.Mode.JOIN && code != null ? code.hostIp : null;
+        List<NetworkStatus.Peer> peers = st.forDisplay(hostIp, Set.of());
         for (int i = 0; i < peers.size(); i++) {
             if (i >= MAX_PEERS) {
                 lines.add(new Line(Msg.tr("etmc.hud.more", "+%s more", peers.size() - MAX_PEERS), LABEL, "", 0));
                 break;
             }
             NetworkStatus.Peer p = peers.get(i);
-            String name = p.hostname().length() > MAX_NAME_CHARS
-                    ? p.hostname().substring(0, MAX_NAME_CHARS - 1) + "…" : p.hostname();
+            String name = p.name().length() > MAX_NAME_CHARS ? p.name().substring(0, MAX_NAME_CHARS - 1) + "…" : p.name();
+            if (p.ipv4() != null && p.ipv4().equals(hostIp)) name = Msg.tr("etmc.status.peer.host", "%s (host)", name);
             String ping = p.latencyMs() >= 0 ? p.latencyMs() + "ms" : "?";
             String tag = p.relay() ? Msg.tr("etmc.hud.relay", " relay") : "";
             lines.add(new Line(name, LABEL, ping + tag, pingColor(p.latencyMs())));

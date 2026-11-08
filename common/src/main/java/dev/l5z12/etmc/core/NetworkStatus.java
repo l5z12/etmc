@@ -6,7 +6,9 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * A loose, defensive view of an EasyTier instance's live state, parsed from the JSON returned by
@@ -34,7 +36,21 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
      * A reachable peer. {@code relay} = traffic is routed through another node (not a direct/P2P link);
      * {@code cost} is EasyTier's route cost (1 = direct/p2p, &gt;1 = relayed) for diagnostics.
      */
-    public record Peer(String hostname, String ipv4, int latencyMs, boolean relay, int cost) {}
+    public record Peer(String hostname, String ipv4, int latencyMs, boolean relay, int cost) {
+
+        /** What etmc adds to a host's device name, so the host stands out in EasyTier's own tools. */
+        public static final String HOST_SUFFIX = "-host";
+
+        /**
+         * The name to show a player: the device name, less the host's {@link #HOST_SUFFIX}. A
+         * Minecraft name can't hold a "-", so no player's own name loses anything.
+         */
+        public String name() {
+            if (hostname == null) return "";
+            return hostname.endsWith(HOST_SUFFIX) && hostname.length() > HOST_SUFFIX.length()
+                    ? hostname.substring(0, hostname.length() - HOST_SUFFIX.length()) : hostname;
+        }
+    }
 
     public static NetworkStatus empty() {
         return new NetworkStatus(false, null, List.of(), null, 0);
@@ -51,6 +67,30 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
             if (ipv4.equals(p.ipv4())) return p;
         }
         return null;
+    }
+
+    /**
+     * The peers in the order a player list shows them: the host first, then whoever is in the world,
+     * then everyone else, each by name.
+     *
+     * @param hostIp  the host's address, or {@code null} when this node is the host
+     * @param inWorld the addresses of the peers in the world; empty when that isn't known
+     */
+    public List<Peer> forDisplay(String hostIp, Set<String> inWorld) {
+        List<Peer> sorted = new ArrayList<>(peers);
+        sorted.sort(Comparator.comparing((Peer p) -> hostIp == null || !hostIp.equals(p.ipv4()))
+                .thenComparing(p -> p.ipv4() == null || !inWorld.contains(p.ipv4()))
+                .thenComparing(Peer::name, String.CASE_INSENSITIVE_ORDER));
+        return sorted;
+    }
+
+    /** How many of the peers are in the world, of the addresses in {@code inWorld}. */
+    public int inWorldCount(Set<String> inWorld) {
+        int n = 0;
+        for (Peer p : peers) {
+            if (p.ipv4() != null && inWorld.contains(p.ipv4())) n++;
+        }
+        return n;
     }
 
     /** Peers reachable over a direct (P2P) link — relayed peers are excluded. */
