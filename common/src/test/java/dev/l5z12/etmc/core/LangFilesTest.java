@@ -73,7 +73,7 @@ class LangFilesTest {
             Gson gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
             Files.writeString(enUs, gson.toJson(english) + "\n", StandardCharsets.UTF_8);
         }
-        assertEquals(english, read(enUs), "en_us.json is out of date: run the Paper tests with -Petmc.writeLang=true");
+        assertEquals(english, read(enUs), "en_us.json is out of date: run `gradle -p common test -Petmc.writeLang=true`");
 
         try (Stream<Path> files = Files.list(langDir)) {
             for (Path lang : (Iterable<Path>) files.filter(p -> !p.equals(enUs))::iterator) {

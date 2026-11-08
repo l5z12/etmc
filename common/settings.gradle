@@ -1,0 +1,3 @@
+// The networking core is a standalone build, like paper/: it needs neither Minecraft nor a server API,
+// so testing it never configures the Stonecutter version tree. Run its tests with `gradle -p common test`.
+rootProject.name = 'etmc-common'

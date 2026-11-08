@@ -20,7 +20,8 @@ plugins {
 rootProject.name = "etmc"
 
 // Paper is its own standalone build (paper/settings.gradle) so a server-only build never pulls in the
-// Stonecutter version tree — build it with `gradle -p paper`. NeoForge + Forge are Stonecutter loader
+// Stonecutter version tree — build it with `gradle -p paper`. common/ is standalone too, for the core
+// tests (`gradle -p common test`). NeoForge + Forge are Stonecutter loader
 // nodes built from the shared mod/src/ tree (below), not standalone subprojects.
 
 // The node Stonecutter keeps active (see `vcsVersion` below and mod/stonecutter.gradle.kts).
