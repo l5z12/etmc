@@ -118,13 +118,13 @@ public final class EtmcHud {
         if (s == null || !s.isActive()) return;
         if (McScreens.debugScreenOpen()) return;
 
-        // F1: Options.hideGui before 26.x; 26.x moved the flag onto the HUD itself (gui.hud.isHidden()).
+        // F1: Options.hideGui before 26.2; 26.2 moved the flag onto the HUD itself (gui.hud.isHidden()).
         //? if yarn {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.options.hudHidden) return;
         TextRenderer tr = client.textRenderer;
         Object bosses = client.inGameHud.getBossBarHud();
-        //?} else if <26 {
+        //?} else if <26.2 {
         /*Minecraft client = Minecraft.getInstance();
         if (client.options.hideGui) return;
         Font tr = client.font;

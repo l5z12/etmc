@@ -58,7 +58,7 @@ jobs:
           - shard: fabric-modern   # 1.20.5 – 26.3
             nodes: '1\.20\.[5-9]-fabric,1\.21(\..*)?-fabric,2[6-9]\..*-fabric'
             caches: fabric-loom
-            launch: '1.21.5-fabric 1.21.11-fabric 26.2-fabric 26.3-fabric'
+            launch: '1.21.5-fabric 1.21.11-fabric 26.1-fabric 26.2-fabric 26.3-fabric'
             gametest: '1.21.10-fabric'
           - shard: forge-legacy    # 1.17.1 – 1.20.6
             nodes: '1\.1[7-9](\..*)?-forge,1\.20(\..*)?-forge'
@@ -69,11 +69,11 @@ jobs:
           - shard: forge-modern    # 1.21 – 26.3
             nodes: '1\.21(\..*)?-forge,2[6-9]\..*-forge'
             caches: minecraftforge
-            launch: '1.21.1-forge 1.21.10-forge 26.3-forge'
+            launch: '1.21.1-forge 1.21.10-forge 26.1-forge 26.3-forge'
           - shard: neoforge
             nodes: '.*-neoforge'
             caches: neoformruntime
-            launch: '1.20.4-neoforge 1.21.1-neoforge 26.2-neoforge 26.3-neoforge'
+            launch: '1.20.4-neoforge 1.21.1-neoforge 26.1-neoforge 26.2-neoforge 26.3-neoforge'
     steps:
       - name: Checkout etmc
         uses: actions/checkout@v7
