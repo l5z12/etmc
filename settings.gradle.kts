@@ -116,6 +116,7 @@ stonecutter {
         node("1.20.4-neoforge", "1.20.4")
         // Forge nodes span both eras: EtmcForge guards EventBus 7 (>=1.21.6) vs EventBus 6 (<1.21.6),
         // and the HUD-layer event across 1.21–1.21.5 / 1.21.6-1.21.7 (no API → no overlay) / 1.21.8+.
+        node("26.3-forge", "26.3")
         node("1.21.11-forge", "1.21.11")
         node("1.21.10-forge", "1.21.10")
         node("1.21.9-forge", "1.21.9")
