@@ -42,15 +42,32 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
         public static final String HOST_SUFFIX = "-host";
 
         /**
-         * The name to show a player: the device name, less the host's {@link #HOST_SUFFIX}. A
-         * Minecraft name can't hold a "-", so no player's own name loses anything.
+         * The name to show for this peer: its device name, less the {@link #HOST_SUFFIX} etmc gives the
+         * host's when this is the host at {@code hostIp}. Nobody else's is cut: an offline account or
+         * another EasyTier device may really be called something ending in "-host".
          */
-        public String name() {
+        public String name(String hostIp) {
             if (hostname == null) return "";
-            return hostname.endsWith(HOST_SUFFIX) && hostname.length() > HOST_SUFFIX.length()
+            return at(hostIp) && hostname.endsWith(HOST_SUFFIX) && hostname.length() > HOST_SUFFIX.length()
                     ? hostname.substring(0, hostname.length() - HOST_SUFFIX.length()) : hostname;
         }
+
+        /** Whether this peer has the address {@code ip}. */
+        public boolean at(String ip) {
+            return ip != null && ip.equals(ipv4);
+        }
+
+        /** Whether this peer's address is one of {@code addresses}. */
+        public boolean in(Set<String> addresses) {
+            return ipv4 != null && addresses.contains(ipv4);
+        }
     }
+
+    /**
+     * What a session shows before its first status arrives. Compare it by identity: it reads like a
+     * network that isn't running, which is wrong for one that has just started.
+     */
+    public static final NetworkStatus UNKNOWN = new NetworkStatus(false, null, List.of(), null, 0);
 
     public static NetworkStatus empty() {
         return new NetworkStatus(false, null, List.of(), null, 0);
@@ -64,7 +81,7 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
     public Peer peerAt(String ipv4) {
         if (ipv4 == null) return null;
         for (Peer p : peers) {
-            if (ipv4.equals(p.ipv4())) return p;
+            if (p.at(ipv4)) return p;
         }
         return null;
     }
@@ -78,19 +95,10 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
      */
     public List<Peer> forDisplay(String hostIp, Set<String> inWorld) {
         List<Peer> sorted = new ArrayList<>(peers);
-        sorted.sort(Comparator.comparing((Peer p) -> hostIp == null || !hostIp.equals(p.ipv4()))
-                .thenComparing(p -> p.ipv4() == null || !inWorld.contains(p.ipv4()))
-                .thenComparing(Peer::name, String.CASE_INSENSITIVE_ORDER));
+        sorted.sort(Comparator.comparing((Peer p) -> !p.at(hostIp))
+                .thenComparing(p -> !p.in(inWorld))
+                .thenComparing(p -> p.name(hostIp), String.CASE_INSENSITIVE_ORDER));
         return sorted;
-    }
-
-    /** How many of the peers are in the world, of the addresses in {@code inWorld}. */
-    public int inWorldCount(Set<String> inWorld) {
-        int n = 0;
-        for (Peer p : peers) {
-            if (p.ipv4() != null && inWorld.contains(p.ipv4())) n++;
-        }
-        return n;
     }
 
     /** Peers reachable over a direct (P2P) link — relayed peers are excluded. */

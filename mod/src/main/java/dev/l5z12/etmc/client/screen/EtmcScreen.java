@@ -4,7 +4,6 @@ import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.McScreens;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
-import dev.l5z12.etmc.client.Wrap;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.NetworkStatus;
@@ -25,6 +24,8 @@ public final class EtmcScreen extends EtmcBaseScreen {
 
     private static final int W = 240;
     private static final int SUBTITLE_W = 320;
+    /** How far each subtitle line may wrap: a long EasyTier error would push the buttons off a small screen. */
+    private static final int SUBTITLE_LINES = 2;
 
     /** The state {@link #build} last saw: the menu rebuilds when it changes. */
     private String shown;
@@ -65,9 +66,9 @@ public final class EtmcScreen extends EtmcBaseScreen {
         List<StatusScreen.Line> sub = subtitle(m);
         int subW = col(SUBTITLE_W);
         int subH = 0;
-        for (StatusScreen.Line l : sub) subH += Wrap.lines(font(), l.text(), subW).size() * LINE_H;
+        for (StatusScreen.Line l : sub) subH += wrapped(l.text(), subW, SUBTITLE_LINES).size() * LINE_H;
         int y = formTop(subH + 8 + (active && !hosting ? 1 : 2) * (ROW + GAP) + 6 + ROW, 2 * LINE_H);
-        for (StatusScreen.Line l : sub) y = paragraph(l.text(), y, subW, l.color());
+        for (StatusScreen.Line l : sub) y = paragraph(l.text(), y, subW, l.color(), SUBTITLE_LINES);
         y += 8;
 
         if (active) {
@@ -130,7 +131,7 @@ public final class EtmcScreen extends EtmcBaseScreen {
             boolean hosting = s.mode() == EtmcSession.Mode.HOST;
             String what = StatusScreen.headline(s.currentCode(), hosting);
             if (hosting) {
-                what = Msg.tr("etmc.menu.sub.in_world", "%s · %s in your world", what, st.inWorldCount(s.connectedPeers()));
+                what = Msg.tr("etmc.menu.sub.in_world", "%s · %s in your world", what, s.connectedPeers().size());
             }
             List<StatusScreen.Line> out = new ArrayList<>();
             out.add(new StatusScreen.Line(what, health));

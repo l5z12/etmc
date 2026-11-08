@@ -91,10 +91,13 @@ class NetworkStatusTest {
     }
 
     @Test
-    void aHostIsNamedWithoutItsSuffix() {
-        assertEquals("Steve", new NetworkStatus.Peer("Steve-host", "10.126.126.1", 1, false, 1).name());
-        assertEquals("Alex", new NetworkStatus.Peer("Alex", "10.126.126.2", 1, false, 1).name());
-        assertEquals("-host", new NetworkStatus.Peer("-host", "10.126.126.3", 1, false, 1).name());
+    void onlyTheHostIsNamedWithoutItsSuffix() {
+        NetworkStatus.Peer host = new NetworkStatus.Peer("Steve-host", "10.126.126.1", 1, false, 1);
+        assertEquals("Steve", host.name("10.126.126.1"));
+        assertEquals("Steve-host", host.name(null));
+        // An offline account may really be called this, and it isn't the host.
+        assertEquals("Bob-host", new NetworkStatus.Peer("Bob-host", "10.126.126.2", 1, false, 1).name("10.126.126.1"));
+        assertEquals("-host", new NetworkStatus.Peer("-host", "10.126.126.1", 1, false, 1).name("10.126.126.1"));
     }
 
     @Test
@@ -108,6 +111,5 @@ class NetworkStatusTest {
 
         assertEquals(List.of(host, alex, bob, carol, unaddressed), st.forDisplay("10.126.126.1", Set.of()));
         assertEquals(List.of(carol, alex, bob, unaddressed, host), st.forDisplay(null, Set.of("10.126.126.5")));
-        assertEquals(1, st.inWorldCount(Set.of("10.126.126.5", "10.126.126.9")));
     }
 }

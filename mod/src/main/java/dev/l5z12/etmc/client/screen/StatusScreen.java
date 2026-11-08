@@ -180,7 +180,9 @@ public final class StatusScreen extends EtmcBaseScreen {
     /** What's wrong with the session itself, worst first. */
     private static List<Line> problems(EtmcSession s, NetworkStatus st, boolean hosting) {
         List<Line> lines = new ArrayList<>();
-        if (!st.running()) {
+        if (st == NetworkStatus.UNKNOWN) {
+            // A session that has just started: nothing is known yet, and "not running" would be wrong.
+        } else if (!st.running()) {
             lines.add(new Line(Msg.tr("etmc.status.not_running", "The EasyTier network isn't running."), COLOR_BAD));
         } else if (st.peers().isEmpty() && st.relayNodes() == 0) {
             lines.add(new Line(Msg.tr("etmc.status.relay_waiting",
@@ -249,7 +251,7 @@ public final class StatusScreen extends EtmcBaseScreen {
         String hostIp = hosting || code == null ? null : code.hostIp;
         Gfx.text(ctx, font(), hosting
                 ? Txt.tr("etmc.status.peers.hosting", "Players on the network (%s, %s in your world):",
-                        st.peerCount(), st.inWorldCount(inWorld))
+                        st.peerCount(), inWorld.size())
                 : Txt.tr("etmc.status.peers", "Players on the network (%s):", st.peerCount()), x, y, COLOR_TEXT);
         y += LINE_H + 2;
         List<NetworkStatus.Peer> peers = st.forDisplay(hostIp, inWorld);
@@ -268,11 +270,11 @@ public final class StatusScreen extends EtmcBaseScreen {
                 return;
             }
             NetworkStatus.Peer p = peers.get(i);
-            boolean away = hosting && (p.ipv4() == null || !inWorld.contains(p.ipv4()));
-            String name = p.ipv4() != null && p.ipv4().equals(hostIp)
-                    ? tagged(n -> Msg.tr("etmc.status.peer.host", "%s (host)", n), p.name(), nameW)
-                    : away ? tagged(n -> Msg.tr("etmc.status.peer.away", "%s (not in your world)", n), p.name(), nameW)
-                    : Wrap.fit(font(), p.name(), nameW);
+            boolean away = hosting && !p.in(inWorld);
+            String name = p.at(hostIp)
+                    ? tagged(n -> Msg.tr("etmc.status.peer.host", "%s (host)", n), p.name(hostIp), nameW)
+                    : away ? tagged(n -> Msg.tr("etmc.status.peer.away", "%s (not in your world)", n), p.name(hostIp), nameW)
+                    : Wrap.fit(font(), p.name(hostIp), nameW);
             Gfx.text(ctx, font(), Txt.literal(name), x, y, away ? COLOR_MUTED : COLOR_TEXT);
             String ping = p.latencyMs() >= 0 ? p.latencyMs() + " ms" : "—";
             Gfx.text(ctx, font(), Txt.literal(ping), pingRight - Wrap.width(font(), ping), y, pingColor(p.latencyMs()));

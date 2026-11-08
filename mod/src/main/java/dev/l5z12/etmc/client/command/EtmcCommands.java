@@ -101,14 +101,16 @@ public final class EtmcCommands {
             return 0;
         }
         if (network == null || network.isBlank()) {
-            src.error(Msg.tr("etmc.cmd.host.usage", "Usage: /etmc host <network> [secret]"));
+            src.error(Msg.tr("etmc.cmd.host.usage", "Usage: /etmc host [network] [secret]"));
             return 0;
         }
         ModConfig cfg = m.config();
-        // No secret given: keep the last one, as the Host screen does, so links already shared still
-        // work. The first time, make one up rather than host an open network anyone can stumble into.
+        // No secret given, for the network hosted last time: keep its secret, so links already shared
+        // still work. For a new network, make one up rather than host an open network anyone can find,
+        // and rather than carry over a secret the player may be moving away from.
+        boolean sameNetwork = network.equals(cfg.lastNetworkName);
         String sec = secret != null && !secret.isBlank() ? secret
-                : cfg.lastSecret != null && !cfg.lastSecret.isBlank() ? cfg.lastSecret : Secrets.random();
+                : sameNetwork && cfg.lastSecret != null && !cfg.lastSecret.isBlank() ? cfg.lastSecret : Secrets.random();
         String label = cfg.lastLabel == null || cfg.lastLabel.isBlank() 
                 ? Msg.tr("etmc.host.default_label", "%s's world", m.playerName()) : cfg.lastLabel;
         String mode = cfg.lanGameMode == null || cfg.lanGameMode.isBlank() ? null : cfg.lanGameMode;
@@ -179,7 +181,7 @@ public final class EtmcCommands {
         EtmcManager m = EtmcManager.get();
         EtmcSession s = m.session();
         if (s == null || !s.isActive()) {
-            src.feedback(Msg.tr("etmc.cmd.status.idle", "etmc idle. /etmc host <network> or /etmc join <link>."));
+            src.feedback(Msg.tr("etmc.cmd.status.idle", "etmc idle. /etmc host [network] or /etmc join <link>."));
             return 1;
         }
         NetworkStatus st = m.cachedStatus();
@@ -189,8 +191,9 @@ public final class EtmcCommands {
                         + "game connections %s", addr, st.peerCount(), st.directPeerCount(), s.activeConnections())
                 : Msg.tr("etmc.cmd.status.joined", "etmc joined — your address %s, players %s (direct %s), "
                         + "game connections %s", addr, st.peerCount(), st.directPeerCount(), s.activeConnections()));
-        if (!st.running()) src.error(Msg.tr("etmc.status.not_running", "The EasyTier network isn't running."));
-        else if (st.peers().isEmpty() && st.relayNodes() == 0) src.error(Msg.tr("etmc.cmd.status.no_relay", "The relay hasn't been reached yet."));
+        boolean known = st != NetworkStatus.UNKNOWN; // a session that has just started has nothing to report
+        if (known && !st.running()) src.error(Msg.tr("etmc.status.not_running", "The EasyTier network isn't running."));
+        else if (known && st.peers().isEmpty() && st.relayNodes() == 0) src.error(Msg.tr("etmc.cmd.status.no_relay", "The relay hasn't been reached yet."));
         if (st.errorMsg() != null) src.error(Msg.tr("etmc.status.easytier_error", "EasyTier: %s", st.errorMsg()));
         if (s.hostFailure() != null) src.error(Msg.tr("etmc.cmd.status.host_failed", "Joiners can't connect any more: %s", s.hostFailure()));
         if (s.joinFailure() != null) src.error(s.joinFailure());
@@ -200,7 +203,7 @@ public final class EtmcCommands {
                 src.feedback(Msg.tr("etmc.cmd.status.more", "  … and %s more (etmc menu → Session status)", st.peerCount() - 10));
                 break;
             }
-            src.feedback("  • " + p.hostname() + " " + (p.ipv4() == null ? "" : p.ipv4())
+            src.feedback("  • " + p.name(null) + " " + (p.ipv4() == null ? "" : p.ipv4())
                     + " " + (p.latencyMs() >= 0 ? p.latencyMs() + "ms" : "")
                     + "  " + (p.relay() ? Msg.tr("etmc.status.peer.relay", "via relay") : Msg.tr("etmc.status.peer.direct", "direct")));
         }

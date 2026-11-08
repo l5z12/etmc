@@ -7,13 +7,17 @@ import dev.l5z12.etmc.core.NetworkStatus;
 //? if yarn {
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.entity.boss.BossBar;
 //?} else {
 /*import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;*/
+import net.minecraft.client.gui.Font;
+import net.minecraft.world.BossEvent;*/
 //?}
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +63,12 @@ public final class EtmcHud {
     private static final int BOSS_BAR_H = 5;
     private static final int BOSS_TOP = 12;
     private static final int BOSS_STEP = 19;
+    /** What the boss overlay's map holds. */
+    //? if yarn {
+    private static final Class<?> BOSS_BAR = BossBar.class;
+    //?} else {
+    /*private static final Class<?> BOSS_BAR = BossEvent.class;*/
+    //?}
 
     /** False on versions whose loader offers no HUD hook (the overlay simply can't be drawn there). */
     private static volatile boolean available = true;
@@ -161,9 +171,8 @@ public final class EtmcHud {
         int boxH = rows.size() * lineH + PADDING * 2 - 1;
         // Boss bars run down the middle of the top: an overlay wide enough to reach them goes below.
         int top = MARGIN;
-        if (MARGIN + boxW + MARGIN > screenW / 2 - BOSS_HALF_W) {
-            top = Math.max(top, bossBarsBottom(bosses, screenH) + MARGIN);
-        }
+        BossArea area = bossArea(bosses, tr, screenH);
+        if (area != null && MARGIN + boxW + MARGIN > screenW / 2 - area.halfWidth()) top = area.bottom() + MARGIN;
 
         Gfx.fill(ctx, MARGIN, top, MARGIN + boxW, top + boxH, BG);
         int x = MARGIN + PADDING;
@@ -214,31 +223,48 @@ public final class EtmcHud {
     }
 
     /**
-     * Where the boss bars end, or 0 with none showing. Vanilla draws the first at y 12 and each next
-     * one 19 lower, and stops once the next would start below a third of the screen.
+     * What the boss bars cover, or {@code null} with none showing. Vanilla draws the first bar at y 12
+     * and each next one 19 lower, each with its name centred above it, which can be wider than the bar.
+     * It stops once the next bar would start below a third of the screen.
      */
-    private static int bossBarsBottom(Object overlay, int screenH) {
-        int bars = bossBarCount(overlay);
-        if (bars == 0) return 0;
+    //? if yarn {
+    private static BossArea bossArea(Object overlay, TextRenderer tr, int screenH) {
+    //?} else {
+    /*private static BossArea bossArea(Object overlay, Font tr, int screenH) {*/
+    //?}
+        Map<?, ?> bars = bossBars(overlay);
+        if (bars.isEmpty()) return null;
         int y = BOSS_TOP;
-        for (int i = 0; i < bars; i++) {
+        int halfWidth = BOSS_HALF_W;
+        for (Object bar : bars.values()) {
+            //? if yarn {
+            String name = ((BossBar) bar).getName().getString();
+            //?} else {
+            /*String name = ((BossEvent) bar).getName().getString();*/
+            //?}
+            halfWidth = Math.max(halfWidth, Wrap.width(tr, name) / 2 + 1);
             y += BOSS_STEP;
             if (y >= screenH / 3) break;
         }
-        return y - BOSS_STEP + BOSS_BAR_H;
+        return new BossArea(y - BOSS_STEP + BOSS_BAR_H, halfWidth);
     }
 
     /**
-     * How many boss bars are showing. Their map isn't public, and its name differs across versions
-     * and mappings, so it's found by type. If it can't be read, the overlay just stays at the top.
+     * The boss bars showing, by id. Their map isn't public, and its name differs across versions and
+     * mappings, so it's found by type: the map whose values are boss bars, which no map another mod
+     * adds to the overlay would be. If it can't be read, the overlay just stays at the top.
      */
-    private static int bossBarCount(Object overlay) {
-        if (overlay == null || bossBarsUnreadable) return 0;
+    private static Map<?, ?> bossBars(Object overlay) {
+        if (overlay == null || bossBarsUnreadable) return Map.of();
         try {
             if (bossBars == null) {
                 for (Class<?> c = overlay.getClass(); c != null && bossBars == null; c = c.getSuperclass()) {
                     for (Field f : c.getDeclaredFields()) {
                         if (Modifier.isStatic(f.getModifiers()) || !Map.class.isAssignableFrom(f.getType())) continue;
+                        if (!(f.getGenericType() instanceof ParameterizedType type)) continue;
+                        Type[] args = type.getActualTypeArguments();
+                        if (args.length != 2 || !(args[1] instanceof Class<?> value)) continue;
+                        if (!BOSS_BAR.isAssignableFrom(value)) continue;
                         f.setAccessible(true);
                         bossBars = f;
                         break;
@@ -247,13 +273,16 @@ public final class EtmcHud {
                 if (bossBars == null) throw new NoSuchFieldException("no map of boss bars");
             }
             Map<?, ?> shown = (Map<?, ?>) bossBars.get(overlay);
-            return shown == null ? 0 : shown.size();
+            return shown == null ? Map.of() : shown;
         } catch (ReflectiveOperationException | RuntimeException e) {
             bossBarsUnreadable = true;
             EtmcManager.LOGGER.warn("[etmc] can't see the boss bars, so the overlay may cover them: {}", e.toString());
-            return 0;
+            return Map.of();
         }
     }
+
+    /** What the boss bars cover: down to {@code bottom}, and {@code halfWidth} either side of the middle. */
+    private record BossArea(int bottom, int halfWidth) {}
 
     /**
      * The overlay's lines for the current session state, rebuilt only when that state changes.
@@ -271,7 +300,9 @@ public final class EtmcHud {
                 : Msg.tr("etmc.hud.joined", "etmc · Joined · Players: %s", st.peerCount()), VALUE, "", 0));
 
         int light = GOOD;
-        if (!st.running()) {
+        if (st == NetworkStatus.UNKNOWN) {
+            // Just started: nothing is known yet, and "not running" would be wrong.
+        } else if (!st.running()) {
             lines.add(new Line(Msg.tr("etmc.hud.not_running", "network not running"), WARN, "", 0));
             light = WARN;
         } else if (st.peers().isEmpty() && st.relayNodes() == 0) {
@@ -300,8 +331,9 @@ public final class EtmcHud {
                 break;
             }
             NetworkStatus.Peer p = peers.get(i);
-            String name = p.name().length() > MAX_NAME_CHARS ? p.name().substring(0, MAX_NAME_CHARS - 1) + "…" : p.name();
-            if (p.ipv4() != null && p.ipv4().equals(hostIp)) name = Msg.tr("etmc.status.peer.host", "%s (host)", name);
+            String name = p.name(hostIp);
+            if (name.length() > MAX_NAME_CHARS) name = name.substring(0, MAX_NAME_CHARS - 1) + "…";
+            if (p.at(hostIp)) name = Msg.tr("etmc.status.peer.host", "%s (host)", name);
             String ping = p.latencyMs() >= 0 ? p.latencyMs() + "ms" : "?";
             String tag = p.relay() ? Msg.tr("etmc.hud.relay", " relay") : "";
             lines.add(new Line(name, LABEL, ping + tag, pingColor(p.latencyMs())));

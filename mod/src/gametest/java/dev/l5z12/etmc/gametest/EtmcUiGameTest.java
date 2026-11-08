@@ -223,12 +223,16 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             // Boss bars run down the middle: an overlay wide enough to reach them moves below them.
             world.getServer().runCommand("bossbar add etmc:one \"Ender Dragon\"");
             world.getServer().runCommand("bossbar add etmc:two \"Raid\"");
-            world.getServer().runCommand("bossbar set etmc:one players @a");
-            world.getServer().runCommand("bossbar set etmc:two players @a");
-            ctx.waitTicks(3);
-            shot(ctx, at, "hud-under-boss-bars");
-            world.getServer().runCommand("bossbar remove etmc:one");
-            world.getServer().runCommand("bossbar remove etmc:two");
+            try {
+                world.getServer().runCommand("bossbar set etmc:one players @a");
+                world.getServer().runCommand("bossbar set etmc:two players @a");
+                ctx.waitTicks(3);
+                shot(ctx, at, "hud-under-boss-bars");
+            } finally {
+                // Or the next window size would start with them showing.
+                world.getServer().runCommand("bossbar remove etmc:one");
+                world.getServer().runCommand("bossbar remove etmc:two");
+            }
             ctx.waitTicks(2);
             ctx.getInput().pressKey(GLFW.GLFW_KEY_F3);
             ctx.waitTicks(2);
