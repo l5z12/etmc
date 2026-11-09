@@ -101,6 +101,7 @@
   "etmc.host.sign.help": "在邀请中显示你的名字，并向加入者证明是你。",
   "etmc.host.sign.notice": "你的链接将显示你的名字，加入者也会看到你的账户。etmc 会用你的 Minecraft 聊天密钥为他们的连接签名。",
   "etmc.host.sign_failed": "无法用你的 Minecraft 账号签名。这需要正版账号并能连接到 Mojang。关闭“以我的身份签名”即可继续开放。",
+  "etmc.host.sign_unaccepted": "无法用你的 Minecraft 账号签名，因为加入者不会接受它的聊天密钥。部分外置登录（authlib-injector）不会为聊天密钥签名。关闭“以我的身份签名”即可继续开放。",
   "etmc.host.start": "开始开放",
   "etmc.host.starting": "正在启动……",
   "etmc.hostkey.bad_file": "%s 中的主机密钥已损坏。请从备份恢复，或将其删除后分享新链接",

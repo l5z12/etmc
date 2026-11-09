@@ -362,6 +362,40 @@ class HostAccountTest {
         joining.leave();
     }
 
+    // ------------------------------------------------------------------ checking before hosting
+
+    private EtmcSession hosting() {
+        EtmcSession session = new EtmcSession(et);
+        session.setDirectory(directory);
+        return session;
+    }
+
+    @Test
+    void aHostLearnsBeforeHostingWhetherJoinersWouldAcceptItsCertificate() throws Exception {
+        assertTrue(hosting().joinersWouldAccept(cert(STEVE, IN_A_DAY, MOJANG)));
+        assertFalse(hosting().joinersWouldAccept(cert(STEVE, IN_A_DAY, FORGER)));
+        assertFalse(hosting().joinersWouldAccept(cert(STEVE, System.currentTimeMillis() - 1000, MOJANG)));
+    }
+
+    @Test
+    void authlibInjectorsStandInKeyIsCaughtBeforeHosting() {
+        // When its login server doesn't sign chat keys, authlib-injector gives the game a fresh key pair
+        // and the signature "AA==", a single zero byte. The game takes it; joiners never would.
+        KeyPair player = rsa();
+        PlayerCert standIn = new PlayerCert(STEVE, IN_A_DAY, player.getPublic().getEncoded(), new byte[1],
+                player.getPrivate());
+
+        assertFalse(hosting().joinersWouldAccept(standIn));
+    }
+
+    @Test
+    void aHostThatCantFetchTheKeysStillHosts() throws Exception {
+        directory.down = true;
+
+        assertTrue(hosting().joinersWouldAccept(cert(STEVE, IN_A_DAY, MOJANG)),
+                "can't tell isn't fake: joiners ask their players instead");
+    }
+
     // ------------------------------------------------------------------ Mojang's replies
 
     @Test

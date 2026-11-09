@@ -4,6 +4,7 @@ import dev.l5z12.etmc.ffi.EasyTier;
 import lombok.Getter;
 
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -111,6 +112,34 @@ public final class EtmcSession {
 
     void setDirectory(AccountDirectory directory) {
         this.directory = directory;
+    }
+
+    /**
+     * Whether joiners would accept this certificate, checked the way they check it. Ask before a link
+     * names the player: a chat key nobody signed fails here instead of at every joiner. One example is
+     * the stand-in authlib-injector gives the game when its login server doesn't sign chat keys.
+     *
+     * <p>If the keys can't be fetched there's no telling, so this answers yes, and joiners ask their
+     * players as they would anyway. Blocking; call off the render thread.
+     */
+    public boolean joinersWouldAccept(PlayerCert cert) {
+        byte[] handshake = new byte[32];
+        ThreadLocalRandom.current().nextBytes(handshake);
+        try {
+            byte[] claim = HostAccount.prove(cert, handshake);
+            if (HostAccount.verify(claim, handshake, directory.certificateKeys(), System.currentTimeMillis()) != null) {
+                return true;
+            }
+            EtmcLog.warn("joiners would refuse the certificate for " + cert.uuid() + ", so hosting won't sign with it");
+            return false;
+        } catch (GeneralSecurityException e) {
+            EtmcLog.warn("couldn't sign with the certificate for " + cert.uuid() + ": " + Errors.message(e));
+            return false;
+        } catch (IOException | InterruptedException e) {
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            EtmcLog.warn("couldn't fetch the certificate keys, so hosting signs without checking: " + Errors.message(e));
+            return true;
+        }
     }
 
     // ------------------------------------------------------------------ host

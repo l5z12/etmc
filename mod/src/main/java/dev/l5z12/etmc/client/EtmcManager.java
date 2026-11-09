@@ -268,13 +268,19 @@ public final class EtmcManager {
     /**
      * What proves this player's account while hosting, or {@code null} if they haven't opted in. If
      * they have and it can't be done, hosting stops here: the link would name them, and every joiner
-     * would then be refused for want of a proof.
+     * would then be refused for want of a proof. A certificate joiners wouldn't accept stops it too.
      */
     private java.util.function.Supplier<dev.l5z12.etmc.core.PlayerCert> accountProof() {
         if (!config.signHostAccount) return null;
-        if (McIdentity.currentCert() == null) {
+        dev.l5z12.etmc.core.PlayerCert cert = McIdentity.currentCert();
+        if (cert == null) {
             throw new IllegalStateException(Msg.tr("etmc.host.sign_failed", "couldn't sign with your Minecraft "
                     + "account. It needs a real account and a connection to Mojang. Turn off Sign as me to host anyway."));
+        }
+        if (!session.joinersWouldAccept(cert)) {
+            throw new IllegalStateException(Msg.tr("etmc.host.sign_unaccepted", "couldn't sign with your Minecraft "
+                    + "account, because joiners wouldn't accept its chat key. Some third-party logins "
+                    + "(authlib-injector) don't sign chat keys. Turn off Sign as me to host anyway."));
         }
         return McIdentity::currentCert;
     }

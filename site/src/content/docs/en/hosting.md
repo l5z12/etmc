@@ -36,6 +36,10 @@ your name on a link. It's off unless you turn it on.
 etmc signs each player's connection with the key Minecraft uses for your chat, and players see your account. It
 needs a real Minecraft account, and a recent version of the game.
 
+With a third-party login (authlib-injector), your login server confirms your name instead of Mojang. That only works if
+the server signs chat keys and everyone uses the same server. If it doesn't sign them, etmc tells you when you start
+hosting.
+
 ## Host a Paper server
 
 1. Download the etmc Paper jar from [Releases](https://github.com/L5Z12/etmc/releases) and put it in your `plugins`
