@@ -20,6 +20,14 @@ const site = Astro.site ?? 'https://etmc.l5z12.dev';
 const route = routeOf(Astro.url.pathname);
 const urlOf = (l: (typeof locales)[number]) => new URL(localize(route, l), site).toString();
 const canonical = urlOf(locale);
+const asset = (path: string) => new URL(path, site).toString();
+// Link previews take the first card that fits: 1200×630 for most, square for apps that crop to one.
+const cards = [
+  { src: '/social-preview-1200x630.png', width: '1200', height: '630' },
+  { src: '/social-preview-square.png', width: '1200', height: '1200' },
+];
+// The cards show the wordmark and the tagline.
+const imageAlt = `etmc: ${t.site.tagline}`;
 ---
 
 <!DOCTYPE html>
@@ -33,14 +41,31 @@ const canonical = urlOf(locale);
     <link rel="canonical" href={canonical} />
     {locales.map((l) => <link rel="alternate" hreflang={localeInfo[l].lang} href={urlOf(l)} />)}
     <link rel="alternate" hreflang="x-default" href={urlOf('en')} />
+    {/* sizes keeps Chrome on the SVG; the ICO is for browsers without SVG favicons. */}
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/icon-512.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="etmc" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:locale" content={localeInfo[locale].og} />
-    <meta property="og:image" content={new URL('/icon-512.png', site).toString()} />
+    {locales.filter((l) => l !== locale).map((l) => <meta property="og:locale:alternate" content={localeInfo[l].og} />)}
+    {cards.map((card) => (
+      <>
+        <meta property="og:image" content={asset(card.src)} />
+        <meta property="og:image:type" content="image/png" />
+        <meta property="og:image:width" content={card.width} />
+        <meta property="og:image:height" content={card.height} />
+        <meta property="og:image:alt" content={imageAlt} />
+      </>
+    ))}
+    {/* X's large card is 2:1, and X doesn't read og:image:alt. */}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={asset('/social-preview.png')} />
+    <meta name="twitter:image:alt" content={imageAlt} />
   </head>
   <body>
     <a class="skip-link" href="#main">{t.site.skip}</a>
