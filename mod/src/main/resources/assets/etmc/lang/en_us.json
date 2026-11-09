@@ -101,6 +101,7 @@
   "etmc.host.sign.help": "Shows your name on the invite, and proves it to joiners.",
   "etmc.host.sign.notice": "Your link will name you, and joiners will see your account. etmc signs their connections with your Minecraft chat key.",
   "etmc.host.sign_failed": "couldn't sign with your Minecraft account. It needs a real account and a connection to Mojang. Turn off Sign as me to host anyway.",
+  "etmc.host.sign_unaccepted": "couldn't sign with your Minecraft account, because joiners wouldn't accept its chat key. Some third-party logins (authlib-injector) don't sign chat keys. Turn off Sign as me to host anyway.",
   "etmc.host.start": "Start hosting",
   "etmc.host.starting": "Starting…",
   "etmc.hostkey.bad_file": "the host key in %s is damaged. Restore it from a backup, or delete it and share a new link",

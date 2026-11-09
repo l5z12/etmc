@@ -12,6 +12,7 @@ import dev.l5z12.etmc.core.ImportedConfig;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.NetworkStatus;
+import dev.l5z12.etmc.core.PlayerCert;
 import dev.l5z12.etmc.core.Relays;
 import dev.l5z12.etmc.core.RemoteConfig;
 import dev.l5z12.etmc.core.StatusPing;
@@ -37,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 /**
  * Process-wide owner of the etmc {@link EtmcSession}: loads the native library, exposes async
@@ -253,28 +255,39 @@ public final class EtmcManager {
         config.lastSecret = secret;
         config.lastLabel = label;
         config.save();
-        return McNet.ensureOpenToLan(gameMode, cheats, allowOffline)
-                .thenApplyAsync(lanPort -> {
-                    session.setHostKey(loadHostKey());
-                    session.setAccountProof(accountProof());
-                    return session.host(lanPort, networkName, secret, relays, vport, label);
-                }, worker)
+        // The account is checked before the world opens, so a refusal leaves it as it was.
+        return CompletableFuture.supplyAsync(this::accountProof, worker)
+                .thenCompose(proof -> McNet.ensureOpenToLan(gameMode, cheats, allowOffline)
+                        .thenApplyAsync(lanPort -> {
+                            session.setHostKey(loadHostKey());
+                            session.setAccountProof(proof);
+                            return session.host(lanPort, networkName, secret, relays, vport, label);
+                        }, worker))
                 .whenComplete((code, err) -> McScreens.mc().execute(() -> {
                     hostWorldSeen = err == null;
                     hostFailureNotified = false;
+                    // The world may be open with offline accounts allowed and nothing hosting it. If a
+                    // host was already running, this attempt failed on that, and the world is still its.
+                    if (err != null && session.mode() != EtmcSession.Mode.HOST) McNet.requireAccounts();
                 }));
     }
 
     /**
      * What proves this player's account while hosting, or {@code null} if they haven't opted in. If
      * they have and it can't be done, hosting stops here: the link would name them, and every joiner
-     * would then be refused for want of a proof.
+     * would then be refused for want of a proof. A certificate joiners wouldn't accept stops it too.
      */
-    private java.util.function.Supplier<dev.l5z12.etmc.core.PlayerCert> accountProof() {
+    private Supplier<PlayerCert> accountProof() {
         if (!config.signHostAccount) return null;
-        if (McIdentity.currentCert() == null) {
+        PlayerCert cert = McIdentity.currentCert();
+        if (cert == null) {
             throw new IllegalStateException(Msg.tr("etmc.host.sign_failed", "couldn't sign with your Minecraft "
                     + "account. It needs a real account and a connection to Mojang. Turn off Sign as me to host anyway."));
+        }
+        if (!session.joinersWouldAccept(cert)) {
+            throw new IllegalStateException(Msg.tr("etmc.host.sign_unaccepted", "couldn't sign with your Minecraft "
+                    + "account, because joiners wouldn't accept its chat key. Some third-party logins "
+                    + "(authlib-injector) don't sign chat keys. Turn off Sign as me to host anyway."));
         }
         return McIdentity::currentCert;
     }

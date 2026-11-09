@@ -4,9 +4,13 @@ import dev.l5z12.etmc.ffi.EasyTier;
 import lombok.Getter;
 
 import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.security.PublicKey;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 
@@ -21,6 +25,12 @@ public final class EtmcSession {
 
     public enum State { IDLE, STARTING, HOSTING, JOINING, ERROR }
     public enum Mode { NONE, HOST, JOIN }
+
+    /**
+     * An RSA signature is as long as its key, and no key that signs certificates is under 1024 bits.
+     * authlib-injector's stand-in is one byte, so this catches it even when the keys can't be fetched.
+     */
+    private static final int MIN_SIGNATURE_BYTES = 128;
 
     private final EasyTier et;
 
@@ -111,6 +121,49 @@ public final class EtmcSession {
 
     void setDirectory(AccountDirectory directory) {
         this.directory = directory;
+    }
+
+    /**
+     * Whether joiners would accept proofs signed with this certificate. Ask before a link names the
+     * player, so a chat key nobody vouches for fails here instead of at every joiner. One example is
+     * the stand-in authlib-injector gives the game when its login server doesn't sign chat keys.
+     *
+     * <p>This checks the certificate's signature and key as joiners do. It leaves out what each joiner
+     * judges for itself: the name, which it looks up, and the expiry, which it reads off its own clock
+     * (the game renews the certificate before it runs out). If the keys can't be fetched there's no
+     * telling, so this answers yes, and joiners ask their players as they would anyway. Blocking; call
+     * off the render thread.
+     *
+     * @throws CancellationException if the thread is interrupted while the keys are fetched
+     */
+    public boolean joinersWouldAccept(PlayerCert cert) {
+        if (cert.mojangSignature().length < MIN_SIGNATURE_BYTES) {
+            EtmcLog.warn("the certificate for " + cert.uuid() + " has a " + cert.mojangSignature().length
+                    + "-byte signature, too short for any key to have made, so hosting won't sign with it");
+            return false;
+        }
+        byte[] handshake = new byte[32];
+        ThreadLocalRandom.current().nextBytes(handshake);
+        byte[] claim;
+        try {
+            claim = HostAccount.prove(cert, handshake);
+        } catch (GeneralSecurityException | RuntimeException e) {
+            EtmcLog.warn("couldn't sign with the certificate for " + cert.uuid() + ": " + Errors.message(e));
+            return false;
+        }
+        Collection<PublicKey> keys;
+        try {
+            keys = directory.certificateKeys();
+        } catch (IOException e) {
+            EtmcLog.warn("couldn't fetch the certificate keys, so hosting signs without checking: " + Errors.message(e));
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CancellationException("stopped while fetching the certificate keys");
+        }
+        if (HostAccount.verify(claim, handshake, keys, cert.expiresAtMs() - 1) != null) return true;
+        EtmcLog.warn("joiners would refuse the certificate for " + cert.uuid() + ", so hosting won't sign with it");
+        return false;
     }
 
     // ------------------------------------------------------------------ host

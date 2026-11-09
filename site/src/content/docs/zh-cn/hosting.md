@@ -29,6 +29,8 @@ Minecraft 会检查每位玩家的账户。想让离线账户加入你的世界�
 
 etmc 会用 Minecraft 为你的聊天使用的密钥为每位玩家的连接签名，玩家也能看到你的账户。这需要正版 Minecraft 账户，以及较新版本的游戏。
 
+使用外置登录（authlib-injector）时，会由你的登录服务器代替 Mojang 确认你的名字。只有当该服务器会为聊天密钥签名，且所有人都使用同一个服务器时，这才有效。如果它不签名，etmc 会在你开始开放时告诉你。
+
 ## 开放 Paper 服务器
 
 1. 从 [Releases](https://github.com/L5Z12/etmc/releases) 下载 etmc 的 Paper jar，放进 `plugins` 文件夹。
