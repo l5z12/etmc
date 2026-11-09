@@ -142,7 +142,9 @@ jobs:
             caches/minecraftforge
 
       # Loader decompiles live in R2 (no 10GB cap). Skips cleanly if the R2 secrets aren't set (forks).
-      # Required repo secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET.
+      # Required repo secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY; plus the repo VARIABLE
+      # R2_BUCKET. The bucket name is a variable, not a secret: Actions masks every secret value in all
+      # log output, and the bucket is called "etmc", so a secret turned every "etmc" in the logs into ***.
       # NB: secrets can't be read in a step `if:`, so the run-script guards on the (secret-derived) env
       # itself — no creds → it no-ops and the build proceeds cold (e.g. on fork PRs).
       - name: Restore loader decompiles from R2
@@ -155,7 +157,7 @@ jobs:
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          BUCKET: ${{ secrets.R2_BUCKET }}
+          BUCKET: ${{ vars.R2_BUCKET }}
           # Decompiles are a pure function of the loader/MC versions + buildscripts — rekey only when
           # one of those changes, so ordinary src/ edits still hit the cache.
           SHARD: ${{ matrix.shard }}
@@ -236,7 +238,7 @@ jobs:
           AWS_REQUEST_CHECKSUM_CALCULATION: when_required
           AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
           ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
-          BUCKET: ${{ secrets.R2_BUCKET }}
+          BUCKET: ${{ vars.R2_BUCKET }}
           SHARD: ${{ matrix.shard }}
           CACHES: ${{ matrix.caches }}
           CACHE_KEY: ${{ hashFiles('settings.gradle.kts', 'mod/versions/**/gradle.properties', 'mod/nodes/*') }}
