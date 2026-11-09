@@ -374,7 +374,21 @@ class HostAccountTest {
     void aHostLearnsBeforeHostingWhetherJoinersWouldAcceptItsCertificate() throws Exception {
         assertTrue(hosting().joinersWouldAccept(cert(STEVE, IN_A_DAY, MOJANG)));
         assertFalse(hosting().joinersWouldAccept(cert(STEVE, IN_A_DAY, FORGER)));
-        assertFalse(hosting().joinersWouldAccept(cert(STEVE, System.currentTimeMillis() - 1000, MOJANG)));
+    }
+
+    @Test
+    void aCertificateWhoseKeysDoNotMatchIsCaughtBeforeHosting() throws Exception {
+        PlayerCert real = cert(STEVE, IN_A_DAY, MOJANG);
+        PlayerCert mismatched = new PlayerCert(STEVE, IN_A_DAY, real.publicKey(), real.mojangSignature(),
+                rsa().getPrivate());
+
+        assertFalse(hosting().joinersWouldAccept(mismatched));
+    }
+
+    @Test
+    void theHostsClockDoesNotDecideExpiry() throws Exception {
+        // Each joiner reads the expiry off its own clock, so a host whose clock runs fast still hosts.
+        assertTrue(hosting().joinersWouldAccept(cert(STEVE, System.currentTimeMillis() - 1000, MOJANG)));
     }
 
     @Test
@@ -386,6 +400,8 @@ class HostAccountTest {
                 player.getPrivate());
 
         assertFalse(hosting().joinersWouldAccept(standIn));
+        directory.down = true;
+        assertFalse(hosting().joinersWouldAccept(standIn), "caught even when the keys can't be fetched");
     }
 
     @Test
