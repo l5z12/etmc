@@ -1,12 +1,23 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "etmc",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-06-16",
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
+    // The downloads come from R2 through the Worker (worker/downloads.ts). Everything else is static.
+    "run_worker_first": ["/downloads/*", "/zh-cn/downloads/*", "/zh-tw/downloads/*"]
   },
+  // Jars only, uploaded by CI (.github/scripts/publish-downloads.sh). Private: the Worker is the only way in.
+  "r2_buckets": [
+    {
+      "binding": "DOWNLOADS",
+      "bucket_name": "etmc-downloads"
+    }
+  ],
   "observability": {
     "enabled": true
   },

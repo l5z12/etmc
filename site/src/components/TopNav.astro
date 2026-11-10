@@ -40,7 +40,7 @@ const route = routeOf(Astro.url.pathname);
           ))}
         </ul>
       </details>
-      <a class="btn primary small" href="https://github.com/L5Z12/etmc/releases">{t.nav.download}</a>
+      <a class="btn primary small" href={link('/downloads')} aria-current={route.startsWith('/downloads') ? 'page' : undefined}>{t.nav.download}</a>
     </nav>
   </div>
 </header>

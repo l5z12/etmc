@@ -9,8 +9,7 @@ Everyone who plays needs etmc installed, whether they're hosting or joining.
 
 1. Install [Fabric](https://fabricmc.net/), [NeoForge](https://neoforged.net/) or
    [Forge](https://files.minecraftforge.net/).
-2. Download the etmc jar for your loader and Minecraft version from
-   [Releases](https://github.com/L5Z12/etmc/releases).
+2. Download the etmc jar for your loader and Minecraft version from the [Download](/downloads) page.
 3. Put it in your `mods` folder. On Fabric, add [Fabric API](https://modrinth.com/mod/fabric-api) too.
 
 ## Add a relay

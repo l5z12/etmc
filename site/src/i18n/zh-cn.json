@@ -288,6 +288,42 @@
       "downloaded": "已下载 {file}"
     }
   },
+  "downloads": {
+    "title": "下载",
+    "description": "下载适用于 Fabric、Forge 或 NeoForge 的 etmc，或 Paper 服务器的插件。",
+    "intro": "选择你的模组加载器和 Minecraft 版本。",
+    "noscript": "此页面需要 JavaScript。你也可以从 <a href=\"https://github.com/L5Z12/etmc/releases\">GitHub</a> 下载 etmc。",
+    "script": {
+      "loading": "正在加载……",
+      "failed": "下载内容加载失败。请稍等片刻再试。",
+      "notFound": "此版本不存在，或已被删除。",
+      "release": "etmc {version}",
+      "released": "发布于 {date}",
+      "dev": "开发版本",
+      "built": "基于 {commit} 构建于 {date}",
+      "pr": "拉取请求 #{number}",
+      "prBy": "{title}，作者 {author}",
+      "loader": "加载器",
+      "minecraft": "Minecraft",
+      "paper": "Paper 服务器",
+      "download": "下载",
+      "fabricApi": "在 Fabric 上还需安装 <a href=\"https://modrinth.com/mod/fabric-api\">Fabric API</a>。",
+      "noRelease": "目前还没有正式版本。在那之前，这就是最新的开发版本。",
+      "devWarning": "开发版本尚未正式发布，可能存在 bug。请先备份你的世界。",
+      "prWarning": "这是尚未被接受的改动的测试版本。仅在开发者要求时使用。",
+      "allFiles": "所有文件",
+      "allDownloads": "所有下载",
+      "olderReleases": "更早的版本",
+      "devTitle": "开发版本",
+      "devIntro": "尚未发布的最新改动。可能存在 bug，请先备份你的世界。",
+      "testTitle": "测试版本",
+      "testIntro": "仍在审查中的改动。仅在开发者要求时使用。",
+      "none": "暂时没有。",
+      "file": "文件",
+      "size": "大小",
+      "checksums": "SHA-256 校验值"
+    }
+  },
   "notFound": {
     "title": "页面未找到",
     "description": "此页面不存在。",

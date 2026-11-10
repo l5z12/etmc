@@ -288,6 +288,42 @@
       "downloaded": "已下載 {file}"
     }
   },
+  "downloads": {
+    "title": "下載",
+    "description": "下載適用於 Fabric、Forge 或 NeoForge 的 etmc，或 Paper 伺服器的外掛。",
+    "intro": "選擇你的模組載入器和 Minecraft 版本。",
+    "noscript": "此頁面需要 JavaScript。你也可以從 <a href=\"https://github.com/L5Z12/etmc/releases\">GitHub</a> 下載 etmc。",
+    "script": {
+      "loading": "載入中……",
+      "failed": "下載資訊載入失敗。請稍後再試一次。",
+      "notFound": "此版本不存在，或已被刪除。",
+      "release": "etmc {version}",
+      "released": "發布於 {date}",
+      "dev": "開發版本",
+      "built": "建置於 {date}，來自 {commit}",
+      "pr": "Pull request #{number}",
+      "prBy": "{title}，作者：{author}",
+      "loader": "模組載入器",
+      "minecraft": "Minecraft",
+      "paper": "Paper 伺服器",
+      "download": "下載",
+      "fabricApi": "使用 Fabric 時，請一併安裝 <a href=\"https://modrinth.com/mod/fabric-api\">Fabric API</a>。",
+      "noRelease": "目前還沒有正式版本。在有之前，這是最新的開發版本。",
+      "devWarning": "開發版本尚未發布，因此可能會有錯誤。請先備份你的世界。",
+      "prWarning": "這是尚未被接受的變更的測試版本。只有在開發者要求時才使用。",
+      "allFiles": "所有檔案",
+      "allDownloads": "所有下載",
+      "olderReleases": "較舊的版本",
+      "devTitle": "開發版本",
+      "devIntro": "最新變更，在正式發布之前。可能會有錯誤，請先備份你的世界。",
+      "testTitle": "測試版本",
+      "testIntro": "仍在審查中的變更。只有在開發者要求時才使用。",
+      "none": "目前沒有。",
+      "file": "檔案",
+      "size": "大小",
+      "checksums": "SHA-256 校驗碼"
+    }
+  },
   "notFound": {
     "title": "找不到頁面",
     "description": "此頁面不存在。",

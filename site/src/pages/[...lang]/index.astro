@@ -17,7 +17,7 @@ const { t: { home: t }, link, html } = i18n(Astro.url);
         <h1>{t.title}<br /><span>{t.titleAccent}</span></h1>
         <p class="lead">{t.lead}</p>
         <div class="actions">
-          <a class="btn primary" href="https://github.com/L5Z12/etmc/releases">{t.download}</a>
+          <a class="btn primary" href={link('/downloads')}>{t.download}</a>
           <a class="btn" href={link('/docs/getting-started')}>{t.guide}</a>
         </div>
       </div>

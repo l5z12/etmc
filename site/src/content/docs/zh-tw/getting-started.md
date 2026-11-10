@@ -9,7 +9,7 @@ description: 安裝 etmc、新增中繼，然後開始遊玩。
 ## 安裝
 
 1. 安裝 [Fabric](https://fabricmc.net/)、[NeoForge](https://neoforged.net/) 或 [Forge](https://files.minecraftforge.net/)。
-2. 從 [Releases](https://github.com/L5Z12/etmc/releases) 下載對應你的模組載入器和 Minecraft 版本的 etmc jar。
+2. 從[下載](/downloads)頁面下載對應你的模組載入器和 Minecraft 版本的 etmc jar。
 3. 把它放進你的 `mods` 資料夾。使用 Fabric 的話，還要加上 [Fabric API](https://modrinth.com/mod/fabric-api)。
 
 ## 新增中繼

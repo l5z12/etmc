@@ -45,6 +45,11 @@ jobs:
   assemble:
     name: assemble jars (${{ matrix.shard }})
     runs-on: ubuntu-latest
+    # The decompile cache's R2 key (below) is in the r2-cache environment, so only these jobs get it. Any branch may
+    # use it, as pull request builds need the cache too. `deployment: false`: these runs aren't deployments.
+    environment:
+      name: r2-cache
+      deployment: false
     strategy:
       fail-fast: false   # a break in one era shouldn't hide the state of the others
       matrix:
@@ -142,9 +147,10 @@ jobs:
             caches/minecraftforge
 
       # Loader decompiles live in R2 (no 10GB cap). Skips cleanly if the R2 secrets aren't set (forks).
-      # Required repo secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY; plus the repo VARIABLE
-      # R2_BUCKET. The bucket name is a variable, not a secret: Actions masks every secret value in all
-      # log output, and the bucket is called "etmc", so a secret turned every "etmc" in the logs into ***.
+      # From the r2-cache environment: the secrets R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and
+      # the VARIABLE R2_BUCKET. The bucket name is a variable, not a secret: Actions masks every secret value
+      # in all log output, and the bucket is called "etmc", so a secret turned every "etmc" in the logs into ***.
+      # The bucket holds Minecraft's own code, decompiled, so it must stay private: never serve it or make it public.
       # NB: secrets can't be read in a step `if:`, so the run-script guards on the (secret-derived) env
       # itself — no creds → it no-ops and the build proceeds cold (e.g. on fork PRs).
       - name: Restore loader decompiles from R2
@@ -460,3 +466,40 @@ jobs:
         run: |
           echo "assemble jars (all shards): $RESULT"
           [ "$RESULT" = "success" ]
+
+  # A push to main goes on the downloads page as a development build, at
+  # https://etmc.l5z12.dev/downloads/ci/main/<commit>/. The key to the downloads bucket is in the downloads
+  # environment, which only main and v* tags may use. Pull requests are uploaded by pr-downloads.yml once their build
+  # finishes, and releases by release.yml. Skipped when release.yml or easytier-update.yml call this workflow.
+  downloads:
+    name: publish to downloads
+    needs: [assemble, paper, shard-coverage]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'l5z12/etmc'
+    runs-on: ubuntu-latest
+    environment:
+      name: downloads
+      url: https://etmc.l5z12.dev/downloads/ci/main/${{ github.sha }}/
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Download the jars
+        uses: actions/download-artifact@v8
+        with:
+          pattern: etmc-*jars*
+          merge-multiple: true
+          path: ${{ runner.temp }}/jars
+
+      - name: Upload to the downloads bucket
+        env:
+          KIND: main
+          REF: main
+          SHA: ${{ github.sha }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.DOWNLOADS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DOWNLOADS_SECRET_ACCESS_KEY }}
+          BUCKET: ${{ vars.DOWNLOADS_BUCKET }}
+        run: bash .github/scripts/publish-downloads.sh "$RUNNER_TEMP/jars"
