@@ -8,9 +8,9 @@
  *   ci/main/<commit>          a push to main
  *   ci/pr/<number>/<commit>   a commit on a pull request
  *
- * Its jars are at <path>/<file>, and its manifest at index/<path>.json. The uploader
- * (.github/scripts/publish-downloads.sh) writes the manifest last, so a build is listed only once all its jars are
- * up, and removes it first. Keep the patterns below in step with that script.
+ * Its jars are at <path>/<file>, and its manifest at index/<path>.json. The uploader (.github/scripts/downloads.sh)
+ * writes the manifest last, so a build is listed only once all its jars are up, and removes it first. Keep the
+ * patterns below in step with that script.
  */
 
 export type Kind = 'release' | 'main' | 'pr';
@@ -91,23 +91,42 @@ export function parseJar(name: string): { loader: Loader; mc: string; version: s
   return m ? { loader: m[1] as Loader, mc: m[2], version: m[3] } : null;
 }
 
-/** Orders versions such as 1.20.1, 26.3 or 0.2.0-beta.1. A pre-release comes before its release. */
+/**
+ * Orders versions such as 1.20.1, 26.3 or 0.2.0-beta.1, the way semver does: a pre-release comes before its release,
+ * its numeric parts compare as numbers (beta.2 before beta.10), and build metadata (+…) doesn't count.
+ */
 export function compareVersions(a: string, b: string): number {
-  const [coreA, preA = ''] = splitPre(a);
-  const [coreB, preB = ''] = splitPre(b);
+  const [coreA, preA] = splitPre(a);
+  const [coreB, preB] = splitPre(b);
   const pa = coreA.split('.').map(Number);
   const pb = coreB.split('.').map(Number);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
     if (diff) return Math.sign(diff);
   }
-  if (preA === preB) return 0;
-  if (!preA) return 1;
-  if (!preB) return -1;
-  return preA < preB ? -1 : 1;
+  if (!preA || !preB) return preA ? -1 : preB ? 1 : 0;
+  const ia = preA.split('.');
+  const ib = preB.split('.');
+  for (let i = 0; i < Math.max(ia.length, ib.length); i++) {
+    if (ia[i] === undefined) return -1;
+    if (ib[i] === undefined) return 1;
+    const na = /^\d+$/.test(ia[i]);
+    const nb = /^\d+$/.test(ib[i]);
+    if (na && nb) {
+      const diff = Number(ia[i]) - Number(ib[i]);
+      if (diff) return Math.sign(diff);
+    } else if (na !== nb) {
+      return na ? -1 : 1;
+    } else if (ia[i] !== ib[i]) {
+      return ia[i] < ib[i] ? -1 : 1;
+    }
+  }
+  return 0;
 }
 
-function splitPre(version: string): [string, string?] {
-  const at = version.search(/[-+]/);
-  return at < 0 ? [version] : [version.slice(0, at), version.slice(at + 1)];
+/** A version's core and pre-release, without its build metadata. */
+function splitPre(version: string): [string, string] {
+  const core = version.replace(/\+.*$/, '');
+  const at = core.indexOf('-');
+  return at < 0 ? [core, ''] : [core.slice(0, at), core.slice(at + 1)];
 }

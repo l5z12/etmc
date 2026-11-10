@@ -11,7 +11,7 @@
     // The downloads come from R2 through the Worker (worker/downloads.ts). Everything else is static.
     "run_worker_first": ["/downloads/*", "/zh-cn/downloads/*", "/zh-tw/downloads/*"]
   },
-  // Jars only, uploaded by CI (.github/scripts/publish-downloads.sh). Private: the Worker is the only way in.
+  // Jars only, uploaded by CI (.github/scripts/downloads.sh). Private: the Worker is the only way in.
   "r2_buckets": [
     {
       "binding": "DOWNLOADS",

@@ -132,7 +132,8 @@ function json(body: unknown, status = 200): Response {
 /** The catalog, from the index's listing and its metadata alone: one list call however many builds there are. */
 async function catalog(request: Request, env: Env, ctx: Context): Promise<Response> {
   const cache = typeof caches === 'undefined' ? undefined : await caches.open('downloads');
-  const key = new Request(request.url);
+  // Without the query string, or each new one would list the bucket again.
+  const key = new Request(new URL('/downloads/catalog.json', request.url));
   const hit = await cache?.match(key);
   if (hit) return hit;
 
@@ -165,8 +166,8 @@ export function buildCatalog(objects: StoredObject[]): Catalog {
       result.prs.push(summary);
     }
   }
-  result.releases.sort((a, b) => compareVersions(b.ref.slice(1), a.ref.slice(1)));
   const byDate = (a: Summary, b: Summary) => b.date.localeCompare(a.date);
+  result.releases.sort((a, b) => compareVersions(b.ref.slice(1), a.ref.slice(1)) || byDate(a, b));
   result.main.sort(byDate);
   result.prs.sort(byDate);
   return result;
@@ -223,7 +224,26 @@ async function jar(request: Request, env: Env, key: string, name: string): Promi
     return new Response(null, { headers });
   }
 
-  const object = await env.DOWNLOADS.get(key, { range: request.headers, onlyIf: request.headers });
+  let range = request.headers.has('range') ? request.headers : undefined;
+  const ifRange = request.headers.get('if-range');
+  if (range && ifRange) {
+    // R2 ignores If-Range, so check it here. A download resumed after its jar was rebuilt gets the whole new jar,
+    // not the old one's start and the new one's end. (A date never matches: jars are served without Last-Modified.)
+    const current = await env.DOWNLOADS.head(key);
+    if (!current) return new Response('Not found', { status: 404 });
+    if (ifRange !== current.httpEtag) range = undefined;
+  }
+
+  let object: StoredObject | StoredObjectBody | null;
+  try {
+    object = await env.DOWNLOADS.get(key, { range, onlyIf: request.headers });
+  } catch (error) {
+    // R2 throws for a range it can't serve, such as one past the end of the jar.
+    const current = range && /10039|range/i.test(String(error)) ? await env.DOWNLOADS.head(key) : null;
+    if (!current) throw error;
+    headers.set('content-range', `bytes */${current.size}`);
+    return new Response(null, { status: 416, headers });
+  }
   if (!object) return new Response('Not found', { status: 404 });
   headers.set('etag', object.httpEtag);
   if (!('body' in object)) {
@@ -231,9 +251,9 @@ async function jar(request: Request, env: Env, key: string, name: string): Promi
     const cacheCheck = request.headers.has('if-none-match') || request.headers.has('if-modified-since');
     return new Response(null, { status: cacheCheck ? 304 : 412, headers });
   }
-  const range = request.headers.has('range') ? contentRange(object) : null;
-  if (range) headers.set('content-range', range);
-  return new Response(object.body, { status: range ? 206 : 200, headers });
+  const served = range ? contentRange(object) : null;
+  if (served) headers.set('content-range', served);
+  return new Response(object.body, { status: served ? 206 : 200, headers });
 }
 
 function contentRange(object: StoredObject): string | null {

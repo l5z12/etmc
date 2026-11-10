@@ -104,14 +104,15 @@ You can fix a translation by hand. The fix stays until its English changes.
 The [Download page](https://etmc.l5z12.dev/downloads) lists the builds in the `etmc-downloads` R2 bucket. The bucket
 is private: the site's Worker (`site/worker/`) is the only way in, and it serves only jars, as downloads.
 
-| Build                       | Uploaded by        | Kept                                       |
-| --------------------------- | ------------------ | ------------------------------------------ |
-| `release/<tag>/`            | `release.yml`      | Always                                     |
-| `ci/main/<commit>/`         | `build.yml`        | The newest 5                               |
-| `ci/pr/<number>/<commit>/`  | `pr-downloads.yml` | The newest 3 of each pull request, 30 days |
+| Build                      | Uploaded by        | Kept                                               |
+| -------------------------- | ------------------ | -------------------------------------------------- |
+| `release/<tag>/`           | `release.yml`      | Always                                             |
+| `ci/main/<commit>/`        | `build.yml`        | The newest 5                                       |
+| `ci/pr/<number>/<commit>/` | `pr-downloads.yml` | The newest 3 of each pull request, until it closes |
 
 A path that stops early, such as `/downloads/ci/main`, goes to the newest build there. `site/src/lib/downloads.ts`
-describes the layout, and `.github/scripts/publish-downloads.sh` does the uploads.
+describes the layout. `.github/scripts/downloads.sh` does the uploads, through the `publish-downloads` action, and
+`downloads-sweep.yml` runs it daily to remove closed pull requests' builds.
 
 A fork's pull request built its own jars, and they'd be served from etmc.l5z12.dev, so its upload waits for a
 maintainer. Read the pull request's changes, `.github/` included, then approve the `downloads-fork` environment on
@@ -124,12 +125,12 @@ the Minecraft EULA doesn't allow giving it to anyone.
 
 Every secret is in an environment, so only the jobs that use one get it:
 
-| Environment      | For                                                  | Usable from       |
-| ---------------- | ---------------------------------------------------- | ----------------- |
-| `r2-cache`       | The decompile cache, in `build.yml`'s shards         | Every branch      |
-| `downloads`      | Uploads of `main`, of releases, and of our own branches' pull requests | `main`, `v*` tags |
-| `downloads-fork` | Uploads of forks' pull requests, once approved       | `main`            |
-| `etmc-bot`       | `easytier-update.yml`'s pull request                 | `main`            |
+| Environment      | For                                                                         | Usable from       |
+| ---------------- | --------------------------------------------------------------------------- | ----------------- |
+| `r2-cache`       | The decompile cache, in `build.yml`'s shards                                | Every branch      |
+| `downloads`      | Uploads of `main`, releases and our own branches' pull requests; the sweep  | `main`, `v*` tags |
+| `downloads-fork` | Uploads of forks' pull requests, once approved                              | `main`            |
+| `etmc-bot`       | `easytier-update.yml`'s pull request                                        | `main`            |
 
 - `r2-cache`: secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, variable `R2_BUCKET` (`etmc`).
 - `downloads` and `downloads-fork`: secrets `R2_ACCOUNT_ID`, `DOWNLOADS_ACCESS_KEY_ID` and

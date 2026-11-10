@@ -483,23 +483,16 @@ jobs:
       - name: Checkout etmc
         uses: actions/checkout@v7
         with:
-          sparse-checkout: .github/scripts
+          sparse-checkout: .github
           persist-credentials: false
 
-      - name: Download the jars
-        uses: actions/download-artifact@v8
+      - name: Publish to downloads
+        uses: ./.github/actions/publish-downloads
         with:
-          pattern: etmc-*jars*
-          merge-multiple: true
-          path: ${{ runner.temp }}/jars
-
-      - name: Upload to the downloads bucket
-        env:
-          KIND: main
-          REF: main
-          SHA: ${{ github.sha }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.DOWNLOADS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.DOWNLOADS_SECRET_ACCESS_KEY }}
-          BUCKET: ${{ vars.DOWNLOADS_BUCKET }}
-        run: bash .github/scripts/publish-downloads.sh "$RUNNER_TEMP/jars"
+          kind: main
+          ref: main
+          sha: ${{ github.sha }}
+          account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          access-key-id: ${{ secrets.DOWNLOADS_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.DOWNLOADS_SECRET_ACCESS_KEY }}
+          bucket: ${{ vars.DOWNLOADS_BUCKET }}

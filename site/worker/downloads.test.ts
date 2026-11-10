@@ -36,6 +36,7 @@ function fakeBucket(entries: Record<string, { data?: string; meta?: Record<strin
       const range = /^bytes=(\d+)-(\d+)$/.exec(options?.range?.get('range') ?? '');
       if (range) {
         const [start, end] = [Number(range[1]), Number(range[2])];
+        if (start >= bytes.length) throw new Error('get: The requested range is not satisfiable (10039)');
         bytes = bytes.slice(start, end + 1);
         object.range = { offset: start, length: end - start + 1 };
       }
@@ -144,6 +145,22 @@ describe('files', () => {
     expect((await get(jar, { method: 'HEAD' }))!.headers.get('content-length')).toBe('10');
   });
 
+  test('answers a range past the end with 416', async () => {
+    const response = (await get(jar, { headers: { range: 'bytes=20-30' } }))!;
+    expect(response.status).toBe(416);
+    expect(response.headers.get('content-range')).toBe('bytes */10');
+  });
+
+  test('resumes only the same jar', async () => {
+    const etag = (await get(jar))!.headers.get('etag')!;
+    const same = (await get(jar, { headers: { range: 'bytes=2-5', 'if-range': etag } }))!;
+    expect(same.status).toBe(206);
+    const changed = (await get(jar, { headers: { range: 'bytes=2-5', 'if-range': '"old"' } }))!;
+    expect(changed.status).toBe(200);
+    expect(changed.headers.get('content-range')).toBeNull();
+    expect(await changed.text()).toBe('0123456789');
+  });
+
   test('never serves anything but jars inside builds', async () => {
     expect((await get('/downloads/release/v0.1.0/index.html'))!.status).toBe(404);
     expect((await get('/downloads/decompiles/fabric-loom.tar.zst'))!.status).toBe(404);
@@ -194,5 +211,10 @@ describe('names', () => {
     expect(sorted).toEqual(['1.9', '1.14.4', '1.20', '1.20.1', '26.1', '26.1.1']);
     expect(compareVersions('0.2.0-beta.1', '0.2.0')).toBe(-1);
     expect(compareVersions('0.2.0', '0.1.9')).toBe(1);
+    const releases = ['0.2.0', '0.2.0-beta.10', '0.2.0-alpha', '0.2.0-beta.2', '0.2.0-beta', '0.2.0-rc.1', '0.2.0-alpha.1'];
+    expect(releases.sort(compareVersions)).toEqual(
+      ['0.2.0-alpha', '0.2.0-alpha.1', '0.2.0-beta', '0.2.0-beta.2', '0.2.0-beta.10', '0.2.0-rc.1', '0.2.0']);
+    expect(compareVersions('1.0.0+1', '1.0.0')).toBe(0);
+    expect(compareVersions('1.0.0-1', '1.0.0-a')).toBe(-1);
   });
 });

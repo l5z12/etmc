@@ -145,7 +145,7 @@ kbd {
 .mark .b { fill: var(--cyan); }
 .site-header nav { display: flex; align-items: center; gap: 24px; }
 .site-header nav a:not(.btn) { color: var(--muted); font-weight: 600; font-size: 0.98rem; text-decoration: none; white-space: nowrap; }
-.site-header nav a:not(.btn):hover, .site-header nav a[aria-current] { color: var(--ink); }
+.site-header nav a:not(.btn):hover, .site-header nav a:not(.btn)[aria-current] { color: var(--ink); }
 
 .lang-menu { position: relative; }
 .lang-menu summary { display: flex; align-items: center; gap: 6px; min-height: 38px; color: var(--muted); font-weight: 600; font-size: 0.98rem; list-style: none; cursor: pointer; }

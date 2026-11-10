@@ -6,7 +6,7 @@ Play Minecraft with friends over a peer-to-peer [EasyTier](https://github.com/Ea
 **no port forwarding, no virtual network adapter, no admin rights**. Host your singleplayer world or a
 Paper server, then share one link.
 
-**[Download](https://github.com/L5Z12/etmc/releases)** ·
+**[Download](https://etmc.l5z12.dev/downloads)** ·
 **[Documentation](https://etmc.l5z12.dev/docs/getting-started)** ·
 [简体中文](https://etmc.l5z12.dev/zh-cn/docs/getting-started) ·
 [繁體中文](https://etmc.l5z12.dev/zh-tw/docs/getting-started)
