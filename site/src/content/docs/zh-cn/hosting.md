@@ -33,7 +33,7 @@ etmc 会用 Minecraft 为你的聊天使用的密钥为每位玩家的连接签�
 
 ## 开放 Paper 服务器
 
-1. 从 [Releases](https://github.com/L5Z12/etmc/releases) 下载 etmc 的 Paper jar，放进 `plugins` 文件夹。
+1. 从[下载](/downloads)页面下载 etmc 的 Paper jar，放进 `plugins` 文件夹。
 2. 用[生成器](/generator)创建配置（它会随机推荐一个密钥），保存为 `plugins/etmc/config.yml`。
 3. 重启服务器，或运行 `/etmc reload`。
 4. 从服务器日志中复制 `etmc://` 链接，或运行 `/etmc link`。

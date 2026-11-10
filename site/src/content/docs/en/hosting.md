@@ -42,8 +42,7 @@ hosting.
 
 ## Host a Paper server
 
-1. Download the etmc Paper jar from [Releases](https://github.com/L5Z12/etmc/releases) and put it in your `plugins`
-   folder.
+1. Download the etmc Paper jar from the [Download](/downloads) page and put it in your `plugins` folder.
 2. Create a config with the [generator](/generator), which suggests a random secret, and save it as
    `plugins/etmc/config.yml`.
 3. Restart the server, or run `/etmc reload`.

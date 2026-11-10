@@ -1,0 +1,345 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import { i18n, localePaths } from '../../i18n';
+
+export const getStaticPaths = localePaths;
+
+const { t: { downloads: t } } = i18n(Astro.url);
+
+// The script's own strings, in this page's language.
+const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
+---
+
+<BaseLayout title={t.title} description={t.description}>
+  <div class="ink">
+    <div class="wrap page-title">
+      <h1 id="dl-title">{t.title}</h1>
+      <p id="dl-intro">{t.intro}</p>
+    </div>
+  </div>
+
+  <!-- One page for /downloads and for every build under it (worker/downloads.ts serves it for both). -->
+  <div class="wrap downloads">
+    <noscript><p class="note" set:html={t.noscript} /></noscript>
+    <p id="dl-status" class="status" role="status">{t.script.loading}</p>
+
+    <section id="pick" class="card pick" hidden>
+      <div id="pick-head">
+        <h2 id="pick-title"></h2>
+        <p id="pick-meta" class="muted"></p>
+      </div>
+      <p id="pick-warn" class="warn" hidden></p>
+      <div class="pair">
+        <label class="field">
+          <span>{t.script.loader}</span>
+          <select id="pick-loader"></select>
+        </label>
+        <label class="field">
+          <span>{t.script.minecraft}</span>
+          <select id="pick-mc"></select>
+        </label>
+      </div>
+      <div class="actions">
+        <a id="pick-download" class="btn primary" href="#" download data-astro-prefetch="false">{t.script.download}</a>
+        <a id="pick-all" class="btn" href="#">{t.script.allFiles}</a>
+      </div>
+      <p id="pick-file" class="file-line muted"></p>
+      <p id="pick-fabric" class="muted" set:html={t.script.fabricApi} />
+    </section>
+
+    <section id="older" hidden>
+      <h2>{t.script.olderReleases}</h2>
+      <ul class="builds" id="older-list"></ul>
+    </section>
+
+    <section id="dev" hidden>
+      <h2>{t.script.devTitle}</h2>
+      <p class="muted">{t.script.devIntro}</p>
+      <ul class="builds" id="main-list"></ul>
+      <h3>{t.script.testTitle}</h3>
+      <p class="muted">{t.script.testIntro}</p>
+      <ul class="builds" id="pr-list"></ul>
+    </section>
+
+    <section id="files" hidden>
+      <h2>{t.script.allFiles}</h2>
+      <div class="table-wrap">
+        <table class="files">
+          <thead>
+            <tr>
+              <th class="loader">{t.script.loader}</th>
+              <th>{t.script.minecraft}</th>
+              <th>{t.script.file}</th>
+              <th class="size">{t.script.size}</th>
+            </tr>
+          </thead>
+          <tbody id="files-body"></tbody>
+        </table>
+      </div>
+      <details class="checksums">
+        <summary>{t.script.checksums}</summary>
+        <pre><code id="checksums"></code></pre>
+      </details>
+      <p class="back"><a id="back" href="/downloads">{t.script.allDownloads}</a></p>
+    </section>
+  </div>
+
+  <style is:global>
+    /* Global: the script builds most of this page, and Astro's scoped styles don't reach what it adds. */
+    .downloads { padding-top: 40px; padding-bottom: 72px; }
+    .downloads [hidden] { display: none !important; }
+    .downloads .status:empty { display: none; }
+    .downloads section { margin-top: 52px; }
+    .downloads section.pick { max-width: 720px; margin-top: 8px; box-shadow: 8px 8px 0 var(--cyan); }
+    .downloads #pick-head { margin-bottom: 22px; }
+    .downloads .pick h2 { margin: 0 0 6px; }
+    .downloads #pick-meta { margin: 0; }
+    .downloads .pick .warn { margin: 0 0 22px; }
+    .downloads select { width: 100%; min-height: 46px; padding: 8px 12px; border: 2px solid var(--ink); border-radius: 0; background: #fff; color: var(--ink); font: 0.98rem var(--sans); }
+    .downloads .file-line { margin: 14px 0 0; font: 0.84rem var(--mono); overflow-wrap: anywhere; }
+    .downloads #pick-fabric { margin: 6px 0 0; }
+    .downloads h3 { margin-top: 36px; }
+    .downloads .builds { max-width: 720px; margin: 0; padding: 0; list-style: none; }
+    .downloads .builds li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; margin: 0; padding: 10px 0; border-bottom: 2px solid var(--soft-line); }
+    .downloads .builds a { font: 700 0.95rem var(--mono); }
+    .downloads .builds .what { flex: 1 1 14em; min-width: 0; overflow-wrap: anywhere; }
+    .downloads .builds .when { margin-left: auto; color: var(--muted); font-size: 0.92rem; white-space: nowrap; }
+    .downloads .table-wrap { overflow-x: auto; }
+    .downloads .files { width: 100%; border-collapse: collapse; background: var(--paper); border: 2px solid var(--ink); font-size: 0.95rem; }
+    .downloads .files th, .downloads .files td { padding: 9px 14px; border-bottom: 1px solid var(--soft-line); text-align: left; }
+    .downloads .files th { background: var(--night); color: var(--cream); font: 700 0.76rem var(--mono); text-transform: uppercase; }
+    .downloads .files td a { font: 0.84rem var(--mono); overflow-wrap: anywhere; }
+    .downloads .files td.size { color: var(--muted); white-space: nowrap; }
+    .downloads .checksums { margin-top: 20px; }
+    .downloads .checksums summary { font-weight: 700; cursor: pointer; }
+    .downloads .checksums pre { margin-top: 12px; font-size: 0.76rem; }
+    .downloads .back { margin-top: 28px; }
+    /* On a phone, each jar's name already says its loader. */
+    @media (max-width: 640px) {
+      .downloads .files .loader, .downloads .files .size { display: none; }
+      .downloads .files th, .downloads .files td { padding-inline: 10px; }
+    }
+  </style>
+
+  <script is:inline type="application/json" id="dl-strings" set:html={scriptStrings} />
+  <script>
+    import { compareVersions, LOADERS, parseBuild, type Catalog, type FileEntry, type Loader, type Manifest,
+             type Summary } from '../../lib/downloads';
+    import { format } from '../../i18n/format';
+    import type { Strings } from '../../i18n';
+
+    const t = JSON.parse(document.getElementById('dl-strings')!.textContent!) as Strings['downloads']['script'];
+    const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
+
+    const REPO = 'https://github.com/L5Z12/etmc';
+    const NAMES: Record<Loader, string> = { fabric: 'Fabric', forge: 'Forge', neoforge: 'NeoForge', paper: t.paper };
+    const STORE = 'etmc.download';
+
+    // This page is /downloads, or a build under it such as /zh-cn/downloads/ci/main/<commit>/.
+    const parts = location.pathname.split('/').filter(Boolean);
+    const at = parts.indexOf('downloads');
+    const base = '/' + parts.slice(0, at + 1).join('/');
+    const rest = parts.slice(at + 1).join('/');
+    const pageOf = (path: string) => `${base}/${path}/`;
+    const fileOf = (m: Manifest, f: FileEntry) => `/downloads/${m.path}/${f.name}`;
+
+    const dateFormat = new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: 'medium' });
+    const day = (iso: string) => dateFormat.format(new Date(iso));
+    const size = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MB`;
+
+    function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {},
+                                                       ...children: (Node | string)[]) {
+      const node = Object.assign(document.createElement(tag), props);
+      node.append(...children);
+      return node;
+    }
+
+    /** A translated string with nodes, such as links, in its placeholders. Text goes in as text, never as HTML. */
+    function fill(template: string, values: Record<string, Node | string>): (Node | string)[] {
+      return template.split(/\{(\w+)\}/).map((piece, i) => (i % 2 ? values[piece] ?? `{${piece}}` : piece));
+    }
+
+    function status(text: string, bad = false) {
+      const line = $('dl-status');
+      line.textContent = text;
+      line.classList.toggle('bad', bad);
+    }
+
+    async function getJson<T>(url: string): Promise<T | null> {
+      const response = await fetch(url);
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+      return (await response.json()) as T;
+    }
+
+    const commitLink = (b: Summary | Manifest) =>
+      el('a', { href: b.pr ? `${REPO}/pull/${b.pr.number}/commits/${b.sha}` : `${REPO}/commit/${b.sha}` },
+        b.sha.slice(0, 7));
+
+    /** A build's name and where it came from. */
+    function heading(b: Summary | Manifest): { title: string; meta: (Node | string)[] } {
+      if (b.kind === 'release') {
+        return { title: format(t.release, { version: b.version || b.ref.slice(1) }), meta: [format(t.released, { date: day(b.date) })] };
+      }
+      const built = fill(t.built, { date: day(b.date), commit: commitLink(b) });
+      if (!b.pr) return { title: t.dev, meta: built };
+      const pr = el('a', { href: `${REPO}/pull/${b.pr.number}` }, b.pr.title || `#${b.pr.number}`);
+      return {
+        title: format(t.pr, { number: b.pr.number }),
+        meta: [...fill(t.prBy, { title: pr, author: b.pr.author }), el('br'), ...built],
+      };
+    }
+
+    function remembered(): { loader?: string; mc?: string } {
+      try {
+        return JSON.parse(localStorage.getItem(STORE) ?? '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function remember(loader: string, mc: string) {
+      try {
+        localStorage.setItem(STORE, JSON.stringify({ loader, mc }));
+      } catch {
+        // Private windows and blocked storage: the choice just isn't kept.
+      }
+    }
+
+    /** The loader and version picker, with a download button for the matching jar. */
+    function showPicker(m: Manifest, options: { head: boolean; warn?: string }) {
+      const loaders = LOADERS.filter((l) => m.files.some((f) => f.loader === l));
+      if (!loaders.length) return;
+      $('pick').hidden = false;
+      $('pick-head').hidden = !options.head;
+      if (options.head) {
+        const { title, meta } = heading(m);
+        $('pick-title').textContent = title;
+        $('pick-meta').replaceChildren(...meta);
+      }
+      const warn = $('pick-warn');
+      warn.textContent = options.warn ?? '';
+      warn.hidden = !options.warn;
+      const all = $<HTMLAnchorElement>('pick-all');
+      all.hidden = !options.head;
+      all.href = pageOf(m.path);
+
+      const loader = $<HTMLSelectElement>('pick-loader');
+      const mc = $<HTMLSelectElement>('pick-mc');
+      const saved = remembered();
+      loader.replaceChildren(...loaders.map((l) => el('option', { value: l, textContent: NAMES[l] })));
+      loader.value = loaders.includes(saved.loader as Loader) ? saved.loader! : loaders[0];
+
+      const update = () => {
+        const file = m.files.find((f) => f.loader === loader.value && f.mc === mc.value);
+        if (!file) return;
+        $<HTMLAnchorElement>('pick-download').href = fileOf(m, file);
+        $('pick-file').textContent = `${file.name} · ${size(file.size)}`;
+        $('pick-fabric').hidden = file.loader !== 'fabric';
+      };
+      const versions = (keep?: string) => {
+        const files = m.files.filter((f) => f.loader === loader.value).sort((a, b) => compareVersions(b.mc, a.mc));
+        mc.replaceChildren(...files.map((f) => el('option', { value: f.mc, textContent: f.mc })));
+        if (keep && files.some((f) => f.mc === keep)) mc.value = keep;
+        update();
+      };
+      // Only what the player picks is kept, not a stand-in for a choice this build doesn't have.
+      loader.onchange = () => {
+        versions(mc.value);
+        remember(loader.value, mc.value);
+      };
+      mc.onchange = () => {
+        update();
+        remember(loader.value, mc.value);
+      };
+      versions(saved.mc);
+    }
+
+    function item(b: Summary): HTMLLIElement {
+      const name = b.kind === 'release' ? b.ref : b.pr ? `#${b.pr.number}` : b.sha.slice(0, 7);
+      const li = el('li', {}, el('a', { href: pageOf(b.path) }, name));
+      if (b.pr?.title) li.append(el('span', { className: 'what' }, format(t.prBy, { title: b.pr.title, author: b.pr.author })));
+      li.append(el('span', { className: 'when' }, day(b.date)));
+      return li;
+    }
+
+    function list(id: string, builds: Summary[]) {
+      $(id).replaceChildren(...(builds.length ? builds.map(item) : [el('li', { className: 'muted' }, t.none)]));
+    }
+
+    /** /downloads: the newest release (or, before there is one, the newest build of main), then everything else. */
+    async function overview() {
+      const catalog = await getJson<Catalog>('/downloads/catalog.json');
+      if (!catalog) throw new Error('no catalog');
+      const featured = catalog.releases[0] ?? catalog.main[0];
+      if (featured) {
+        const m = await getJson<Manifest>(`/downloads/${featured.path}/manifest.json`);
+        if (m) showPicker(m, { head: true, warn: featured.kind === 'release' ? undefined : `${t.noRelease} ${t.devWarning}` });
+      }
+      if (catalog.releases.length > 1) {
+        list('older-list', catalog.releases.slice(1));
+        $('older').hidden = false;
+      }
+      // Each pull request's newest commit.
+      const seen = new Set<string>();
+      const prs = catalog.prs.filter((b) => !seen.has(b.ref) && seen.add(b.ref));
+      list('main-list', catalog.main);
+      list('pr-list', prs);
+      $('dev').hidden = false;
+      if (location.hash === '#dev') $('dev').scrollIntoView();
+    }
+
+    /** One build: the picker, then every file with its size and checksum. */
+    async function build(path: string) {
+      const m = await getJson<Manifest>(`/downloads/${path}/manifest.json`);
+      if (!m) {
+        status(t.notFound, true);
+        return false;
+      }
+      const { title, meta } = heading(m);
+      $('dl-title').textContent = title;
+      $('dl-intro').replaceChildren(...meta);
+      document.title = `${title} · etmc`;
+      showPicker(m, { head: false, warn: m.kind === 'pr' ? t.prWarning : m.kind === 'main' ? t.devWarning : undefined });
+
+      const order = (f: FileEntry) => LOADERS.indexOf(f.loader);
+      const files = [...m.files].sort((a, b) => order(a) - order(b) || compareVersions(b.mc, a.mc));
+      const jarLink = (f: FileEntry) => {
+        const a = el('a', { href: fileOf(m, f), download: f.name }, f.name);
+        a.dataset.astroPrefetch = 'false';   // a prefetch would download the jar
+        return a;
+      };
+      $('files-body').replaceChildren(...files.map((f) => el('tr', {},
+        el('td', { className: 'loader' }, NAMES[f.loader]),
+        el('td', {}, f.mc),
+        el('td', {}, jarLink(f)),
+        el('td', { className: 'size' }, size(f.size)))));
+      // The format sha256sum -c reads.
+      $('checksums').textContent = files.map((f) => `${f.sha256}  ${f.name}`).join('\n');
+      $<HTMLAnchorElement>('back').href = base;
+      $('files').hidden = false;
+
+      // The language menus keep this build.
+      for (const a of document.querySelectorAll<HTMLAnchorElement>('.lang-menu a, .site-footer .languages a')) {
+        a.href = `${a.getAttribute('href')}/${path}/`;
+      }
+      return true;
+    }
+
+    (async () => {
+      try {
+        if (!rest) {
+          await overview();
+          status('');
+        } else if (!parseBuild(rest)) {
+          status(t.notFound, true);
+        } else if (await build(rest)) {
+          status('');
+        }
+      } catch (error) {
+        console.error(error);
+        status(t.failed, true);
+      }
+    })();
+  </script>
+</BaseLayout>

@@ -33,7 +33,7 @@ jobs:
   jars:
     needs: natives
     uses: ./.github/workflows/build.yml
-    secrets: inherit   # the R2 decompile-cache secrets; without them every shard builds cold
+    # No secrets to pass: the decompile cache's key comes from the r2-cache environment, which build.yml's jobs use.
 
   publish:
     name: publish release
@@ -58,3 +58,31 @@ jobs:
           files: jars/**/*.jar
           fail_on_unmatched_files: true
           generate_release_notes: true
+
+  # The same jars on the downloads page, at https://etmc.l5z12.dev/downloads/release/<tag>/. The key to the
+  # downloads bucket is in the downloads environment, which only main and v* tags may use.
+  downloads:
+    name: publish to downloads
+    needs: jars
+    if: startsWith(github.ref, 'refs/tags/') && github.repository == 'l5z12/etmc'
+    runs-on: ubuntu-latest
+    environment:
+      name: downloads
+      url: https://etmc.l5z12.dev/downloads/release/${{ github.ref_name }}/
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+          persist-credentials: false
+
+      - name: Publish to downloads
+        uses: ./.github/actions/publish-downloads
+        with:
+          kind: release
+          ref: ${{ github.ref_name }}
+          sha: ${{ github.sha }}
+          account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          access-key-id: ${{ secrets.DOWNLOADS_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.DOWNLOADS_SECRET_ACCESS_KEY }}
+          bucket: ${{ vars.DOWNLOADS_BUCKET }}

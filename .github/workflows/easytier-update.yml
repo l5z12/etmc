@@ -79,8 +79,7 @@ jobs:
   # The full build, against the fresh natives (build.yml picks up this run's native-* artifacts).
   build:
     needs: natives
-    uses: ./.github/workflows/build.yml
-    secrets: inherit
+    uses: ./.github/workflows/build.yml   # its R2 cache key comes from the r2-cache environment
 
   pr:
     name: open update PR

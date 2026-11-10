@@ -80,7 +80,8 @@ Rebuild natives with the `natives.yml` workflow. `easytier-update.yml` also prop
 
 ## Website
 
-Run `bun run dev` in `site/` to work on it, and `bun run deploy` to publish it.
+Run `bun run dev` in `site/` to work on it, and `bun run deploy` to publish it. `bun run preview` runs it with its
+Worker, whose `/downloads` then reads a local stand-in for the `etmc-downloads` bucket, empty to begin with.
 
 The site is in English, Simplified Chinese (`/zh-cn/`) and Traditional Chinese (`/zh-tw/`). Each page in
 `src/pages/[...lang]/` is built once for every language, and only its text is translated. Write English only:
@@ -98,6 +99,48 @@ glossary, so button names match the game. `bun run translate --check` lists tran
 
 You can fix a translation by hand. The fix stays until its English changes.
 
+## Downloads
+
+The [Download page](https://etmc.l5z12.dev/downloads) lists the builds in the `etmc-downloads` R2 bucket. The bucket
+is private: the site's Worker (`site/worker/`) is the only way in, and it serves only jars, as downloads.
+
+| Build                      | Uploaded by        | Kept                                               |
+| -------------------------- | ------------------ | -------------------------------------------------- |
+| `release/<tag>/`           | `release.yml`      | Always                                             |
+| `ci/main/<commit>/`        | `build.yml`        | The newest 5                                       |
+| `ci/pr/<number>/<commit>/` | `pr-downloads.yml` | The newest 3 of each pull request, until it closes |
+
+A path that stops early, such as `/downloads/ci/main`, goes to the newest build there. `site/src/lib/downloads.ts`
+describes the layout. `.github/scripts/downloads.sh` does the uploads, through the `publish-downloads` action, and
+`downloads-sweep.yml` runs it daily to remove closed pull requests' builds.
+
+A fork's pull request built its own jars, and they'd be served from etmc.l5z12.dev, so its upload waits for a
+maintainer. Read the pull request's changes, `.github/` included, then approve the `downloads-fork` environment on
+its `pr downloads` run. Pull requests from this repository's own branches go up without approval.
+
+Never put the decompile cache (the `etmc` bucket) where anyone else can download it. It's Minecraft's own code, and
+the Minecraft EULA doesn't allow giving it to anyone.
+
+### CI secrets
+
+Every secret is in an environment, so only the jobs that use one get it:
+
+| Environment      | For                                                                         | Usable from       |
+| ---------------- | --------------------------------------------------------------------------- | ----------------- |
+| `r2-cache`       | The decompile cache, in `build.yml`'s shards                                | Every branch      |
+| `downloads`      | Uploads of `main`, releases and our own branches' pull requests; the sweep  | `main`, `v*` tags |
+| `downloads-fork` | Uploads of forks' pull requests, once approved                              | `main`            |
+| `etmc-bot`       | `easytier-update.yml`'s pull request                                        | `main`            |
+
+- `r2-cache`: secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`, variable `R2_BUCKET` (`etmc`).
+- `downloads` and `downloads-fork`: secrets `R2_ACCOUNT_ID`, `DOWNLOADS_ACCESS_KEY_ID` and
+  `DOWNLOADS_SECRET_ACCESS_KEY`, variable `DOWNLOADS_BUCKET` (`etmc-downloads`). `downloads-fork` also has a required
+  reviewer.
+- `etmc-bot`: secrets `ETMC_BOT_TOKEN` and `ETMC_BOT_GPG_KEY`.
+
+Each R2 key is an R2 API token with Object Read & Write on its one bucket. Pull request builds get the cache's key,
+so it mustn't be able to touch the downloads.
+
 ## Release
 
-Push a `v*` tag.
+Push a `v*` tag. It goes to GitHub Releases and the Download page.

@@ -1,0 +1,38 @@
+name: downloads sweep
+
+# Takes closed pull requests' test builds off the downloads page, once a day. (pr-downloads.yml keeps only each pull
+# request's newest few, and only while it's open.)
+on:
+  schedule:
+    - cron: '23 4 * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  sweep:
+    name: remove closed pull requests' builds
+    if: github.repository == 'l5z12/etmc'
+    runs-on: ubuntu-latest
+    environment:
+      name: downloads
+      # Removing builds isn't a deployment.
+      deployment: false
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Checkout etmc
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: Remove closed pull requests' builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.DOWNLOADS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.DOWNLOADS_SECRET_ACCESS_KEY }}
+          BUCKET: ${{ vars.DOWNLOADS_BUCKET }}
+        run: bash .github/scripts/downloads.sh sweep

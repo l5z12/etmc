@@ -288,6 +288,42 @@
       "downloaded": "Downloaded {file}"
     }
   },
+  "downloads": {
+    "title": "Download",
+    "description": "Download etmc for Fabric, Forge or NeoForge, or the plugin for a Paper server.",
+    "intro": "Choose your loader and Minecraft version.",
+    "noscript": "This page needs JavaScript. You can also download etmc from <a href=\"https://github.com/L5Z12/etmc/releases\">GitHub</a>.",
+    "script": {
+      "loading": "Loading…",
+      "failed": "The downloads didn't load. Try again in a minute.",
+      "notFound": "This build doesn't exist, or it's been deleted.",
+      "release": "etmc {version}",
+      "released": "Released {date}",
+      "dev": "Development build",
+      "built": "Built {date} from {commit}",
+      "pr": "Pull request #{number}",
+      "prBy": "{title}, by {author}",
+      "loader": "Loader",
+      "minecraft": "Minecraft",
+      "paper": "Paper server",
+      "download": "Download",
+      "fabricApi": "On Fabric, also install <a href=\"https://modrinth.com/mod/fabric-api\">Fabric API</a>.",
+      "noRelease": "There's no release yet. Until there is, this is the newest development build.",
+      "devWarning": "Development builds haven't been released, so they may have bugs. Back up your worlds first.",
+      "prWarning": "This is a test build of changes that haven't been accepted yet. Only use it if a developer asked you to.",
+      "allFiles": "All files",
+      "allDownloads": "All downloads",
+      "olderReleases": "Older releases",
+      "devTitle": "Development builds",
+      "devIntro": "The newest changes, before they're released. They may have bugs, so back up your worlds first.",
+      "testTitle": "Test builds",
+      "testIntro": "Changes that are still being reviewed. Only use one if a developer asked you to.",
+      "none": "None right now.",
+      "file": "File",
+      "size": "Size",
+      "checksums": "SHA-256 checksums"
+    }
+  },
   "notFound": {
     "title": "Page not found",
     "description": "This page doesn't exist.",

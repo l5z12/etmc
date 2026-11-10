@@ -1,0 +1,138 @@
+name: pr downloads
+
+# Puts each pull request's jars on the downloads page as a test build, at
+# https://etmc.l5z12.dev/downloads/ci/pr/<number>/<commit>/, and links it from the pull request's checks ("downloads").
+#
+# Runs after build.yml finishes for a pull request, always from main's copy of this file, so a pull request can't
+# change what runs here. It only copies the build's jars: nothing the pull request made is run.
+#
+# A fork's pull request controlled its own build, so its jars could be anything, and they'd be served from
+# etmc.l5z12.dev. Its upload goes through the downloads-fork environment, which waits until a maintainer approves it
+# on this workflow's run. Approve only after reading the pull request's changes, .github/ included. Pull requests
+# from branches of this repository were pushed by someone with write access, and go up straight away.
+on:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+
+permissions: {}
+
+concurrency:
+  # One upload per pull request: a new commit cancels the last one's, including one still waiting for approval.
+  group: pr-downloads-${{ github.event.workflow_run.head_repository.full_name }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  # Tells a fork's pull request why its test build hasn't appeared, and where a maintainer approves it.
+  waiting:
+    name: ask for approval
+    if: >-
+      github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+      && github.repository == 'l5z12/etmc'
+      && github.event.workflow_run.head_repository.full_name != github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Mark the test build as waiting
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state=pending -f context=downloads \
+            -f description="Waiting for a maintainer to approve the upload" -f target_url="$RUN" > /dev/null
+
+  upload:
+    name: publish to downloads
+    if: >-
+      github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
+      && github.repository == 'l5z12/etmc'
+    runs-on: ubuntu-latest
+    environment:
+      # A deleted fork has no head repository, so it counts as a fork too.
+      name: ${{ github.event.workflow_run.head_repository.full_name == github.repository && 'downloads' || 'downloads-fork' }}
+      # Pull requests aren't deployments of main, which is what one here would record.
+      deployment: false
+    permissions:
+      actions: read          # the build's artifacts
+      contents: read
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Find the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD: ${{ github.event.workflow_run.head_repository.owner.login }}:${{ github.event.workflow_run.head_branch }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # The open pull request whose head is this commit, from GitHub rather than from the build. (A fork's
+          # workflow_run lists no pull requests, so look it up by its head branch.)
+          # shellcheck disable=SC2016 # $ENV.SHA is jq's
+          pr=$(gh api -X GET "repos/$GITHUB_REPOSITORY/pulls" -f state=open -f head="$HEAD" -f per_page=100 \
+            --jq '[.[] | select(.head.sha == $ENV.SHA)] | first // empty | {number, title, author: .user.login}')
+          if [ -z "$pr" ]; then
+            echo "No open pull request has $SHA as its head (closed, or pushed to since). Nothing to upload."
+            # A fork's commit was marked as waiting for approval. Say why nothing came of it.
+            state=$(gh api "repos/$GITHUB_REPOSITORY/commits/$SHA/status" \
+              --jq '.statuses[] | select(.context == "downloads") | .state')
+            if [ "$state" = pending ]; then
+              gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state=error -f context=downloads \
+                -f description="Not uploaded: the pull request was closed or has newer commits" \
+                -f target_url="$RUN" > /dev/null
+            fi
+            exit 0
+          fi
+          {
+            echo "number=$(jq -r .number <<<"$pr")"
+            echo "author=$(jq -r .author <<<"$pr")"
+            # Titles are one line, but the delimiter keeps any title from adding outputs of its own.
+            delimiter=$(openssl rand -hex 16)
+            printf 'title<<%s\n%s\n%s\n' "$delimiter" "$(jq -r .title <<<"$pr")" "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout etmc (main)
+        if: steps.pr.outputs.number != ''
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github
+          persist-credentials: false
+
+      - name: Publish to downloads
+        if: steps.pr.outputs.number != ''
+        uses: ./.github/actions/publish-downloads
+        with:
+          kind: pr
+          ref: ${{ steps.pr.outputs.number }}
+          sha: ${{ github.event.workflow_run.head_sha }}
+          pr-title: ${{ steps.pr.outputs.title }}
+          pr-author: ${{ steps.pr.outputs.author }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          access-key-id: ${{ secrets.DOWNLOADS_ACCESS_KEY_ID }}
+          secret-access-key: ${{ secrets.DOWNLOADS_SECRET_ACCESS_KEY }}
+          bucket: ${{ vars.DOWNLOADS_BUCKET }}
+
+      - name: Link the test build from the pull request
+        if: steps.pr.outputs.number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          NUMBER: ${{ steps.pr.outputs.number }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state=success -f context=downloads \
+            -f description="Test build ready to download" \
+            -f target_url="https://etmc.l5z12.dev/downloads/ci/pr/$NUMBER/$SHA/" > /dev/null
+
+      - name: Mark the upload as failed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state=failure -f context=downloads \
+            -f description="The test build's upload failed" -f target_url="$RUN" > /dev/null

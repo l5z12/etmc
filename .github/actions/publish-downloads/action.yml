@@ -1,0 +1,66 @@
+name: Publish to downloads
+description: >-
+  Uploads a build's jars to the downloads bucket, for https://etmc.l5z12.dev/downloads/. Runs
+  .github/scripts/downloads.sh, so check out .github first. The key comes from the job's downloads or downloads-fork
+  environment (see CONTRIBUTING.md).
+
+inputs:
+  kind:
+    description: release, main or pr
+    required: true
+  ref:
+    description: The tag, main, or the pull request's number
+    required: true
+  sha:
+    description: The commit the jars were built from
+    required: true
+  pr-title:
+    description: The pull request's title
+    default: ''
+  pr-author:
+    description: The pull request's author
+    default: ''
+  run-id:
+    description: The run whose jars to upload. Another run's need github-token.
+    default: ${{ github.run_id }}
+  github-token:
+    description: A token that can read the artifacts of run-id, when that's another run
+    default: ''
+  account-id:
+    description: secrets.R2_ACCOUNT_ID
+    required: true
+  access-key-id:
+    description: secrets.DOWNLOADS_ACCESS_KEY_ID
+    required: true
+  secret-access-key:
+    description: secrets.DOWNLOADS_SECRET_ACCESS_KEY
+    required: true
+  bucket:
+    description: vars.DOWNLOADS_BUCKET
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Download the jars
+      uses: actions/download-artifact@v8
+      with:
+        run-id: ${{ inputs.run-id }}
+        github-token: ${{ inputs.github-token }}
+        pattern: etmc-*jars*
+        merge-multiple: true
+        path: ${{ runner.temp }}/downloads-jars
+
+    - name: Upload to the downloads bucket
+      shell: bash
+      env:
+        KIND: ${{ inputs.kind }}
+        REF: ${{ inputs.ref }}
+        SHA: ${{ inputs.sha }}
+        PR_TITLE: ${{ inputs.pr-title }}
+        PR_AUTHOR: ${{ inputs.pr-author }}
+        R2_ACCOUNT_ID: ${{ inputs.account-id }}
+        AWS_ACCESS_KEY_ID: ${{ inputs.access-key-id }}
+        AWS_SECRET_ACCESS_KEY: ${{ inputs.secret-access-key }}
+        BUCKET: ${{ inputs.bucket }}
+      run: bash "$GITHUB_ACTION_PATH/../../scripts/downloads.sh" publish "$RUNNER_TEMP/downloads-jars"

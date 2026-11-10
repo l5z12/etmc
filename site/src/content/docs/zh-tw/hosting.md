@@ -33,7 +33,7 @@ etmc 會用 Minecraft 為你的聊天訊息所用的金鑰，替每位玩家的�
 
 ## 開放 Paper 伺服器
 
-1. 從 [Releases](https://github.com/L5Z12/etmc/releases) 下載 etmc 的 Paper jar，放進你的 `plugins` 資料夾。
+1. 從[下載](/downloads)頁面下載 etmc 的 Paper jar，放進你的 `plugins` 資料夾。
 2. 用[產生器](/generator)建立設定檔（它會建議一組隨機金鑰），並存成 `plugins/etmc/config.yml`。
 3. 重新啟動伺服器，或執行 `/etmc reload`。
 4. 從伺服器記錄中複製 `etmc://` 連結，或執行 `/etmc link`。
