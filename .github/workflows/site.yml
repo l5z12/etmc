@@ -1,12 +1,8 @@
 name: site
 
 # Checks the docs/generator site. Split from build.yml — which deliberately ignores site/** because
-# no jar depends on it — so a site edit doesn't spin up the loader matrix. Cheap: install, test,
-# typecheck, build (~1 min, one runner).
-#
-# Pushes to main run it only for site changes. Every pull request runs it, because the PROTECT ruleset
-# requires "test + typecheck + build", and a filtered-out workflow never reports, which would leave a
-# mod-only pull request waiting forever. At a minute, it isn't worth a paths check like build.yml's.
+# no jar depends on it — so a site edit doesn't spin up the loader matrix, and a mod edit doesn't
+# spin up bun. Cheap: install, test, typecheck, build (~1 min, one runner).
 #
 # The test that matters here is the wire-format one: site/src/lib/genConfig.ts re-implements the
 # etmc:// link and the TOML escaping in the browser, and only stays interchangeable
@@ -19,6 +15,9 @@ on:
       - 'site/**'
       - '.github/workflows/site.yml'
   pull_request:
+    paths:
+      - 'site/**'
+      - '.github/workflows/site.yml'
   workflow_dispatch:
 
 permissions:
