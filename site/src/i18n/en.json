@@ -206,7 +206,8 @@
       "<strong>Everyone needs the mod.</strong> Friends can't join from plain Minecraft.",
       "<strong>You have to add a relay.</strong> It isn't built in, but a free community node works.",
       "<strong>It's only for Minecraft.</strong> It won't connect anything else.",
-      "<strong>Your secret isn't protected.</strong> It's plain text, so keep it random."
+      "<strong>Your secret isn't protected.</strong> It's plain text, so keep it random.",
+      "<strong>Some networks block it.</strong> Some ISPs, schools and workplaces block peer-to-peer traffic or EasyTier itself, so the game goes through the relay or can't connect at all. A <code>wss://</code> relay looks like web traffic and is harder to block."
     ],
     "sourcesTitle": "Sources",
     "sources": {

@@ -206,7 +206,8 @@
       "<strong>所有人都需要装模组。</strong>好友不能用原版 Minecraft 加入。",
       "<strong>你必须添加中继。</strong>它没有内置中继，但免费的社区节点就能用。",
       "<strong>它只适用于 Minecraft。</strong>无法连接其他东西。",
-      "<strong>你的密钥不受保护。</strong>它是明文保存的，所以要保证足够随机。"
+      "<strong>你的密钥不受保护。</strong>它是明文保存的，所以要保证足够随机。",
+      "<strong>一些网络会封锁它。</strong>部分网络运营商、学校和工作场所会封锁点对点流量或 EasyTier 本身，于是游戏只能经中继进行，甚至完全连不上。而 <code>wss://</code> 中继看起来就像网页流量，更难被封锁。"
     ],
     "sourcesTitle": "来源",
     "sources": {
