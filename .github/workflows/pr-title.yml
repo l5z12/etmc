@@ -1,0 +1,27 @@
+name: pr title
+
+# Fails a pull request whose title isn't a Conventional Commit, such as "feat: add X" or "fix(site): Y".
+# Reruns when the title is edited. The title goes in through env, never into the script itself.
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  check:
+    name: pr title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          types='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
+          re="^($types)(\([a-z0-9._/-]+\))?!?: [^[:space:]]"
+          if [[ $TITLE =~ $re ]]; then
+            echo "The title is a Conventional Commit."
+            exit 0
+          fi
+          echo "::error::Title the pull request as a Conventional Commit, such as \"feat: add X\" or \"fix(site): Y\". Types: ${types//|/, }."
+          exit 1
