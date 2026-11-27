@@ -1,0 +1,70 @@
+name: build status
+
+# Sets one commit status, "build", on each pull request's head, for the PROTECT ruleset to require.
+#
+# build.yml skips pull requests that change only files on its paths-ignore list (site/**, Markdown and so on). A
+# workflow that doesn't start reports no checks, so requiring build.yml's own jobs would leave such a pull request
+# waiting forever. "build" is set either way:
+# - to success straight away, when a pull request changes only files build.yml ignores;
+# - to build.yml's result, when it finishes for a pull request.
+#
+# Both triggers run main's copy of this file, with a token that can set statuses, forks' pull requests included.
+# Nothing from the pull request is checked out or run.
+on:
+  pull_request_target:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  nothing-to-build:
+    name: nothing to build?
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      statuses: write
+    steps:
+      - name: Set "build" if build.yml won't run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$NUMBER/files?per_page=100" --jq '.[].filename')
+          # The API lists at most 3000 files, so a list that long may be missing some.
+          if [ "$(wc -l <<<"$files")" -ge 3000 ]; then
+            echo "Too many files to tell, so build.yml runs and sets \"build\"."
+            exit 0
+          fi
+          # build.yml's pull_request paths-ignore list, as a regex. Keep the two in step: a file that build.yml ignores
+          # but this doesn't leaves "build" unset.
+          ignored='^(site/|\.gitignore$|LICENSE$|\.github/workflows/(release|natives)\.yml$)|\.md$'
+          if grep -qvE "$ignored" <<<"$files"; then
+            echo "build.yml runs for this pull request and sets \"build\" when it finishes."
+            exit 0
+          fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state=success -f context=build \
+            -f description="Nothing to build: only files the build ignores change" > /dev/null
+          echo "Nothing to build. \"build\" is set to success."
+
+  result:
+    name: build result
+    if: github.event_name == 'workflow_run' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Set "build" to build.yml's result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          if [ "$CONCLUSION" = success ]; then state=success; else state=failure; fi
+          gh api "repos/$GITHUB_REPOSITORY/statuses/$SHA" -f state="$state" -f context=build \
+            -f description="The build finished: $CONCLUSION" -f target_url="$URL" > /dev/null
+          echo "\"build\" is set to $state ($CONCLUSION)."
