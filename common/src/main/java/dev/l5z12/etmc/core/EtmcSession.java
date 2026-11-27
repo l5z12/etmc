@@ -363,6 +363,17 @@ public final class EtmcSession {
         }
     }
 
+    /**
+     * This machine's UDP NAT type, blocking for up to {@code timeoutMs}. A running network finds it out
+     * anyway, so this waits for that one's answer; otherwise it runs a {@link NatCheck}. Not
+     * synchronized: hosting or joining shouldn't have to wait for a check.
+     *
+     * @return the type, or {@link NatType#UNKNOWN} if none was found in time
+     */
+    public NatType natType(long timeoutMs) throws InterruptedException {
+        return instName != null ? NatCheck.await(() -> status().nat(), timeoutMs) : NatCheck.run(et, timeoutMs);
+    }
+
     /** While hosting, the mesh addresses of the peers in the world (see {@link HostShare#connectedPeers}). */
     public Set<String> connectedPeers() {
         HostShare hs = hostShare;

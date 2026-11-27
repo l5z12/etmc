@@ -10,6 +10,7 @@ import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Msg;
+import dev.l5z12.etmc.core.NatType;
 import dev.l5z12.etmc.core.NetworkStatus;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
@@ -230,8 +231,20 @@ public final class StatusScreen extends EtmcBaseScreen {
             }
             NetworkStatus.Peer host = code == null ? null : st.peerAt(code.hostIp);
             if (host != null) {
-                lines.add(new Line(host.relay() ? Msg.tr("etmc.status.route.relay", "Connected to the host through the relay")
-                        : Msg.tr("etmc.status.route.direct", "Connected directly to the host"), COLOR_MUTED));
+                lines.add(new Line(!host.relay() ? Msg.tr("etmc.status.route.direct", "Connected directly to the host")
+                        : st.nat().blocksDirect(host.nat()) ? Msg.tr("etmc.status.route.relay_nat",
+                                "Connected to the host through the relay: your NATs are too strict to connect directly")
+                        : Msg.tr("etmc.status.route.relay", "Connected to the host through the relay"), COLOR_MUTED));
+            }
+        }
+        if (st.nat().known()) {
+            lines.add(new Line(Msg.tr("etmc.status.nat", "Your NAT type: %s", st.nat().describe()), COLOR_MUTED));
+        }
+        if (hosting) {
+            long stuck = st.peers().stream().filter(p -> p.relay() && st.nat().blocksDirect(p.nat())).count();
+            if (stuck > 0) {
+                lines.add(new Line(Msg.tr("etmc.status.nat_relayed", "Players who can't connect to you directly, "
+                        + "because both NATs are too strict: %s", stuck), COLOR_MUTED));
             }
         }
         lines.add(new Line(Msg.tr("etmc.status.network", "Network %s", code == null ? "?" : code.networkName), COLOR_MUTED));
@@ -289,6 +302,15 @@ public final class StatusScreen extends EtmcBaseScreen {
         String full = note.apply(name);
         if (Wrap.width(font(), full) <= w) return full;
         return note.apply(Wrap.fit(font(), name, Math.max(0, w - Wrap.width(font(), note.apply("")))));
+    }
+
+    /** The color to show a NAT type's meaning in: green when it's open, then yellow, then orange. */
+    static int natColor(NatType nat) {
+        return switch (nat.grade()) {
+            case OPEN -> COLOR_GOOD;
+            case MODERATE -> COLOR_BUSY;
+            case STRICT, UNKNOWN -> COLOR_WARN;
+        };
     }
 
     private static int pingColor(int ms) {

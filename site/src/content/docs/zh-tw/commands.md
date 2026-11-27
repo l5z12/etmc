@@ -19,6 +19,7 @@ description: 所有 /etmc 指令。
 | `/etmc leave` | 離開網路。 |
 | `/etmc relay add\|list\|clear` | 管理中繼。 |
 | `/etmc hud` | 顯示或隱藏狀態顯示。 |
+| `/etmc nat` | 偵測你的 NAT 類型，了解其他玩家能否直接連線到你。 |
 
 ## Paper 伺服器
 
@@ -26,7 +27,7 @@ description: 所有 /etmc 指令。
 
 | 指令 | 作用 |
 | --- | --- |
-| `/etmc status` | 顯示伺服器的連線狀態和玩家。 |
+| `/etmc status` | 顯示伺服器的連線狀態、NAT 類型和玩家。 |
 | `/etmc link` | 顯示邀請連結。 |
 | `/etmc config` | 在外掛資料夾中寫入玩家設定檔 join-config.toml。 |
 | `/etmc reload` | 重新載入 config.yml 並重新連線。 |

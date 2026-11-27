@@ -13,10 +13,12 @@ import java.util.Set;
 /**
  * A loose, defensive view of an EasyTier instance's live state, parsed from the JSON returned by
  * {@code collect_network_infos}. We only pull out what the UI shows (virtual IP, peers, latency,
- * running flag) and tolerate missing/renamed fields rather than failing.
+ * running flag, NAT types) and tolerate missing/renamed fields rather than failing.
+ *
+ * @param nat this node's UDP NAT type, {@link NatType#UNKNOWN} until EasyTier's STUN check finishes
  */
 public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers, String errorMsg,
-                            int relayNodes) {
+                            int relayNodes, NatType nat) {
 
     /**
      * A snapshot is published to the render thread as soon as it is built, so freeze the peer list:
@@ -25,6 +27,12 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
     public NetworkStatus {
         peers = peers == null ? List.of() : List.copyOf(peers);
         if (errorMsg != null && errorMsg.isBlank()) errorMsg = null;
+        if (nat == null) nat = NatType.UNKNOWN;
+    }
+
+    /** A status whose NAT type isn't known. */
+    public NetworkStatus(boolean running, String virtualIp, List<Peer> peers, String errorMsg, int relayNodes) {
+        this(running, virtualIp, peers, errorMsg, relayNodes, NatType.UNKNOWN);
     }
 
     /** A status without relay-node accounting (tests, and callers that don't care). */
@@ -34,12 +42,22 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
 
     /**
      * A reachable peer. {@code relay} = traffic is routed through another node (not a direct/P2P link);
-     * {@code cost} is EasyTier's route cost (1 = direct/p2p, &gt;1 = relayed) for diagnostics.
+     * {@code cost} is EasyTier's route cost (1 = direct/p2p, &gt;1 = relayed) for diagnostics. {@code nat}
+     * is the peer's UDP NAT type, as it last told the network.
      */
-    public record Peer(String hostname, String ipv4, int latencyMs, boolean relay, int cost) {
+    public record Peer(String hostname, String ipv4, int latencyMs, boolean relay, int cost, NatType nat) {
 
         /** What etmc adds to a host's device name, so the host stands out in EasyTier's own tools. */
         public static final String HOST_SUFFIX = "-host";
+
+        public Peer {
+            if (nat == null) nat = NatType.UNKNOWN;
+        }
+
+        /** A peer whose NAT type isn't known. */
+        public Peer(String hostname, String ipv4, int latencyMs, boolean relay, int cost) {
+            this(hostname, ipv4, latencyMs, relay, cost, NatType.UNKNOWN);
+        }
 
         /**
          * The name to show for this peer: its device name, less the {@link #HOST_SUFFIX} etmc gives the
@@ -123,9 +141,11 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
             String errorMsg = optString(root, "error_msg");
 
             String vip = null;
+            NatType nat = NatType.UNKNOWN;
             JsonObject myNode = optObject(root, "my_node_info");
             if (myNode != null) {
                 vip = decodeIpv4Inet(optObject(myNode, "virtual_ipv4"));
+                nat = udpNat(myNode);
             }
 
             List<Peer> peers = new ArrayList<>();
@@ -155,10 +175,10 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
                     if (hostname == null || hostname.isEmpty()) {
                         hostname = "peer-" + optInt(route, "peer_id", 0); // hostname not propagated yet
                     }
-                    peers.add(new Peer(hostname, ip, latency, relay, cost));
+                    peers.add(new Peer(hostname, ip, latency, relay, cost, udpNat(route)));
                 }
             }
-            return new NetworkStatus(running, vip, peers, errorMsg, relayNodes);
+            return new NetworkStatus(running, vip, peers, errorMsg, relayNodes, nat);
         } catch (Exception e) {
             return empty();
         }
@@ -186,6 +206,15 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
             }
         }
         return n > 0 ? (int) Math.round((sumUs / (double) n) / 1000.0) : -1;
+    }
+
+    /**
+     * The UDP NAT type in {@code node.stun_info.udp_nat_type}, for this node or a peer's route. EasyTier
+     * writes it by name, and leaves it out while it is still unknown (protobuf JSON drops a default).
+     */
+    private static NatType udpNat(JsonObject node) {
+        JsonObject stun = optObject(node, "stun_info");
+        return stun == null ? NatType.UNKNOWN : NatType.of(optString(stun, "udp_nat_type"));
     }
 
     /** Decodes {@code { "address": { "addr": <u32> }, "network_length": n }} into a dotted string. */

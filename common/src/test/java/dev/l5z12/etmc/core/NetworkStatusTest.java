@@ -60,6 +60,31 @@ class NetworkStatusTest {
         assertTrue(relayed.relay());
     }
 
+    /** The stun_info shapes the FFI really writes: types by name, and the field left out while unknown. */
+    @Test
+    void readsTheNatTypesOfThisNodeAndItsPeers() {
+        String json = """
+                {
+                  "running": true,
+                  "my_node_info": { "stun_info": { "udp_nat_type": "PortRestricted", "tcp_nat_type": "FullCone",
+                                                   "last_update_time": "1795785826", "public_ip": ["203.0.113.7"] } },
+                  "peer_route_pairs": [
+                    { "route": { "ipv4_addr": { "address": { "addr": %d } }, "hostname": "alice", "cost": 2,
+                                 "stun_info": { "udp_nat_type": "Symmetric" } } },
+                    { "route": { "ipv4_addr": { "address": { "addr": %d } }, "hostname": "bob", "cost": 1,
+                                 "stun_info": {} } }
+                  ]
+                }
+                """.formatted(addr(2), addr(3));
+        NetworkStatus st = NetworkStatus.parse(json);
+
+        assertEquals(NatType.PORT_RESTRICTED, st.nat(), "the UDP type, not the TCP one");
+        assertEquals(NatType.SYMMETRIC, st.peers().get(0).nat());
+        assertEquals(NatType.UNKNOWN, st.peers().get(1).nat(), "an empty stun_info: STUN hasn't answered yet");
+        assertEquals(NatType.UNKNOWN, NetworkStatus.parse(JSON).nat(), "no stun_info at all");
+        assertEquals(NatType.UNKNOWN, NetworkStatus.UNKNOWN.nat());
+    }
+
     @Test
     void badInputYieldsAnEmptyStatusRatherThanThrowing() {
         for (String bad : new String[] {null, "", "   ", "not json", "[1,2,3]", "{\"peer_route_pairs\":42}"}) {

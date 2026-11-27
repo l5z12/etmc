@@ -41,6 +41,22 @@ the host if you can. If you choose **Join anyway**, **Session status** shows tha
 
 Run `/etmc status` to see how many players are connected, and how many of them directly.
 
+Your NAT type says how easily other players can connect to you directly. **Session status** shows it. To check it before
+you play, click **Check my NAT type** under **Settings & relays**, or run `/etmc nat`.
+
+| NAT type | What it means |
+| --- | --- |
+| Open | Direct connections should work with everyone. |
+| Moderate | Direct connections work with most players, but not with a strict NAT. |
+| Strict | Direct connections only work with players on an open NAT. |
+
+When two players can't connect directly, the game still works, but it goes through the relay, which can add lag. A
+strict NAT usually comes from your router or your internet provider. Phone hotspots and school or office networks are
+often strict. If etmc can't find your NAT type at all, the network may be blocking UDP, and then every connection goes
+through the relay.
+
+etmc rates NAT types by what it can connect through, so its rating can differ from what a game console shows.
+
 ## Don't have a link?
 
 If a server admin gave you a config URL, see [Config URLs](/docs/connect-url). If you know the network details, you

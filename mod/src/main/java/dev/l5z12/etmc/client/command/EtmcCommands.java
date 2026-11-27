@@ -35,7 +35,7 @@ import net.minecraft.commands.Commands;*/
 
 /**
  * {@code /etmc ...} client-side commands as a GUI alternative: host, join, leave, status, invite,
- * relay management, hud toggle, menu.
+ * relay management, hud toggle, NAT check, menu.
  *
  * <p>The command source is a different type per loader (Fabric {@code FabricClientCommandSource} vs
  * mojmap {@code CommandSourceStack}) and answers the player through differently-named methods
@@ -60,6 +60,7 @@ public final class EtmcCommands {
                 .then(lit("leave").executes(ctx -> leave(src(ctx))))
                 .then(lit("invite").executes(ctx -> invite(src(ctx))))
                 .then(lit("hud").executes(ctx -> toggleHud(src(ctx))))
+                .then(lit("nat").executes(ctx -> nat(src(ctx))))
                 .then(lit("host")
                         .executes(ctx -> host(src(ctx), defaultNetworkName(), ""))
                         .then(arg("network", StringArgumentType.word())
@@ -220,6 +221,15 @@ public final class EtmcCommands {
         McScreens.setClipboard(jc.encodeLink());
         src.feedback(Msg.tr("etmc.cmd.invite.copied", "Invite link copied to your clipboard. Friends paste it into "
                 + "Direct Connect (or etmc → Join). It contains the secret: send it only to people you want in."));
+        return 1;
+    }
+
+    private static int nat(Src src) {
+        if (!checkReady(src)) return 0;
+        src.feedback(Msg.tr("etmc.settings.nat.checking", "Checking your NAT type…"));
+        EtmcManager.get().checkNatAsync().whenComplete((found, err) -> reply(err != null
+                ? Msg.tr("etmc.nat.failed", "Couldn't check your NAT type: %s", Errors.message(err))
+                : Msg.tr("etmc.cmd.nat", "NAT type: %s. %s", found.describe(), found.grade().meaning())));
         return 1;
     }
 

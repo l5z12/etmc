@@ -57,10 +57,13 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("  virtual ip: " + (st.virtualIp() == null ? "(assigning)" : st.virtualIp())
                 + "   peers: " + st.peerCount() + " (P2P " + st.directPeerCount() + ")"
                 + "   connections: " + plugin.session().activeConnections());
+        sender.sendMessage("  NAT type: " + (st.nat().known() ? st.nat().describe() + ". " + st.nat().grade().meaning()
+                : "not known yet (EasyTier is still checking, or this network blocks UDP)"));
         for (NetworkStatus.Peer p : st.peers()) {
             sender.sendMessage("   - " + p.hostname() + " " + (p.ipv4() == null ? "" : p.ipv4())
                     + (p.latencyMs() >= 0 ? " " + p.latencyMs() + "ms" : "")
-                    + (p.relay() ? " (relay)" : ""));
+                    + (p.relay() ? " (relay" + (st.nat().blocksDirect(p.nat()) ? ": both NATs too strict" : "") + ")" : "")
+                    + (p.nat().known() ? "  NAT " + p.nat().describe() : ""));
         }
     }
 

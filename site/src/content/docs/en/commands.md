@@ -19,6 +19,7 @@ oldest Fabric versions don't have these commands, so use the menu there.
 | `/etmc leave` | Leave the network. |
 | `/etmc relay add\|list\|clear` | Manage your relays. |
 | `/etmc hud` | Show or hide the status overlay. |
+| `/etmc nat` | Check your NAT type, which says how easily players can connect to you directly. |
 
 ## Paper server
 
@@ -26,7 +27,7 @@ These need operator permission (`etmc.admin`).
 
 | Command | What it does |
 | --- | --- |
-| `/etmc status` | Show the server's connection and players. |
+| `/etmc status` | Show the server's connection, NAT type and players. |
 | `/etmc link` | Show the invite link. |
 | `/etmc config` | Write a player config to join-config.toml in the plugin folder. |
 | `/etmc reload` | Reload config.yml and reconnect. |
