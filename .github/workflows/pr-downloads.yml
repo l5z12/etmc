@@ -23,12 +23,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Tells a fork's pull request why its test build hasn't appeared, and where a maintainer approves it.
-  waiting:
-    name: ask for approval
+  # A pull request that changes only the site or docs still runs build.yml, so its required checks report, but
+  # builds nothing (see build.yml's `changes` job). There are no jars then, so nothing to upload or approve.
+  jars:
+    name: find the jars
     if: >-
       github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
       && github.repository == 'l5z12/etmc'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read          # the build's artifact list
+    outputs:
+      found: ${{ steps.find.outputs.found }}
+    steps:
+      - name: Did the build make jars?
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ github.event.workflow_run.id }}
+        run: |
+          # The same names publish-downloads fetches (etmc-*jars*).
+          names=$(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/runs/$RUN/artifacts?per_page=100" \
+            --jq '.artifacts[].name')
+          if grep -q '^etmc-.*jars' <<<"$names"; then found=true; else found=false; fi
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+          echo "Jars found: $found"
+
+  # Tells a fork's pull request why its test build hasn't appeared, and where a maintainer approves it.
+  waiting:
+    name: ask for approval
+    needs: jars
+    if: >-
+      needs.jars.outputs.found == 'true'
       && github.event.workflow_run.head_repository.full_name != github.repository
     runs-on: ubuntu-latest
     permissions:
@@ -45,9 +71,8 @@ jobs:
 
   upload:
     name: publish to downloads
-    if: >-
-      github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
-      && github.repository == 'l5z12/etmc'
+    needs: jars
+    if: needs.jars.outputs.found == 'true'
     runs-on: ubuntu-latest
     environment:
       # A deleted fork has no head repository, so it counts as a fork too.

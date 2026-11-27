@@ -1,9 +1,14 @@
 name: build
 
-# Runs only on changes that actually need a build — docs/site-only commits are ignored. This builds
+# Builds only for changes that need it — docs/site-only commits are ignored. This builds
 # the loader jars using the natives ALREADY COMMITTED in the repo; it never compiles natives itself
 # (that's natives.yml, run on demand or by release.yml). So a routine push does no Rust work and shows
 # a single "assemble jars" job — no skipped native matrix.
+#
+# Pushes to main skip docs/site-only commits with paths-ignore. Pull requests can't: the PROTECT ruleset
+# requires this workflow's checks on every pull request, and a workflow that never starts never reports
+# them, so the pull request waits forever. On a pull request the `changes` job decides instead, and a
+# docs/site-only one skips the build jobs, which GitHub counts as passing. Keep its list in step with this one.
 on:
   push:
     branches: [ main ]
@@ -15,13 +20,6 @@ on:
       - '.github/workflows/release.yml'
       - '.github/workflows/natives.yml'
   pull_request:
-    paths-ignore:
-      - 'site/**'
-      - '**/*.md'
-      - '.gitignore'
-      - 'LICENSE'
-      - '.github/workflows/release.yml'
-      - '.github/workflows/natives.yml'
   workflow_dispatch:
   workflow_call:
 
@@ -33,6 +31,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Whether this run builds anything. Always on a push, a release (workflow_call) or a manual run. On a pull
+  # request, only if it changes a file outside push's paths-ignore list above. The required checks skip
+  # when it says no, and "assemble jars" fails if this job does, so a broken check can't wave a pull
+  # request through.
+  changes:
+    name: what changed
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.diff.outputs.build }}
+    steps:
+      # A pull request's run checks out refs/pull/<n>/merge, whose first parent is the base branch, so
+      # HEAD^1..HEAD is what merging it would change. Trees only: the file names are all this needs.
+      - name: Checkout etmc
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          filter: blob:none
+          sparse-checkout: .github
+          persist-credentials: false
+
+      - name: Does it change anything the build uses?
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Push's paths-ignore list, as a regex.
+          ignored='^(site/|\.gitignore$|LICENSE$|\.github/workflows/(release|natives)\.yml$)|\.md$'
+          changed=$(git diff --name-only --no-renames HEAD^1 HEAD)
+          printf '%s\n' "$changed"
+          if grep -qvE "$ignored" <<<"$changed"; then build=true; else build=false; fi
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+          echo "Build: $build"
+
   # Build every loader jar. Uses the committed natives, plus any freshly-built native-* artifacts that
   # exist in this run (release.yml builds those first and they're shared run-wide); a plain push has none.
   #
@@ -44,6 +80,8 @@ jobs:
   # node in settings.gradle.kts matches exactly one shard's `nodes`.
   assemble:
     name: assemble jars (${{ matrix.shard }})
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     # The decompile cache's R2 key (below) is in the r2-cache environment, so only these jobs get it. Any branch may
     # use it, as pull request builds need the cache too. `deployment: false`: these runs aren't deployments.
@@ -355,6 +393,8 @@ jobs:
   # shards; release.yml's publish waits on this whole workflow, so a failure here blocks the release.
   shard-coverage:
     name: check shard coverage
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout etmc
@@ -370,6 +410,8 @@ jobs:
   # The core tests (common/, its own standalone build) run here too, as this job is a required check.
   paper:
     name: paper (all versions)
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout etmc
@@ -454,17 +496,23 @@ jobs:
   # The single required check for the loader shards: the PROTECT ruleset requires "assemble jars",
   # and the matrix jobs only report "assemble jars (<shard>)". Shards can come and go without the
   # ruleset changing. `always()` so a failed or cancelled shard reports a failure, not "skipped".
+  # It's also the guard on `changes`: the other required checks skip if that job fails, and this fails.
   assemble-result:
     name: assemble jars
-    needs: assemble
+    needs: [changes, assemble]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: All shards passed?
         env:
+          CHANGES: ${{ needs.changes.result }}
+          BUILD: ${{ needs.changes.outputs.build }}
           RESULT: ${{ needs.assemble.result }}
         run: |
+          echo "what changed: $CHANGES (build: $BUILD)"
           echo "assemble jars (all shards): $RESULT"
+          [ "$CHANGES" = "success" ] || exit 1
+          [ "$BUILD" = "false" ] && [ "$RESULT" = "skipped" ] && exit 0
           [ "$RESULT" = "success" ]
 
   # A push to main goes on the downloads page as a development build, at
