@@ -27,7 +27,7 @@ These need operator permission (`etmc.admin`).
 
 | Command | What it does |
 | --- | --- |
-| `/etmc status` | Show the server's connection, NAT type and players. |
+| `/etmc status [ip]` | Show the server's connection, NAT type and players. Add `ip` to also show its public IP address. |
 | `/etmc link` | Show the invite link. |
 | `/etmc config` | Write a player config to join-config.toml in the plugin folder. |
 | `/etmc reload` | Reload config.yml and reconnect. |

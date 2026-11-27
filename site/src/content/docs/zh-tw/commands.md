@@ -27,7 +27,7 @@ description: 所有 /etmc 指令。
 
 | 指令 | 作用 |
 | --- | --- |
-| `/etmc status` | 顯示伺服器的連線狀態、NAT 類型和玩家。 |
+| `/etmc status [ip]` | 顯示伺服器的連線狀態、NAT 類型和玩家。加上 `ip` 也會顯示伺服器的公用 IP 位址。 |
 | `/etmc link` | 顯示邀請連結。 |
 | `/etmc config` | 在外掛資料夾中寫入玩家設定檔 join-config.toml。 |
 | `/etmc reload` | 重新載入 config.yml 並重新連線。 |

@@ -30,7 +30,8 @@ import java.util.Set;
  * with, what that means, whether etmc is worth using here and who should host, and what to do about
  * it. The details are for whoever knows NATs: the type by its name, how it maps and filters, the
  * public addresses and ports, the TCP type, which NAT types it punches through to, and every player's
- * type. A part that doesn't fit the screen is left out rather than squeezed in.
+ * type. The public addresses stay hidden until asked for. A part that doesn't fit the screen is left
+ * out rather than squeezed in.
  */
 public final class NatScreen extends EtmcBaseScreen {
 
@@ -46,6 +47,12 @@ public final class NatScreen extends EtmcBaseScreen {
     /** Whether the details are showing. It lasts the game, so whoever wants them only asks once. */
     private static boolean details;
 
+    /**
+     * Whether the public addresses are showing. Each screen starts with them hidden, so a stream or a
+     * screenshot only shows them when the player asked.
+     */
+    private boolean showIp;
+
     /** This screen has started a check. {@link #build} runs again on every resize, and must not start another. */
     private boolean started;
 
@@ -57,13 +64,22 @@ public final class NatScreen extends EtmcBaseScreen {
     protected void build() {
         EtmcManager m = EtmcManager.get();
         if (!started && m.isReady() && m.natAt() == 0 && !m.natChecking()) check();
-        var again = add(footer(Ui.button(Txt.tr("etmc.nat.check_again", "Check again"), b -> check()), 0, 3).build());
+        int n = details ? 4 : 3;
+        var again = add(footer(Ui.button(Txt.tr("etmc.nat.check_again", "Check again"), b -> check()), 0, n).build());
         add(footer(Ui.button(details ? Txt.tr("etmc.nat.show_summary", "Summary") : Txt.tr("etmc.nat.show_details",
                 "Details"), b -> {
             details = !details;
             rebuild();
-        }), 1, 3).build());
-        add(footer(Ui.button(Txt.translatable("gui.back"), b -> this.close()), 2, 3).build());
+        }), 1, n).build());
+        if (details) {
+            var ip = add(footer(Ui.button(showIp ? Txt.tr("etmc.nat.hide_ip", "Hide IP") : Txt.tr("etmc.nat.show_ip",
+                    "Show IP"), b -> {
+                showIp = !showIp;
+                rebuild();
+            }), 2, n).build());
+            live(() -> ip.active = hasIp(m.nat()));
+        }
+        add(footer(Ui.button(Txt.translatable("gui.back"), b -> this.close()), n - 1, n).build());
         live(() -> again.active = m.isReady() && !m.natChecking());
     }
 
@@ -137,8 +153,11 @@ public final class NatScreen extends EtmcBaseScreen {
         List<Row> facts = new ArrayList<>();
         if (nat.mapping() != null) facts.add(new Row(Msg.tr("etmc.nat.row.mapping", "Mapping"), nat.mapping()));
         if (nat.filtering() != null) facts.add(new Row(Msg.tr("etmc.nat.row.filtering", "Filtering"), nat.filtering()));
-        if (info.ipv4() != null) facts.add(new Row(Msg.tr("etmc.nat.row.ipv4", "Public IPv4"), info.ipv4()));
-        if (info.ipv6() != null) facts.add(new Row(Msg.tr("etmc.nat.row.ipv6", "Public IPv6"), info.ipv6()));
+        if (!showIp && hasIp(info)) {
+            facts.add(new Row(Msg.tr("etmc.nat.row.ip", "Public IP"), Msg.tr("etmc.nat.ip.hidden", "Hidden"), COLOR_MUTED));
+        }
+        if (showIp && info.ipv4() != null) facts.add(new Row(Msg.tr("etmc.nat.row.ipv4", "Public IPv4"), info.ipv4()));
+        if (showIp && info.ipv6() != null) facts.add(new Row(Msg.tr("etmc.nat.row.ipv6", "Public IPv6"), info.ipv6()));
         if (info.ports() != null) facts.add(new Row(Msg.tr("etmc.nat.row.ports", "Mapped ports"), info.ports()));
         if (info.tcp().known()) facts.add(new Row(Msg.tr("etmc.nat.row.tcp", "TCP"), info.tcp().label()));
         if (nat.known()) facts.add(new Row(Msg.tr("etmc.nat.row.easytier", "EasyTier"), nat.easyTierName()));
@@ -256,6 +275,10 @@ public final class NatScreen extends EtmcBaseScreen {
         int keyW = 0;
         for (Row r : rows) keyW = Math.max(keyW, Wrap.width(font(), r.key()));
         return keyW;
+    }
+
+    private static boolean hasIp(NatInfo info) {
+        return info.ipv4() != null || info.ipv6() != null;
     }
 
     /** What you can do about it, or {@code null} when there's nothing to do. */

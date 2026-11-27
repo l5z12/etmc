@@ -56,8 +56,9 @@ help. If etmc can't check at all, the network may be blocking UDP, and then ever
 
 The screen also says whether etmc is worth using on your network, and whether you should host or let a friend host.
 
-Choose **Details** on that screen to see the exact NAT type, such as port-restricted cone or symmetric, how it maps and
-filters, and your public address. In a session, it also shows every player's NAT type.
+Choose **Details** on that screen to see the exact NAT type, such as port-restricted cone or symmetric, and how it maps
+and filters. In a session, it also shows every player's NAT type. Your public IP address stays hidden until you choose
+**Show IP**, so it doesn't end up on a stream or in a screenshot.
 
 ## Don't have a link?
 

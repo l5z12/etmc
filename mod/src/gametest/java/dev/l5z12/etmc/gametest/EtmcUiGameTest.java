@@ -126,8 +126,9 @@ public class EtmcUiGameTest implements FabricClientGameTest {
     }
 
     /**
-     * The NAT screen while it checks, with an answer, with a public address, and with none. The manager is set up to look that
-     * way: a real check would need the internet, and its answer would differ from runner to runner.
+     * The NAT screen while it checks, with an answer, with a public address, and with none, and its details with the public
+     * addresses hidden, as it opens, and shown. The manager is set up to look that way: a real check would need the internet,
+     * and its answer would differ from runner to runner.
      */
     private void natScreen(ClientGameTestContext ctx, String at) {
         ctx.runOnClient(c -> {
@@ -143,6 +144,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         });
         view(ctx, at, "nat", () -> new NatScreen(null));
         natDetails(ctx, at, "nat-details");
+        natDetails(ctx, at, "nat-details-ip", true);
         view(ctx, at, "menu-nat", () -> new EtmcScreen(null));
         ctx.runOnClient(c -> setManagerField("nat", new NatInfo(NatType.OPEN_INTERNET, NatType.OPEN_INTERNET, 25565,
                 25565, List.of("203.0.113.7"))));
@@ -155,9 +157,28 @@ public class EtmcUiGameTest implements FabricClientGameTest {
 
     /** The NAT screen as it is now, with its details showing. */
     private void natDetails(ClientGameTestContext ctx, String at, String name) {
+        natDetails(ctx, at, name, false);
+    }
+
+    /** {@link #natDetails}, with the public addresses shown if {@code ip}, as Show IP does. */
+    private void natDetails(ClientGameTestContext ctx, String at, String name, boolean ip) {
         ctx.runOnClient(c -> setNatDetails(true));
-        view(ctx, at, name, () -> new NatScreen(null));
+        view(ctx, at, name, () -> {
+            NatScreen s = new NatScreen(null);
+            if (ip) showIp(s);
+            return s;
+        });
         ctx.runOnClient(c -> setNatDetails(false));
+    }
+
+    private static void showIp(NatScreen s) {
+        try {
+            Field f = NatScreen.class.getDeclaredField("showIp");
+            f.setAccessible(true);
+            f.set(s, true);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private static void setNatDetails(boolean on) {
@@ -188,6 +209,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         });
         view(ctx, at, "world-nat", () -> new NatScreen(null));
         natDetails(ctx, at, "world-nat-details");
+        natDetails(ctx, at, "world-nat-details-ip", true);
         ctx.runOnClient(c -> {
             setManagerField("nat", NatInfo.UNKNOWN);
             setManagerField("natAt", 0L);

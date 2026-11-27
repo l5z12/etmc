@@ -27,7 +27,7 @@ description: 所有 /etmc 命令。
 
 | 命令 | 作用 |
 | --- | --- |
-| `/etmc status` | 显示服务器的连接状态、NAT 类型和玩家。 |
+| `/etmc status [ip]` | 显示服务器的连接状态、NAT 类型和玩家。加上 `ip` 还会显示其公网 IP 地址。 |
 | `/etmc link` | 显示邀请链接。 |
 | `/etmc config` | 将一份玩家配置写入插件文件夹中的 join-config.toml。 |
 | `/etmc reload` | 重新加载 config.yml 并重新连接。 |
