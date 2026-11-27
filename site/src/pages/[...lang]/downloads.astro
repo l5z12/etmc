@@ -47,6 +47,12 @@ const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
       <p id="pick-fabric" class="muted" set:html={t.script.fabricApi} />
     </section>
 
+    <!-- On a build of main or of a pull request: every build kept from the same place, one per commit. -->
+    <section id="commits" hidden>
+      <h2 id="commits-title"></h2>
+      <ul class="builds" id="commits-list"></ul>
+    </section>
+
     <section id="older" hidden>
       <h2>{t.script.olderReleases}</h2>
       <ul class="builds" id="older-list"></ul>
@@ -104,6 +110,8 @@ const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
     .downloads .builds a { font: 700 0.95rem var(--mono); }
     .downloads .builds .what { flex: 1 1 14em; min-width: 0; overflow-wrap: anywhere; }
     .downloads .builds .when { margin-left: auto; color: var(--muted); font-size: 0.92rem; white-space: nowrap; }
+    .downloads .builds a[aria-current] { color: var(--ink); text-decoration: none; }
+    .downloads .builds a[aria-current] + .what { flex: 0 1 auto; }
     .downloads .table-wrap { overflow-x: auto; }
     .downloads .files { width: 100%; border-collapse: collapse; background: var(--paper); border: 2px solid var(--ink); font-size: 0.95rem; }
     .downloads .files th, .downloads .files td { padding: 9px 14px; border-bottom: 1px solid var(--soft-line); text-align: left; }
@@ -145,6 +153,9 @@ const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
 
     const dateFormat = new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: 'medium' });
     const day = (iso: string) => dateFormat.format(new Date(iso));
+    // Builds of main or of one pull request are often a few hours apart, so the day alone doesn't tell them apart.
+    const timeFormat = new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: 'medium', timeStyle: 'short' });
+    const time = (iso: string) => timeFormat.format(new Date(iso));
     const size = (bytes: number) => `${(bytes / 1048576).toFixed(1)} MB`;
 
     function el<K extends keyof HTMLElementTagNameMap>(tag: K, props: Partial<HTMLElementTagNameMap[K]> = {},
@@ -207,7 +218,7 @@ const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
     }
 
     /** The loader and version picker, with a download button for the matching jar. */
-    function showPicker(m: Manifest, options: { head: boolean; warn?: string }) {
+    function showPicker(m: Manifest, options: { head: boolean; warn?: (Node | string)[] }) {
       const loaders = LOADERS.filter((l) => m.files.some((f) => f.loader === l));
       if (!loaders.length) return;
       $('pick').hidden = false;
@@ -218,8 +229,8 @@ const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
         $('pick-meta').replaceChildren(...meta);
       }
       const warn = $('pick-warn');
-      warn.textContent = options.warn ?? '';
-      warn.hidden = !options.warn;
+      warn.replaceChildren(...(options.warn ?? []));
+      warn.hidden = !options.warn?.length;
       const all = $<HTMLAnchorElement>('pick-all');
       all.hidden = !options.head;
       all.href = pageOf(m.path);
@@ -259,7 +270,27 @@ const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
       const name = b.kind === 'release' ? b.ref : b.pr ? `#${b.pr.number}` : b.sha.slice(0, 7);
       const li = el('li', {}, el('a', { href: pageOf(b.path) }, name));
       if (b.pr?.title) li.append(el('span', { className: 'what' }, format(t.prBy, { title: b.pr.title, author: b.pr.author })));
-      li.append(el('span', { className: 'when' }, day(b.date)));
+      li.append(el('span', { className: 'when' }, b.kind === 'main' ? time(b.date) : day(b.date)));
+      return li;
+    }
+
+    /** The builds from the same place as m, newest first: main's, or its pull request's. */
+    function siblings(m: Manifest, catalog: Catalog): Summary[] {
+      if (m.kind === 'release') return [];
+      const builds = m.kind === 'main' ? catalog.main : catalog.prs.filter((b) => b.ref === m.ref);
+      // The catalog is cached for a minute, so a build that was just uploaded may not be in it yet.
+      if (builds.some((b) => b.path === m.path)) return builds;
+      return [...builds, { ...m, files: m.files.length }].sort((a, b) => b.date.localeCompare(a.date));
+    }
+
+    function commitItem(b: Summary, current: boolean): HTMLLIElement {
+      const a = el('a', { href: pageOf(b.path) }, b.sha.slice(0, 7));
+      const li = el('li', {}, a);
+      if (current) {
+        a.setAttribute('aria-current', 'page');
+        li.append(el('span', { className: 'what muted' }, t.thisBuild));
+      }
+      li.append(el('span', { className: 'when' }, time(b.date)));
       return li;
     }
 
@@ -274,7 +305,7 @@ const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
       const featured = catalog.releases[0] ?? catalog.main[0];
       if (featured) {
         const m = await getJson<Manifest>(`/downloads/${featured.path}/manifest.json`);
-        if (m) showPicker(m, { head: true, warn: featured.kind === 'release' ? undefined : `${t.noRelease} ${t.devWarning}` });
+        if (m) showPicker(m, { head: true, warn: featured.kind === 'release' ? undefined : [`${t.noRelease} ${t.devWarning}`] });
       }
       if (catalog.releases.length > 1) {
         list('older-list', catalog.releases.slice(1));
@@ -289,9 +320,16 @@ const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
       if (location.hash === '#dev') $('dev').scrollIntoView();
     }
 
-    /** One build: the picker, then every file with its size and checksum. */
+    /** One build: the picker, the other builds from the same place, then every file with its size and checksum. */
     async function build(path: string) {
-      const m = await getJson<Manifest>(`/downloads/${path}/manifest.json`);
+      const [m, catalog] = await Promise.all([
+        getJson<Manifest>(`/downloads/${path}/manifest.json`),
+        // Only for the list of other builds, so the build still shows without it.
+        getJson<Catalog>('/downloads/catalog.json').catch((error) => {
+          console.error(error);
+          return null;
+        }),
+      ]);
       if (!m) {
         status(t.notFound, true);
         return false;
@@ -300,7 +338,19 @@ const scriptStrings = JSON.stringify(t.script).replace(/</g, '\\u003c');
       $('dl-title').textContent = title;
       $('dl-intro').replaceChildren(...meta);
       document.title = `${title} · etmc`;
-      showPicker(m, { head: false, warn: m.kind === 'pr' ? t.prWarning : m.kind === 'main' ? t.devWarning : undefined });
+
+      const others = catalog ? siblings(m, catalog) : [];
+      const warn: (Node | string)[] = m.kind === 'pr' ? [t.prWarning] : m.kind === 'main' ? [t.devWarning] : [];
+      const newest = others[0];
+      if (newest && newest.path !== m.path) {
+        warn.push(el('br'), ...fill(t.newer, { build: el('a', { href: pageOf(newest.path) }, newest.sha.slice(0, 7)) }));
+      }
+      showPicker(m, { head: false, warn });
+      if (others.length > 1) {
+        $('commits-title').textContent = m.kind === 'pr' ? t.prBuilds : t.devTitle;
+        $('commits-list').replaceChildren(...others.map((b) => commitItem(b, b.path === m.path)));
+        $('commits').hidden = false;
+      }
 
       const order = (f: FileEntry) => LOADERS.indexOf(f.loader);
       const files = [...m.files].sort((a, b) => order(a) - order(b) || compareVersions(b.mc, a.mc));
