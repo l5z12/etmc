@@ -21,8 +21,8 @@ const route = routeOf(Astro.url.pathname);
     <nav aria-label={t.nav.label}>
       <a href={link('/docs/getting-started')} aria-current={route.startsWith('/docs') ? 'page' : undefined}>{t.nav.docs}</a>
       <a href={link('/generator')} aria-current={route === '/generator' ? 'page' : undefined}>{t.nav.generator}</a>
-      <a class="compare" href={link('/compare')} aria-current={route === '/compare' ? 'page' : undefined}>{t.nav.compare}</a>
-      <a class="github" href="https://github.com/L5Z12/etmc">GitHub</a>
+      <a class="nav-compare" href={link('/compare')} aria-current={route === '/compare' ? 'page' : undefined}>{t.nav.compare}</a>
+      <a class="nav-github" href="https://github.com/L5Z12/etmc">GitHub</a>
       <details class="lang-menu">
         <summary title={t.site.language}>
           <svg viewBox="0 0 24 24" aria-hidden="true">

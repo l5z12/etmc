@@ -206,7 +206,8 @@
       "<strong>每個人都需要安裝模組。</strong>好友無法從原版 Minecraft 加入。",
       "<strong>你必須新增中繼。</strong>它不是內建的，但免費的社群節點就能用。",
       "<strong>僅限 Minecraft。</strong>它不會連接其他東西。",
-      "<strong>你的金鑰不受保護。</strong>它以明文儲存，請保持隨機。"
+      "<strong>你的金鑰不受保護。</strong>它以明文儲存，請保持隨機。",
+      "<strong>有些網路會封鎖它。</strong>部分 ISP、學校和工作場所會封鎖點對點流量或 EasyTier 本身，因此遊戲只能改走中繼，甚至完全連不上。<code>wss://</code> 中繼看起來就像一般網頁流量，較難被封鎖。"
     ],
     "sourcesTitle": "來源",
     "sources": {

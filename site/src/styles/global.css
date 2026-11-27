@@ -344,12 +344,12 @@ kbd {
 
 /* The header drops links that are also in the footer, so the language menu still fits. */
 @media (max-width: 760px) {
-  .site-header .github { display: none; }
+  .site-header .nav-github { display: none; }
 }
 
 @media (max-width: 640px) {
   .site-header nav { gap: 16px; }
-  .site-header .compare { display: none; }
+  .site-header .nav-compare { display: none; }
 }
 
 @media (max-width: 480px) {
