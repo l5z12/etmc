@@ -212,8 +212,15 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
     private static NatInfo stun(JsonObject node) {
         JsonObject stun = optObject(node, "stun_info");
         if (stun == null) return NatInfo.UNKNOWN;
+        List<String> ips = new ArrayList<>();
+        JsonArray publicIp = optArray(stun, "public_ip");
+        if (publicIp != null) {
+            for (JsonElement e : publicIp) {
+                if (e.isJsonPrimitive()) ips.add(e.getAsString());
+            }
+        }
         return new NatInfo(NatType.of(optString(stun, "udp_nat_type")), NatType.of(optString(stun, "tcp_nat_type")),
-                optInt(stun, "min_port", 0), optInt(stun, "max_port", 0));
+                optInt(stun, "min_port", 0), optInt(stun, "max_port", 0), ips);
     }
 
     /**

@@ -26,10 +26,11 @@ import java.util.Set;
  * This machine's NAT type, and what it means for playing together. It checks as soon as it opens
  * when etmc doesn't know yet.
  *
- * <p>It has two views. The summary is for everyone: who you get direct connections with, what that
- * means, and what to do about it, with no NAT words. The details are for whoever knows NATs: the type
- * by its name, how it maps and filters, the TCP type, which NAT types it punches through to, and every
- * player's type. A part that doesn't fit the screen is left out rather than squeezed in.
+ * <p>It has two views. The summary is for everyone, with no NAT words: who you get direct connections
+ * with, what that means, whether etmc is worth using here and who should host, and what to do about
+ * it. The details are for whoever knows NATs: the type by its name, how it maps and filters, the
+ * public addresses and ports, the TCP type, which NAT types it punches through to, and every player's
+ * type. A part that doesn't fit the screen is left out rather than squeezed in.
  */
 public final class NatScreen extends EtmcBaseScreen {
 
@@ -106,14 +107,24 @@ public final class NatScreen extends EtmcBaseScreen {
         }
     }
 
-    /** Who you connect to directly, what it means, and what to do about it, in plain words. */
+    /**
+     * Who you connect to directly, what it means, whether etmc is worth it here and who should host,
+     * and what to do about it, in plain words.
+     */
     private void summary(Object ctx, EtmcManager m, int x, int y, int w, int bottom) {
-        NatType.Grade grade = m.nat().grade();
+        NatType nat = m.nat().udp();
+        NatType.Grade grade = nat.grade();
         headline(ctx, x, y, w, color(grade), grade.summary(), age(m.natAt()));
         y = wrapped(ctx, grade.meaning(), x, y + LINE_H + 3, w, COLOR_TEXT);
+        List<Row> advice = List.of(
+                new Row(Msg.tr("etmc.nat.row.using", "Using etmc"), grade.verdict(), verdictColor(grade)),
+                new Row(Msg.tr("etmc.nat.row.hosting", "Hosting"), grade.hosting(), color(grade)));
+        if (y + 5 + rowsHeight(advice, w) <= bottom) y = rows(ctx, advice, x, y + 5, w);
         y = players(ctx, m, false, x, y, w, bottom);
-        String tip = tip(grade);
-        if (y + 5 + Wrap.lines(font(), tip, w).size() * LINE_H <= bottom) wrapped(ctx, tip, x, y + 5, w, COLOR_MUTED);
+        String tip = tip(nat);
+        if (tip != null && y + 5 + Wrap.lines(font(), tip, w).size() * LINE_H <= bottom) {
+            wrapped(ctx, tip, x, y + 5, w, COLOR_MUTED);
+        }
     }
 
     /** The NAT type by its name and behaviour, the players' types, and what it punches through to. */
@@ -123,22 +134,15 @@ public final class NatScreen extends EtmcBaseScreen {
         headline(ctx, x, y, w, color(nat.grade()), nat.label(), age(m.natAt()));
         y += LINE_H + 3;
 
-        List<String[]> rows = new ArrayList<>();
-        if (nat.mapping() != null) rows.add(new String[] {Msg.tr("etmc.nat.row.mapping", "Mapping"), nat.mapping()});
-        if (nat.filtering() != null) {
-            rows.add(new String[] {Msg.tr("etmc.nat.row.filtering", "Filtering"), nat.filtering()});
-        }
-        if (info.ports() != null) rows.add(new String[] {Msg.tr("etmc.nat.row.ports", "Mapped ports"), info.ports()});
-        if (info.tcp().known()) rows.add(new String[] {Msg.tr("etmc.nat.row.tcp", "TCP"), info.tcp().label()});
-        if (nat.known()) rows.add(new String[] {Msg.tr("etmc.nat.row.easytier", "EasyTier"), nat.easyTierName()});
-        int keyW = 0;
-        for (String[] r : rows) keyW = Math.max(keyW, Wrap.width(font(), r[0]));
-        int vx = x + DOT + 4 + keyW + 8;
-        for (String[] r : rows) {
-            Gfx.text(ctx, font(), Txt.literal(r[0]), x + DOT + 4, y, COLOR_MUTED);
-            Gfx.text(ctx, font(), Txt.literal(Wrap.fit(font(), r[1], x + w - vx)), vx, y, COLOR_TEXT);
-            y += LINE_H;
-        }
+        List<Row> facts = new ArrayList<>();
+        if (nat.mapping() != null) facts.add(new Row(Msg.tr("etmc.nat.row.mapping", "Mapping"), nat.mapping()));
+        if (nat.filtering() != null) facts.add(new Row(Msg.tr("etmc.nat.row.filtering", "Filtering"), nat.filtering()));
+        if (info.ipv4() != null) facts.add(new Row(Msg.tr("etmc.nat.row.ipv4", "Public IPv4"), info.ipv4()));
+        if (info.ipv6() != null) facts.add(new Row(Msg.tr("etmc.nat.row.ipv6", "Public IPv6"), info.ipv6()));
+        if (info.ports() != null) facts.add(new Row(Msg.tr("etmc.nat.row.ports", "Mapped ports"), info.ports()));
+        if (info.tcp().known()) facts.add(new Row(Msg.tr("etmc.nat.row.tcp", "TCP"), info.tcp().label()));
+        if (nat.known()) facts.add(new Row(Msg.tr("etmc.nat.row.easytier", "EasyTier"), nat.easyTierName()));
+        y = rows(ctx, facts, x + DOT + 4, y, w - DOT - 4);
         if (!nat.known()) {
             wrapped(ctx, nat.grade().meaning(), x, y + 3, w, COLOR_MUTED);
             return;
@@ -224,16 +228,59 @@ public final class NatScreen extends EtmcBaseScreen {
         return Msg.tr("etmc.status.peer.host", "%s (host)", Wrap.fit(font(), name, Math.max(0, w - mark)));
     }
 
-    /** What to do about it, or what it's good for. */
-    private static String tip(NatType.Grade grade) {
-        return switch (grade) {
-            case OPEN -> Msg.tr("etmc.nat.tip.open", "Everyone can connect to you directly, so you make a good host.");
+    /** A muted key and its value, in the value's color. */
+    private record Row(String key, String value, int color) {
+        Row(String key, String value) {
+            this(key, value, COLOR_TEXT);
+        }
+    }
+
+    /** {@code rows}, keys in a column and values lined up after them, a long value wrapped in its column. */
+    private int rows(Object ctx, List<Row> rows, int x, int y, int w) {
+        int vx = x + keyWidth(rows) + 8;
+        for (Row r : rows) {
+            Gfx.text(ctx, font(), Txt.literal(r.key()), x, y, COLOR_MUTED);
+            y = wrapped(ctx, r.value(), vx, y, x + w - vx, r.color());
+        }
+        return y;
+    }
+
+    private int rowsHeight(List<Row> rows, int w) {
+        int valueW = w - keyWidth(rows) - 8;
+        int lines = 0;
+        for (Row r : rows) lines += Wrap.lines(font(), r.value(), valueW).size();
+        return lines * LINE_H;
+    }
+
+    private int keyWidth(List<Row> rows) {
+        int keyW = 0;
+        for (Row r : rows) keyW = Math.max(keyW, Wrap.width(font(), r.key()));
+        return keyW;
+    }
+
+    /** What you can do about it, or {@code null} when there's nothing to do. */
+    private static String tip(NatType nat) {
+        if (nat == NatType.OPEN_INTERNET) {
+            return Msg.tr("etmc.nat.tip.public", "You have a public address, so friends could also join you there "
+                    + "without etmc, if your firewall lets them in.");
+        }
+        return switch (nat.grade()) {
+            case OPEN -> null;
             case MODERATE -> Msg.tr("etmc.nat.tip.moderate",
-                    "If a friend gets direct connections with everyone, they make a better host.");
-            case STRICT -> Msg.tr("etmc.nat.tip.strict", "Turning on UPnP in your router can help. If a friend gets "
-                    + "direct connections with everyone, let them host.");
-            case UNKNOWN -> Msg.tr("etmc.nat.tip.unknown",
-                    "A wss:// relay looks like web traffic, so it gets through more networks.");
+                    "Turning on UPnP in your router can help you connect directly to more players.");
+            case STRICT -> Msg.tr("etmc.nat.tip.strict", "Turning on UPnP in your router can help. Phone hotspots and "
+                    + "school or office networks are often like this, so another network may do better.");
+            case UNKNOWN -> Msg.tr("etmc.nat.tip.unknown", "Add a wss:// relay in Settings & relays: it looks like "
+                    + "web traffic, so it gets through more networks.");
+        };
+    }
+
+    /** How good a grade's verdict on etmc is: it's worth using unless the relay carries most games. */
+    private static int verdictColor(NatType.Grade grade) {
+        return switch (grade) {
+            case OPEN, MODERATE -> COLOR_GOOD;
+            case STRICT -> COLOR_BUSY;
+            case UNKNOWN -> COLOR_WARN;
         };
     }
 

@@ -229,8 +229,8 @@ public final class EtmcCommands {
         src.feedback(Msg.tr("etmc.nat.checking", "Checking your NAT type…"));
         EtmcManager.get().checkNatAsync().whenComplete((found, err) -> reply(err != null
                 ? Msg.tr("etmc.nat.failed", "Couldn't check your NAT type: %s", Errors.message(err))
-                : Msg.tr("etmc.cmd.nat", "NAT type: %s. %s. %s", found.udp().label(), found.grade().summary(),
-                        found.grade().meaning())));
+                : Msg.tr("etmc.cmd.nat", "NAT type: %s. %s. Using etmc: %s. Hosting: %s.", found.udp().label(),
+                        found.grade().summary(), found.grade().verdict(), found.grade().hosting())));
         return 1;
     }
 

@@ -126,7 +126,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
     }
 
     /**
-     * The NAT screen while it checks, with an answer, and with none. The manager is set up to look that
+     * The NAT screen while it checks, with an answer, with a public address, and with none. The manager is set up to look that
      * way: a real check would need the internet, and its answer would differ from runner to runner.
      */
     private void natScreen(ClientGameTestContext ctx, String at) {
@@ -137,12 +137,16 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         view(ctx, at, "nat-checking", () -> new NatScreen(null));
         ctx.runOnClient(c -> {
             setManagerField("natCheck", null);
-            setManagerField("nat", new NatInfo(NatType.SYMMETRIC_EASY_INC, NatType.FULL_CONE, 40100, 40106));
+            setManagerField("nat", new NatInfo(NatType.SYMMETRIC_EASY_INC, NatType.FULL_CONE, 40100, 40106,
+                    List.of("203.0.113.7", "2001:db8::7")));
             setManagerField("natAt", System.currentTimeMillis() - 3 * 60_000);
         });
         view(ctx, at, "nat", () -> new NatScreen(null));
         natDetails(ctx, at, "nat-details");
         view(ctx, at, "menu-nat", () -> new EtmcScreen(null));
+        ctx.runOnClient(c -> setManagerField("nat", new NatInfo(NatType.OPEN_INTERNET, NatType.OPEN_INTERNET, 25565,
+                25565, List.of("203.0.113.7"))));
+        view(ctx, at, "nat-public", () -> new NatScreen(null));
         ctx.runOnClient(c -> setManagerField("nat", NatInfo.UNKNOWN));
         view(ctx, at, "nat-unknown", () -> new NatScreen(null));
         natDetails(ctx, at, "nat-unknown-details");
@@ -178,7 +182,8 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         NetworkStatus st = new NetworkStatus(true, "10.126.126.1", list, null, 1, new NatInfo(NatType.SYMMETRIC));
         ctx.runOnClient(c -> {
             setManagerField("cachedStatus", st);
-            setManagerField("nat", new NatInfo(NatType.SYMMETRIC, NatType.SYMMETRIC, 51200, 51890));
+            setManagerField("nat", new NatInfo(NatType.SYMMETRIC, NatType.SYMMETRIC, 51200, 51890,
+                    List.of("198.51.100.20", "198.51.100.21")));
             setManagerField("natAt", System.currentTimeMillis());
         });
         view(ctx, at, "world-nat", () -> new NatScreen(null));

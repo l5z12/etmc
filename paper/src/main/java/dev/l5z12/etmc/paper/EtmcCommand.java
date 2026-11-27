@@ -69,13 +69,15 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         }
     }
 
-    /** The NAT type in full, for an admin: its name, how it maps and filters, and the TCP type. */
+    /** The NAT type in full, for an admin: its name, how it maps and filters, the TCP type and public addresses. */
     private static String nat(NatInfo n) {
         NatType t = n.udp();
         StringBuilder b = new StringBuilder(t.label()).append(" (EasyTier: ").append(t.easyTierName());
         if (t.mapping() != null) b.append("; mapping: ").append(t.mapping());
         if (t.filtering() != null) b.append("; filtering: ").append(t.filtering());
         if (n.tcp().known()) b.append("; TCP: ").append(n.tcp().label());
+        if (n.ipv4() != null) b.append("; public IPv4: ").append(n.ipv4());
+        if (n.ipv6() != null) b.append("; public IPv6: ").append(n.ipv6());
         return b.append(')').toString();
     }
 

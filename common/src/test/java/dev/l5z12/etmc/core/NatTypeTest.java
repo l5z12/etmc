@@ -2,6 +2,8 @@ package dev.l5z12.etmc.core;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static dev.l5z12.etmc.core.NatType.FULL_CONE;
 import static dev.l5z12.etmc.core.NatType.OPEN_INTERNET;
 import static dev.l5z12.etmc.core.NatType.PORT_RESTRICTED;
@@ -90,15 +92,22 @@ class NatTypeTest {
         assertEquals("Direct connections with everyone", PORT_RESTRICTED.grade().summary());
         assertEquals("Direct connections with most players", SYMMETRIC_EASY_DEC.grade().summary());
         assertEquals("Direct connections with some players", SYMMETRIC.grade().summary());
+        assertEquals("Recommended, most games connect directly", SYMMETRIC_EASY_INC.grade().verdict());
+        assertEquals("Let a friend host if you can", SYMMETRIC.grade().hosting());
         for (NatType.Grade g : NatType.Grade.values()) {
-            assertFalse(g.meaning().matches("(?i).*\\b(open|moderate|strict|nat)\\b.*"), "no jargon: " + g);
+            for (String plain : new String[] {g.summary(), g.meaning(), g.verdict(), g.hosting()}) {
+                assertFalse(plain.matches("(?i).*\\b(open|moderate|strict|nat)\\b.*"), "no jargon: " + plain);
+            }
         }
     }
 
     @Test
-    void portsAreOneOrARange() {
+    void portsAreOneOrARangeAndAddressesAreSplitByFamily() {
         assertEquals("27623", new NatInfo(PORT_RESTRICTED, UNKNOWN, 27623, 27623).ports());
         assertEquals("40100–40112", new NatInfo(SYMMETRIC, UNKNOWN, 40100, 40112).ports());
         assertNull(NatInfo.UNKNOWN.ports());
+        assertNull(NatInfo.UNKNOWN.ipv4());
+        assertEquals("100.64.0.1, 100.64.0.2", new NatInfo(SYMMETRIC, UNKNOWN, 1, 2,
+                List.of("100.64.0.1", "2001:db8::1", "100.64.0.2")).ipv4(), "a pool of addresses");
     }
 }

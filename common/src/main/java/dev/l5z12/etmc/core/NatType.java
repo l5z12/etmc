@@ -11,7 +11,8 @@ package dev.l5z12.etmc.core;
  *
  * <p>Each type has two descriptions, for two kinds of player: its {@link #label() name} and
  * {@link #mapping()}/{@link #filtering()} behaviour for whoever knows NATs, and its grade's
- * {@link Grade#summary() summary} and {@link Grade#meaning() meaning} in plain words for everyone else.
+ * {@link Grade#summary() summary}, {@link Grade#meaning() meaning}, {@link Grade#verdict() verdict}
+ * and {@link Grade#hosting() hosting} advice in plain words for everyone else.
  *
  * <p>The constants are in EasyTier's order, so each one's ordinal is its protobuf number.
  */
@@ -74,6 +75,26 @@ public enum NatType {
                 case UNKNOWN -> Msg.tr("etmc.nat.meaning.unknown", "The servers etmc asks didn't answer, so your "
                         + "network may block the traffic it needs (UDP). Then every connection goes through a relay "
                         + "server, which adds some lag.");
+            };
+        }
+
+        /** Whether etmc is worth using on this network, and how games will connect, in plain words. */
+        public String verdict() {
+            return switch (this) {
+                case OPEN -> Msg.tr("etmc.nat.verdict.open", "Recommended, games connect directly");
+                case MODERATE -> Msg.tr("etmc.nat.verdict.moderate", "Recommended, most games connect directly");
+                case STRICT -> Msg.tr("etmc.nat.verdict.strict", "Works, but more games go through the relay");
+                case UNKNOWN -> Msg.tr("etmc.nat.verdict.unknown", "Should work, but likely only through the relay");
+            };
+        }
+
+        /** Whether to host on this network or let a friend, in plain words. */
+        public String hosting() {
+            return switch (this) {
+                case OPEN -> Msg.tr("etmc.nat.hosting.open", "You make a good host");
+                case MODERATE -> Msg.tr("etmc.nat.hosting.moderate",
+                        "Fine, but a friend who gets direct connections with everyone makes a better host");
+                case STRICT, UNKNOWN -> Msg.tr("etmc.nat.hosting.strict", "Let a friend host if you can");
             };
         }
 
