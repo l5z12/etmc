@@ -16,6 +16,7 @@ import dev.l5z12.etmc.client.screen.StatusScreen;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
+import dev.l5z12.etmc.core.NatInfo;
 import dev.l5z12.etmc.core.NatType;
 import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.core.Relays;
@@ -130,20 +131,39 @@ public class EtmcUiGameTest implements FabricClientGameTest {
      */
     private void natScreen(ClientGameTestContext ctx, String at) {
         ctx.runOnClient(c -> {
-            setManagerField("natCheck", new CompletableFuture<NatType>());
+            setManagerField("natCheck", new CompletableFuture<NatInfo>());
             setManagerField("natCheckSince", System.currentTimeMillis() - 4_000);
         });
         view(ctx, at, "nat-checking", () -> new NatScreen(null));
         ctx.runOnClient(c -> {
             setManagerField("natCheck", null);
-            setManagerField("nat", NatType.SYMMETRIC_EASY_INC);
+            setManagerField("nat", new NatInfo(NatType.SYMMETRIC_EASY_INC, NatType.FULL_CONE, 40100, 40106));
             setManagerField("natAt", System.currentTimeMillis() - 3 * 60_000);
         });
         view(ctx, at, "nat", () -> new NatScreen(null));
+        natDetails(ctx, at, "nat-details");
         view(ctx, at, "menu-nat", () -> new EtmcScreen(null));
-        ctx.runOnClient(c -> setManagerField("nat", NatType.UNKNOWN));
+        ctx.runOnClient(c -> setManagerField("nat", NatInfo.UNKNOWN));
         view(ctx, at, "nat-unknown", () -> new NatScreen(null));
+        natDetails(ctx, at, "nat-unknown-details");
         ctx.runOnClient(c -> setManagerField("natAt", 0L));
+    }
+
+    /** The NAT screen as it is now, with its details showing. */
+    private void natDetails(ClientGameTestContext ctx, String at, String name) {
+        ctx.runOnClient(c -> setNatDetails(true));
+        view(ctx, at, name, () -> new NatScreen(null));
+        ctx.runOnClient(c -> setNatDetails(false));
+    }
+
+    private static void setNatDetails(boolean on) {
+        try {
+            Field f = NatScreen.class.getDeclaredField("details");
+            f.setAccessible(true);
+            f.set(null, on);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError(e);
+        }
     }
 
     /** In a session, the NAT screen lists each player's NAT type too. */
@@ -155,15 +175,16 @@ public class EtmcUiGameTest implements FabricClientGameTest {
             list.add(new NetworkStatus.Peer(i == 1 ? "a_rather_long_player_name_1" : "Player" + i,
                     "10.126.126." + (i + 2), 40 + i * 30, relayed, relayed ? 2 : 1, types[i]));
         }
-        NetworkStatus st = new NetworkStatus(true, "10.126.126.1", list, null, 1, NatType.SYMMETRIC);
+        NetworkStatus st = new NetworkStatus(true, "10.126.126.1", list, null, 1, new NatInfo(NatType.SYMMETRIC));
         ctx.runOnClient(c -> {
             setManagerField("cachedStatus", st);
-            setManagerField("nat", NatType.SYMMETRIC);
+            setManagerField("nat", new NatInfo(NatType.SYMMETRIC, NatType.SYMMETRIC, 51200, 51890));
             setManagerField("natAt", System.currentTimeMillis());
         });
         view(ctx, at, "world-nat", () -> new NatScreen(null));
+        natDetails(ctx, at, "world-nat-details");
         ctx.runOnClient(c -> {
-            setManagerField("nat", NatType.UNKNOWN);
+            setManagerField("nat", NatInfo.UNKNOWN);
             setManagerField("natAt", 0L);
         });
     }

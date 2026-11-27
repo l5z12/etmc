@@ -12,6 +12,7 @@ import static dev.l5z12.etmc.core.NatType.SYM_UDP_FIREWALL;
 import static dev.l5z12.etmc.core.NatType.UNKNOWN;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NatTypeTest {
@@ -74,10 +75,30 @@ class NatTypeTest {
     }
 
     @Test
-    void describesTheGradeThenTheType() {
-        assertEquals("Open (port-restricted cone)", PORT_RESTRICTED.describe());
-        assertEquals("Moderate (symmetric, predictable ports)", SYMMETRIC_EASY_INC.describe());
-        assertEquals("Strict (symmetric)", SYMMETRIC.describe());
-        assertEquals("Unknown", UNKNOWN.describe());
+    void namesTheTypeForPeopleWhoKnowNats() {
+        assertEquals("Port-restricted cone", PORT_RESTRICTED.label());
+        assertEquals("Symmetric, increasing ports", SYMMETRIC_EASY_INC.label());
+        assertEquals("Endpoint-independent", PORT_RESTRICTED.mapping());
+        assertEquals("Address and port-dependent", PORT_RESTRICTED.filtering());
+        assertEquals("Endpoint-dependent", SYMMETRIC.mapping());
+        assertNull(SYMMETRIC.filtering(), "EasyTier's check doesn't test a symmetric NAT's filtering");
+        assertNull(UNKNOWN.mapping());
+    }
+
+    @Test
+    void saysWhatItMeansForPeopleWhoDont() {
+        assertEquals("Direct connections with everyone", PORT_RESTRICTED.grade().summary());
+        assertEquals("Direct connections with most players", SYMMETRIC_EASY_DEC.grade().summary());
+        assertEquals("Direct connections with some players", SYMMETRIC.grade().summary());
+        for (NatType.Grade g : NatType.Grade.values()) {
+            assertFalse(g.meaning().matches("(?i).*\\b(open|moderate|strict|nat)\\b.*"), "no jargon: " + g);
+        }
+    }
+
+    @Test
+    void portsAreOneOrARange() {
+        assertEquals("27623", new NatInfo(PORT_RESTRICTED, UNKNOWN, 27623, 27623).ports());
+        assertEquals("40100–40112", new NatInfo(SYMMETRIC, UNKNOWN, 40100, 40112).ports());
+        assertNull(NatInfo.UNKNOWN.ports());
     }
 }

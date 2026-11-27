@@ -19,7 +19,9 @@ class NatCheckTest {
         FakeEasyTier et = new FakeEasyTier();
         et.infos.put("etmc-nat-test", STUN_DONE);
 
-        assertEquals(NatType.SYMMETRIC_EASY_INC, NatCheck.run(et, "etmc-nat-test", 5_000));
+        NatInfo found = NatCheck.run(et, "etmc-nat-test", 5_000);
+        assertEquals(NatType.SYMMETRIC_EASY_INC, found.udp());
+        assertEquals(NatType.FULL_CONE, found.tcp());
         assertEquals(List.of("etmc-nat-test"), et.deleted);
     }
 
@@ -42,7 +44,7 @@ class NatCheckTest {
         et.infos.put("etmc-nat-test", "{\"running\":true,\"my_node_info\":{\"stun_info\":{}}}");
 
         long t0 = System.nanoTime();
-        assertEquals(NatType.UNKNOWN, NatCheck.run(et, "etmc-nat-test", 300));
+        assertEquals(NatInfo.UNKNOWN, NatCheck.run(et, "etmc-nat-test", 300));
         assertTrue(System.nanoTime() - t0 >= 300_000_000L, "it waits the whole timeout");
         assertEquals(List.of("etmc-nat-test"), et.deleted);
     }
@@ -63,7 +65,7 @@ class NatCheckTest {
         et.infos.put(inst, STUN_DONE);
         int started = et.started.size();
 
-        assertEquals(NatType.SYMMETRIC_EASY_INC, s.natType(5_000));
+        assertEquals(NatType.SYMMETRIC_EASY_INC, s.nat(5_000).udp());
         assertEquals(started, et.started.size(), "no second instance");
         s.leave();
     }

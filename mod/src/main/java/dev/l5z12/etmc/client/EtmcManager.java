@@ -12,7 +12,7 @@ import dev.l5z12.etmc.core.ImportedConfig;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.NatCheck;
-import dev.l5z12.etmc.core.NatType;
+import dev.l5z12.etmc.core.NatInfo;
 import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.core.PlayerCert;
 import dev.l5z12.etmc.core.Relays;
@@ -99,13 +99,13 @@ public final class EtmcManager {
     @Getter private volatile NetworkStatus cachedStatus = NetworkStatus.UNKNOWN;
     /**
      * This machine's NAT type as last found, by a session or a check, so it outlasts the session that
-     * found it. {@link NatType#UNKNOWN} until one has.
+     * found it. {@link NatInfo#UNKNOWN} until one has.
      */
-    @Getter private volatile NatType nat = NatType.UNKNOWN;
+    @Getter private volatile NatInfo nat = NatInfo.UNKNOWN;
     /** When {@link #nat} was found ({@code System.currentTimeMillis()}); 0 until it has been. */
     @Getter private volatile long natAt;
     /** The NAT check running, or the last one. */
-    private volatile CompletableFuture<NatType> natCheck;
+    private volatile CompletableFuture<NatInfo> natCheck;
     /** When the running NAT check started. */
     private volatile long natCheckSince;
     private long lastStatusPoll;
@@ -849,7 +849,7 @@ public final class EtmcManager {
 
     /** Whether a NAT check is running. */
     public boolean natChecking() {
-        CompletableFuture<NatType> f = natCheck;
+        CompletableFuture<NatInfo> f = natCheck;
         return f != null && !f.isDone();
     }
 
@@ -858,27 +858,27 @@ public final class EtmcManager {
         return Math.max(0, (System.currentTimeMillis() - natCheckSince) / 1000);
     }
 
-    private void foundNat(NatType found) {
+    private void foundNat(NatInfo found) {
         nat = found;
         natAt = System.currentTimeMillis();
     }
 
     /**
-     * Finds out this machine's NAT type (see {@link EtmcSession#natType}). It gets a thread of its own,
+     * Finds out this machine's NAT type (see {@link EtmcSession#nat}). It gets a thread of its own,
      * not the worker: a check takes seconds, and hosting or joining shouldn't queue behind it. A check
      * that is already running is shared, not started twice.
      */
-    public synchronized CompletableFuture<NatType> checkNatAsync() {
+    public synchronized CompletableFuture<NatInfo> checkNatAsync() {
         if (!isReady()) return notLoaded();
-        CompletableFuture<NatType> running = natCheck;
+        CompletableFuture<NatInfo> running = natCheck;
         if (running != null && !running.isDone()) return running;
-        CompletableFuture<NatType> f = new CompletableFuture<>();
+        CompletableFuture<NatInfo> f = new CompletableFuture<>();
         natCheckSince = System.currentTimeMillis();
         natCheck = f;
         EtmcSession s = session;
         Thread t = new Thread(() -> {
             try {
-                NatType found = s.natType(NatCheck.TIMEOUT_MS);
+                NatInfo found = s.nat(NatCheck.TIMEOUT_MS);
                 LOGGER.info("[etmc] NAT type: {}", found);
                 foundNat(found);
                 f.complete(found);

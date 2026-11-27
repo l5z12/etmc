@@ -6,7 +6,6 @@ import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.Msg;
-import dev.l5z12.etmc.core.NatType;
 import dev.l5z12.etmc.core.NetworkStatus;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
@@ -44,8 +43,7 @@ public final class EtmcScreen extends EtmcBaseScreen {
         EtmcSession s = m.session();
         StringBuilder b = new StringBuilder().append(m.isReady()).append('/')
                 .append(s != null && s.isActive() ? s.mode() : null).append('/')
-                .append(McScreens.singleplayer()).append('/').append(McScreens.inWorld()).append('/')
-                .append(m.nat().grade());
+                .append(McScreens.singleplayer()).append('/').append(McScreens.inWorld());
         for (StatusScreen.Line l : subtitle(m)) b.append('/').append(l.color()).append(l.text());
         return b.toString();
     }
@@ -107,9 +105,7 @@ public final class EtmcScreen extends EtmcBaseScreen {
                 b -> goTo(new SettingsScreen(this))), x, y, w, 1, 2).build());
         y += ROW + GAP;
 
-        NatType nat = m.nat();
-        add(cell(Ui.button(nat.known() ? Txt.tr("etmc.menu.nat_known", "NAT type: %s", nat.grade().label())
-                : Txt.tr("etmc.menu.nat", "NAT type"), b -> goTo(new NatScreen(this))), x, y, w, 0, 1).build());
+        add(cell(Ui.button(Txt.tr("etmc.menu.nat", "NAT type"), b -> goTo(new NatScreen(this))), x, y, w, 0, 1).build());
 
         add(footer(Ui.button(Txt.translatable("gui.done"), b -> this.close()), 0, 1).build());
     }

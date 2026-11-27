@@ -2,6 +2,8 @@ package dev.l5z12.etmc.paper;
 
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.JoinCode;
+import dev.l5z12.etmc.core.NatInfo;
+import dev.l5z12.etmc.core.NatType;
 import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.core.Toml;
 import org.bukkit.command.Command;
@@ -57,14 +59,24 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("  virtual ip: " + (st.virtualIp() == null ? "(assigning)" : st.virtualIp())
                 + "   peers: " + st.peerCount() + " (P2P " + st.directPeerCount() + ")"
                 + "   connections: " + plugin.session().activeConnections());
-        sender.sendMessage("  NAT type: " + (st.nat().known() ? st.nat().describe() + ". " + st.nat().grade().meaning()
+        sender.sendMessage("  NAT type: " + (st.nat().known() ? nat(st.nat()) + ". " + st.nat().grade().summary()
                 : "not known yet (EasyTier is still checking, or this network blocks UDP)"));
         for (NetworkStatus.Peer p : st.peers()) {
             sender.sendMessage("   - " + p.hostname() + " " + (p.ipv4() == null ? "" : p.ipv4())
                     + (p.latencyMs() >= 0 ? " " + p.latencyMs() + "ms" : "")
-                    + (p.relay() ? " (relay" + (st.nat().blocksDirect(p.nat()) ? ": both NATs too strict" : "") + ")" : "")
-                    + (p.nat().known() ? "  NAT " + p.nat().describe() : ""));
+                    + (p.relay() ? " (relay" + (st.nat().blocksDirect(p.nat()) ? ": both NATs are symmetric" : "") + ")" : "")
+                    + (p.nat().known() ? "  NAT: " + p.nat().label() : ""));
         }
+    }
+
+    /** The NAT type in full, for an admin: its name, how it maps and filters, and the TCP type. */
+    private static String nat(NatInfo n) {
+        NatType t = n.udp();
+        StringBuilder b = new StringBuilder(t.label()).append(" (EasyTier: ").append(t.easyTierName());
+        if (t.mapping() != null) b.append("; mapping: ").append(t.mapping());
+        if (t.filtering() != null) b.append("; filtering: ").append(t.filtering());
+        if (n.tcp().known()) b.append("; TCP: ").append(n.tcp().label());
+        return b.append(')').toString();
     }
 
     private void link(CommandSender sender) {

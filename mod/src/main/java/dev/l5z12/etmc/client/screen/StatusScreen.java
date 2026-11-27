@@ -232,18 +232,20 @@ public final class StatusScreen extends EtmcBaseScreen {
             if (host != null) {
                 lines.add(new Line(!host.relay() ? Msg.tr("etmc.status.route.direct", "Connected directly to the host")
                         : st.nat().blocksDirect(host.nat()) ? Msg.tr("etmc.status.route.relay_nat",
-                                "Connected to the host through the relay: your NATs are too strict to connect directly")
+                                "Connected to the host through the relay: your network and the host's don't allow "
+                                + "a direct connection")
                         : Msg.tr("etmc.status.route.relay", "Connected to the host through the relay"), COLOR_MUTED));
             }
         }
         if (st.nat().known()) {
-            lines.add(new Line(Msg.tr("etmc.status.nat", "Your NAT type: %s", st.nat().describe()), COLOR_MUTED));
+            lines.add(new Line(Msg.tr("etmc.status.nat", "NAT type: %s · %s", st.nat().udp().label(),
+                    st.nat().grade().summary()), COLOR_MUTED));
         }
         if (hosting) {
             long stuck = st.peers().stream().filter(p -> p.relay() && st.nat().blocksDirect(p.nat())).count();
             if (stuck > 0) {
-                lines.add(new Line(Msg.tr("etmc.status.nat_relayed", "Players who can't connect to you directly, "
-                        + "because both NATs are too strict: %s", stuck), COLOR_MUTED));
+                lines.add(new Line(Msg.tr("etmc.status.nat_relayed", "Players on the relay because their network and "
+                        + "yours don't allow a direct connection: %s", stuck), COLOR_MUTED));
             }
         }
         lines.add(new Line(Msg.tr("etmc.status.network", "Network %s", code == null ? "?" : code.networkName), COLOR_MUTED));

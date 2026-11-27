@@ -15,10 +15,10 @@ import java.util.Set;
  * {@code collect_network_infos}. We only pull out what the UI shows (virtual IP, peers, latency,
  * running flag, NAT types) and tolerate missing/renamed fields rather than failing.
  *
- * @param nat this node's UDP NAT type, {@link NatType#UNKNOWN} until EasyTier's STUN check finishes
+ * @param nat what EasyTier's STUN check found out about this node's NATs, {@link NatInfo#UNKNOWN} until it finishes
  */
 public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers, String errorMsg,
-                            int relayNodes, NatType nat) {
+                            int relayNodes, NatInfo nat) {
 
     /**
      * A snapshot is published to the render thread as soon as it is built, so freeze the peer list:
@@ -27,12 +27,12 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
     public NetworkStatus {
         peers = peers == null ? List.of() : List.copyOf(peers);
         if (errorMsg != null && errorMsg.isBlank()) errorMsg = null;
-        if (nat == null) nat = NatType.UNKNOWN;
+        if (nat == null) nat = NatInfo.UNKNOWN;
     }
 
     /** A status whose NAT type isn't known. */
     public NetworkStatus(boolean running, String virtualIp, List<Peer> peers, String errorMsg, int relayNodes) {
-        this(running, virtualIp, peers, errorMsg, relayNodes, NatType.UNKNOWN);
+        this(running, virtualIp, peers, errorMsg, relayNodes, NatInfo.UNKNOWN);
     }
 
     /** A status without relay-node accounting (tests, and callers that don't care). */
@@ -141,11 +141,11 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
             String errorMsg = optString(root, "error_msg");
 
             String vip = null;
-            NatType nat = NatType.UNKNOWN;
+            NatInfo nat = NatInfo.UNKNOWN;
             JsonObject myNode = optObject(root, "my_node_info");
             if (myNode != null) {
                 vip = decodeIpv4Inet(optObject(myNode, "virtual_ipv4"));
-                nat = udpNat(myNode);
+                nat = stun(myNode);
             }
 
             List<Peer> peers = new ArrayList<>();
@@ -206,6 +206,14 @@ public record NetworkStatus(boolean running, String virtualIp, List<Peer> peers,
             }
         }
         return n > 0 ? (int) Math.round((sumUs / (double) n) / 1000.0) : -1;
+    }
+
+    /** What {@code node.stun_info} says about this node's NATs, as the STUN check left it. */
+    private static NatInfo stun(JsonObject node) {
+        JsonObject stun = optObject(node, "stun_info");
+        if (stun == null) return NatInfo.UNKNOWN;
+        return new NatInfo(NatType.of(optString(stun, "udp_nat_type")), NatType.of(optString(stun, "tcp_nat_type")),
+                optInt(stun, "min_port", 0), optInt(stun, "max_port", 0));
     }
 
     /**

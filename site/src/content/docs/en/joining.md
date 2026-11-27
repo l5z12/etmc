@@ -41,21 +41,21 @@ the host if you can. If you choose **Join anyway**, **Session status** shows tha
 
 Run `/etmc status` to see how many players are connected, and how many of them directly.
 
-Your NAT type says how easily other players can connect to you directly. To check it, press <kbd>G</kbd> and choose
-**NAT type**, or run `/etmc nat`. In a session, the **NAT type** screen also shows every player's.
+To see how easily other players can connect to you directly, press <kbd>G</kbd> and choose **NAT type**, or run
+`/etmc nat`. etmc tells you who you get direct connections with:
 
-| NAT type | What it means |
+| Result | What it means |
 | --- | --- |
-| Open | Direct connections should work with everyone. |
-| Moderate | Direct connections work with most players, but not with a strict NAT. |
-| Strict | Direct connections only work with players on an open NAT. |
+| Direct connections with everyone | Your network doesn't get in the way, so you make a good host. |
+| Direct connections with most players | They work unless the other player's network makes them hard as well. |
+| Direct connections with some players | They only work with players who get direct connections with everyone. |
 
-When two players can't connect directly, the game still works, but it goes through the relay, which can add lag. A
-strict NAT usually comes from your router or your internet provider. Phone hotspots and school or office networks are
-often strict. If etmc can't find your NAT type at all, the network may be blocking UDP, and then every connection goes
-through the relay.
+When two players can't connect directly, the game still works, but it goes through a relay server, which can add lag.
+Phone hotspots and school or office networks often make direct connections hard. Turning on UPnP in your router can
+help. If etmc can't check at all, the network may be blocking UDP, and then every connection goes through the relay.
 
-etmc rates NAT types by what it can connect through, so its rating can differ from what a game console shows.
+Choose **Details** on that screen to see the exact NAT type, such as port-restricted cone or symmetric, and how it maps
+and filters. In a session, it also shows every player's NAT type.
 
 ## Don't have a link?
 

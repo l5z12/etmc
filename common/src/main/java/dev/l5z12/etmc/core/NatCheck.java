@@ -25,14 +25,14 @@ public final class NatCheck {
     /**
      * Runs a check on an instance of its own.
      *
-     * @return the type, or {@link NatType#UNKNOWN} if EasyTier found none within {@code timeoutMs}
+     * @return what the check found, or {@link NatInfo#UNKNOWN} if EasyTier found no UDP type within {@code timeoutMs}
      * @throws dev.l5z12.etmc.ffi.EasyTierException if the instance won't start
      */
-    public static NatType run(EasyTier et, long timeoutMs) throws InterruptedException {
+    public static NatInfo run(EasyTier et, long timeoutMs) throws InterruptedException {
         return run(et, "etmc-nat-" + UUID.randomUUID().toString().substring(0, 8), timeoutMs);
     }
 
-    static NatType run(EasyTier et, String inst, long timeoutMs) throws InterruptedException {
+    static NatInfo run(EasyTier et, String inst, long timeoutMs) throws InterruptedException {
         et.runNetworkInstance(EtmcConfig.natCheckToml(inst));
         try {
             return await(() -> NetworkStatus.parse(et.collectNetworkInfos(16).get(inst)).nat(), timeoutMs);
@@ -45,14 +45,14 @@ public final class NatCheck {
         }
     }
 
-    /** Polls {@code nat} until it reports a type, or {@code timeoutMs} passes ({@link NatType#UNKNOWN}). */
-    static NatType await(Supplier<NatType> nat, long timeoutMs) throws InterruptedException {
+    /** Polls {@code nat} until it reports a UDP type, or {@code timeoutMs} passes ({@link NatInfo#UNKNOWN}). */
+    static NatInfo await(Supplier<NatInfo> nat, long timeoutMs) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
         while (true) {
-            NatType t = nat.get();
+            NatInfo t = nat.get();
             if (t.known()) return t;
             long left = deadline - System.nanoTime();
-            if (left <= 0) return NatType.UNKNOWN;
+            if (left <= 0) return NatInfo.UNKNOWN;
             Thread.sleep(Math.min(POLL_MS, TimeUnit.NANOSECONDS.toMillis(left) + 1));
         }
     }

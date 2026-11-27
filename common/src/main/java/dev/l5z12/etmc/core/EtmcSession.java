@@ -364,13 +364,13 @@ public final class EtmcSession {
     }
 
     /**
-     * This machine's UDP NAT type, blocking for up to {@code timeoutMs}. A running network finds it out
-     * anyway, so this waits for that one's answer; otherwise it runs a {@link NatCheck}. Not
+     * What this machine's NATs are, blocking for up to {@code timeoutMs}. A running network finds that
+     * out anyway, so this waits for that one's answer; otherwise it runs a {@link NatCheck}. Not
      * synchronized: hosting or joining shouldn't have to wait for a check.
      *
-     * @return the type, or {@link NatType#UNKNOWN} if none was found in time
+     * @return what was found, or {@link NatInfo#UNKNOWN} if no UDP type was found in time
      */
-    public NatType natType(long timeoutMs) throws InterruptedException {
+    public NatInfo nat(long timeoutMs) throws InterruptedException {
         return instName != null ? NatCheck.await(() -> status().nat(), timeoutMs) : NatCheck.run(et, timeoutMs);
     }
 
