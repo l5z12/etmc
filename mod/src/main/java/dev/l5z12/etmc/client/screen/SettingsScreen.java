@@ -5,7 +5,6 @@ import dev.l5z12.etmc.client.EtmcManager;
 import dev.l5z12.etmc.client.ModConfig;
 import dev.l5z12.etmc.client.Txt;
 import dev.l5z12.etmc.client.Ui;
-import dev.l5z12.etmc.core.Errors;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.Msg;
 import dev.l5z12.etmc.core.Relays;
@@ -19,7 +18,7 @@ import java.util.List;
 
 /**
  * Relays, the two ports, and the overlay toggle. Every change — text field or toggle — is applied
- * only by <b>Save</b>; <b>Cancel</b> (or Esc) discards all of them. It also has the NAT type check.
+ * only by <b>Save</b>; <b>Cancel</b> (or Esc) discards all of them.
  */
 public final class SettingsScreen extends EtmcBaseScreen {
 
@@ -34,8 +33,6 @@ public final class SettingsScreen extends EtmcBaseScreen {
     /** What's wrong with the relay box, or {@code null}. */
     private String relayProblem;
     private String checked;
-    /** The NAT button's label as last set, so it's only replaced when it changes. */
-    private String natShown;
 
     public SettingsScreen(Screen parent) {
         super(Txt.tr("etmc.settings.title", "etmc settings"), parent);
@@ -54,7 +51,7 @@ public final class SettingsScreen extends EtmcBaseScreen {
         int x = left(w);
         int half = (w - GAP) / 2;
         int right = x + half + GAP;
-        int y = formTop(2 * LINE_H + ROW + 6 + ROW + 6 + ROW + 6 + LINE_H + ROW, 3 * LINE_H);
+        int y = formTop(2 * LINE_H + ROW + 6 + ROW + 6 + LINE_H + ROW, 3 * LINE_H);
 
         label(Msg.tr("etmc.settings.relays.hint", "Relays, for hosting (commas or spaces between them)"), x, y, w, COLOR_MUTED);
         int boxW = w - FIND_RELAY_W - GAP;
@@ -78,14 +75,6 @@ public final class SettingsScreen extends EtmcBaseScreen {
         add(hudButton);
         y += ROW + 6;
 
-        // Not a setting, so Save and Cancel don't touch it, but it's what to look at when players keep
-        // connecting through the relay.
-        Ui.Builder nat = Ui.button(Txt.literal(natLabel()), b -> checkNat()).dimensions(x, y, w, ROW);
-        hint(nat, Msg.tr("etmc.settings.nat.help", "How easily other players can connect to you directly, "
-                + "rather than through the relay. Checking takes a few seconds."));
-        var natButton = add(nat.build());
-        y += ROW + 6;
-
         label(Msg.tr("etmc.settings.port.hint", "Port inside the network"), x, y, half, COLOR_MUTED);
         add(port.widget(font(), x, y + LINE_H, PORT_W, ROW, Txt.tr("etmc.settings.port", "Port")));
         hint(x, y + LINE_H, PORT_W, ROW, Msg.tr("etmc.settings.port.note", "advanced; default %s", EtmcConfig.DEFAULT_VIRTUAL_PORT));
@@ -98,30 +87,7 @@ public final class SettingsScreen extends EtmcBaseScreen {
         live(() -> {
             checkRelays();
             save.active = relayProblem == null;
-            String label = natLabel();
-            if (!label.equals(natShown)) {
-                natShown = label;
-                Ui.setMessage(natButton, Txt.literal(label));
-            }
-            natButton.active = EtmcManager.get().isReady() && !EtmcManager.get().natChecking();
         });
-    }
-
-    private void checkNat() {
-        EtmcManager.get().checkNatAsync().whenComplete((found, err) -> mc().execute(() -> {
-            if (err != null) {
-                setMessage(Msg.tr("etmc.nat.failed", "Couldn't check your NAT type: %s", Errors.message(err)), COLOR_BAD);
-            } else {
-                setMessage(found.grade().meaning(), StatusScreen.natColor(found));
-            }
-        }));
-    }
-
-    private static String natLabel() {
-        EtmcManager m = EtmcManager.get();
-        if (m.natChecking()) return Msg.tr("etmc.settings.nat.checking", "Checking your NAT type…");
-        if (!m.nat().known()) return Msg.tr("etmc.settings.nat.check", "Check my NAT type");
-        return Msg.tr("etmc.settings.nat", "NAT type: %s", m.nat().describe());
     }
 
     /** Says what's wrong with the relay box as it's typed, rather than only on Save. */

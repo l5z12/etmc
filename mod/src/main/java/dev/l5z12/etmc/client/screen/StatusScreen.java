@@ -10,7 +10,6 @@ import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
 import dev.l5z12.etmc.core.Msg;
-import dev.l5z12.etmc.core.NatType;
 import dev.l5z12.etmc.core.NetworkStatus;
 //? if yarn {
 import net.minecraft.client.gui.screen.Screen;
@@ -302,15 +301,6 @@ public final class StatusScreen extends EtmcBaseScreen {
         String full = note.apply(name);
         if (Wrap.width(font(), full) <= w) return full;
         return note.apply(Wrap.fit(font(), name, Math.max(0, w - Wrap.width(font(), note.apply("")))));
-    }
-
-    /** The color to show a NAT type's meaning in: green when it's open, then yellow, then orange. */
-    static int natColor(NatType nat) {
-        return switch (nat.grade()) {
-            case OPEN -> COLOR_GOOD;
-            case MODERATE -> COLOR_BUSY;
-            case STRICT, UNKNOWN -> COLOR_WARN;
-        };
     }
 
     private static int pingColor(int ms) {

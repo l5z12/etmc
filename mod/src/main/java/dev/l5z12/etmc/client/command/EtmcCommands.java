@@ -226,7 +226,7 @@ public final class EtmcCommands {
 
     private static int nat(Src src) {
         if (!checkReady(src)) return 0;
-        src.feedback(Msg.tr("etmc.settings.nat.checking", "Checking your NAT type…"));
+        src.feedback(Msg.tr("etmc.nat.checking", "Checking your NAT type…"));
         EtmcManager.get().checkNatAsync().whenComplete((found, err) -> reply(err != null
                 ? Msg.tr("etmc.nat.failed", "Couldn't check your NAT type: %s", Errors.message(err))
                 : Msg.tr("etmc.cmd.nat", "NAT type: %s. %s", found.describe(), found.grade().meaning())));

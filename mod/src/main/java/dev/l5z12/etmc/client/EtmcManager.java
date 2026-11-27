@@ -102,8 +102,12 @@ public final class EtmcManager {
      * found it. {@link NatType#UNKNOWN} until one has.
      */
     @Getter private volatile NatType nat = NatType.UNKNOWN;
+    /** When {@link #nat} was found ({@code System.currentTimeMillis()}); 0 until it has been. */
+    @Getter private volatile long natAt;
     /** The NAT check running, or the last one. */
     private volatile CompletableFuture<NatType> natCheck;
+    /** When the running NAT check started. */
+    private volatile long natCheckSince;
     private long lastStatusPoll;
     /** Guards against queueing another status poll behind one that hasn't come back yet. */
     private final AtomicBoolean statusPollInFlight = new AtomicBoolean();
@@ -849,6 +853,16 @@ public final class EtmcManager {
         return f != null && !f.isDone();
     }
 
+    /** How long the running NAT check has taken so far, in whole seconds. */
+    public long natCheckSeconds() {
+        return Math.max(0, (System.currentTimeMillis() - natCheckSince) / 1000);
+    }
+
+    private void foundNat(NatType found) {
+        nat = found;
+        natAt = System.currentTimeMillis();
+    }
+
     /**
      * Finds out this machine's NAT type (see {@link EtmcSession#natType}). It gets a thread of its own,
      * not the worker: a check takes seconds, and hosting or joining shouldn't queue behind it. A check
@@ -859,13 +873,14 @@ public final class EtmcManager {
         CompletableFuture<NatType> running = natCheck;
         if (running != null && !running.isDone()) return running;
         CompletableFuture<NatType> f = new CompletableFuture<>();
+        natCheckSince = System.currentTimeMillis();
         natCheck = f;
         EtmcSession s = session;
         Thread t = new Thread(() -> {
             try {
                 NatType found = s.natType(NatCheck.TIMEOUT_MS);
                 LOGGER.info("[etmc] NAT type: {}", found);
-                nat = found;
+                foundNat(found);
                 f.complete(found);
             } catch (Throwable e) {
                 LOGGER.warn("[etmc] NAT check failed", e);
@@ -973,7 +988,7 @@ public final class EtmcManager {
             try {
                 NetworkStatus st = s.status();
                 cachedStatus = st;
-                if (st.nat().known()) nat = st.nat();
+                if (st.nat().known()) foundNat(st.nat());
             } catch (Throwable ignored) {
             } finally {
                 statusPollInFlight.set(false);

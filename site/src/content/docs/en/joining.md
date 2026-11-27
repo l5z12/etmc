@@ -41,8 +41,8 @@ the host if you can. If you choose **Join anyway**, **Session status** shows tha
 
 Run `/etmc status` to see how many players are connected, and how many of them directly.
 
-Your NAT type says how easily other players can connect to you directly. **Session status** shows it. To check it before
-you play, click **Check my NAT type** under **Settings & relays**, or run `/etmc nat`.
+Your NAT type says how easily other players can connect to you directly. To check it, press <kbd>G</kbd> and choose
+**NAT type**, or run `/etmc nat`. In a session, the **NAT type** screen also shows every player's.
 
 | NAT type | What it means |
 | --- | --- |

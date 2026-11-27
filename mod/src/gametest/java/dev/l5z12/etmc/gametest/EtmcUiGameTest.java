@@ -10,11 +10,13 @@ import dev.l5z12.etmc.client.screen.EtmcScreen;
 import dev.l5z12.etmc.client.screen.HostScreen;
 import dev.l5z12.etmc.client.screen.JoinScreen;
 import dev.l5z12.etmc.client.screen.LinkGeneratorScreen;
+import dev.l5z12.etmc.client.screen.NatScreen;
 import dev.l5z12.etmc.client.screen.SettingsScreen;
 import dev.l5z12.etmc.client.screen.StatusScreen;
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.EtmcSession;
 import dev.l5z12.etmc.core.JoinCode;
+import dev.l5z12.etmc.core.NatType;
 import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.core.Relays;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
@@ -112,13 +114,58 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         view(ctx, at, "url", () -> new ConnectUrlScreen(null));
         view(ctx, at, "generator", () -> new LinkGeneratorScreen(null));
         view(ctx, at, "settings", () -> new SettingsScreen(null));
-        view(ctx, at, "notice", () -> new EtmcNoticeScreen(null, "Couldn't reach the host", LONG_TEXT));
+        natScreen(ctx, at);
+        view(ctx, at, "notice",() -> new EtmcNoticeScreen(null, "Couldn't reach the host", LONG_TEXT));
         view(ctx, at, "notice-retry", () -> new EtmcNoticeScreen(null, "Couldn't reach the host", LONG_TEXT, () -> {}));
         view(ctx, at, "ask", () -> new EtmcAskScreen(null, "This link can't check the host", LONG_TEXT, () -> {}, () -> {}));
         view(ctx, at, "connecting", () -> new EtmcConnectingScreen(null, "Steve's world", () -> {}, () -> {},
                 () -> "Reached the network — waiting for the host to show up…"));
         generatorWarnsWhenJoinersWillBe(ctx, at);
         ctx.setScreen(() -> null);
+    }
+
+    /**
+     * The NAT screen while it checks, with an answer, and with none. The manager is set up to look that
+     * way: a real check would need the internet, and its answer would differ from runner to runner.
+     */
+    private void natScreen(ClientGameTestContext ctx, String at) {
+        ctx.runOnClient(c -> {
+            setManagerField("natCheck", new CompletableFuture<NatType>());
+            setManagerField("natCheckSince", System.currentTimeMillis() - 4_000);
+        });
+        view(ctx, at, "nat-checking", () -> new NatScreen(null));
+        ctx.runOnClient(c -> {
+            setManagerField("natCheck", null);
+            setManagerField("nat", NatType.SYMMETRIC_EASY_INC);
+            setManagerField("natAt", System.currentTimeMillis() - 3 * 60_000);
+        });
+        view(ctx, at, "nat", () -> new NatScreen(null));
+        view(ctx, at, "menu-nat", () -> new EtmcScreen(null));
+        ctx.runOnClient(c -> setManagerField("nat", NatType.UNKNOWN));
+        view(ctx, at, "nat-unknown", () -> new NatScreen(null));
+        ctx.runOnClient(c -> setManagerField("natAt", 0L));
+    }
+
+    /** In a session, the NAT screen lists each player's NAT type too. */
+    private void natInASession(ClientGameTestContext ctx, String at) {
+        NatType[] types = {NatType.FULL_CONE, NatType.SYMMETRIC, NatType.UNKNOWN, NatType.SYMMETRIC_EASY_DEC};
+        List<NetworkStatus.Peer> list = new ArrayList<>();
+        for (int i = 0; i < types.length; i++) {
+            boolean relayed = NatType.SYMMETRIC.blocksDirect(types[i]);
+            list.add(new NetworkStatus.Peer(i == 1 ? "a_rather_long_player_name_1" : "Player" + i,
+                    "10.126.126." + (i + 2), 40 + i * 30, relayed, relayed ? 2 : 1, types[i]));
+        }
+        NetworkStatus st = new NetworkStatus(true, "10.126.126.1", list, null, 1, NatType.SYMMETRIC);
+        ctx.runOnClient(c -> {
+            setManagerField("cachedStatus", st);
+            setManagerField("nat", NatType.SYMMETRIC);
+            setManagerField("natAt", System.currentTimeMillis());
+        });
+        view(ctx, at, "world-nat", () -> new NatScreen(null));
+        ctx.runOnClient(c -> {
+            setManagerField("nat", NatType.UNKNOWN);
+            setManagerField("natAt", 0L);
+        });
     }
 
     /** Whoever makes a link that joiners will be warned about hears it first, and nobody else does. */
@@ -204,6 +251,7 @@ public class EtmcUiGameTest implements FabricClientGameTest {
         try {
             view(ctx, at, "world-menu-hosting", () -> new EtmcScreen(null));
             holdStatus(ctx);
+            natInASession(ctx, at);
             ctx.setScreen(() -> new StatusScreen(null));
             ctx.waitForScreen(StatusScreen.class);
             fakeStatus(ctx, 0);

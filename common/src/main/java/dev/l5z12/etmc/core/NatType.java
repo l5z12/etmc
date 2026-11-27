@@ -33,6 +33,19 @@ public enum NatType {
         STRICT,
         UNKNOWN;
 
+        /**
+         * Whether EasyTier won't even try to connect this grade and {@code other} directly: both are
+         * symmetric, and at least one is strict. {@code false} says only that it will try, not that it
+         * will get through, and an unknown grade at either end is {@code false} too.
+         */
+        public boolean blocksDirect(Grade other) {
+            return symmetric() && other != null && other.symmetric() && (this == STRICT || other == STRICT);
+        }
+
+        private boolean symmetric() {
+            return this == MODERATE || this == STRICT;
+        }
+
         public String label() {
             return switch (this) {
                 case OPEN -> Msg.tr("etmc.nat.grade.open", "Open");
@@ -92,19 +105,9 @@ public enum NatType {
         }
     }
 
-    /**
-     * Whether EasyTier won't even try to connect this NAT and {@code other} directly: both are
-     * symmetric, and at least one is hard to predict. {@code false} says only that it will try,
-     * not that it will get through, and an unknown type at either end is {@code false} too.
-     */
+    /** Whether EasyTier won't even try to connect this NAT and {@code other} directly (see {@link Grade#blocksDirect}). */
     public boolean blocksDirect(NatType other) {
-        if (other == null) return false;
-        boolean bothSymmetric = symmetric() && other.symmetric();
-        return bothSymmetric && (grade == Grade.STRICT || other.grade == Grade.STRICT);
-    }
-
-    private boolean symmetric() {
-        return grade == Grade.MODERATE || grade == Grade.STRICT;
+        return other != null && grade.blocksDirect(other.grade);
     }
 
     /** The type in plain words, such as "port-restricted cone". */

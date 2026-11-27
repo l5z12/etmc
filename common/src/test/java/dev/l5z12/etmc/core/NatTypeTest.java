@@ -63,6 +63,17 @@ class NatTypeTest {
     }
 
     @Test
+    void gradesBlockEachOtherTheSameWay() {
+        NatType.Grade open = NatType.Grade.OPEN, moderate = NatType.Grade.MODERATE, strict = NatType.Grade.STRICT;
+        assertFalse(open.blocksDirect(strict));
+        assertFalse(moderate.blocksDirect(moderate));
+        assertTrue(moderate.blocksDirect(strict));
+        assertTrue(strict.blocksDirect(moderate));
+        assertTrue(strict.blocksDirect(strict));
+        assertFalse(strict.blocksDirect(NatType.Grade.UNKNOWN));
+    }
+
+    @Test
     void describesTheGradeThenTheType() {
         assertEquals("Open (port-restricted cone)", PORT_RESTRICTED.describe());
         assertEquals("Moderate (symmetric, predictable ports)", SYMMETRIC_EASY_INC.describe());
