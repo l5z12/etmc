@@ -85,6 +85,21 @@ public final class EtmcConfig {
         return build(instName, hostname, networkName, secret, relays, null, true, "[]", direct);
     }
 
+    /**
+     * An instance that exists only for EasyTier's STUN check (see {@link NatCheck}): a network of its
+     * own, with no relays and no listeners, so it never reaches anyone but the STUN servers.
+     */
+    static String natCheckToml(String instName) {
+        return "instance_name = " + Toml.quote(instName) + "\n"
+                + "hostname = " + Toml.quote(instName) + "\n"
+                + "listeners = []\n\n"
+                + "[network_identity]\n"
+                + "network_name = " + Toml.quote(instName) + "\n"
+                + "network_secret = " + Toml.quote(Secrets.random()) + "\n\n"
+                + "[flags]\n"
+                + "no_tun = true\n";
+    }
+
     private static String build(String instName, String hostname, String networkName, String secret,
                                 List<String> relays, String staticIpv4, boolean dhcp, String listeners,
                                 boolean direct) {

@@ -230,8 +230,22 @@ public final class StatusScreen extends EtmcBaseScreen {
             }
             NetworkStatus.Peer host = code == null ? null : st.peerAt(code.hostIp);
             if (host != null) {
-                lines.add(new Line(host.relay() ? Msg.tr("etmc.status.route.relay", "Connected to the host through the relay")
-                        : Msg.tr("etmc.status.route.direct", "Connected directly to the host"), COLOR_MUTED));
+                lines.add(new Line(!host.relay() ? Msg.tr("etmc.status.route.direct", "Connected directly to the host")
+                        : st.nat().blocksDirect(host.nat()) ? Msg.tr("etmc.status.route.relay_nat",
+                                "Connected to the host through the relay: your network and the host's don't allow "
+                                + "a direct connection")
+                        : Msg.tr("etmc.status.route.relay", "Connected to the host through the relay"), COLOR_MUTED));
+            }
+        }
+        if (st.nat().known()) {
+            lines.add(new Line(Msg.tr("etmc.status.nat", "NAT type: %s · %s", st.nat().udp().label(),
+                    st.nat().grade().summary()), COLOR_MUTED));
+        }
+        if (hosting) {
+            long stuck = st.peers().stream().filter(p -> p.relay() && st.nat().blocksDirect(p.nat())).count();
+            if (stuck > 0) {
+                lines.add(new Line(Msg.tr("etmc.status.nat_relayed", "Players on the relay because their network and "
+                        + "yours don't allow a direct connection: %s", stuck), COLOR_MUTED));
             }
         }
         lines.add(new Line(Msg.tr("etmc.status.network", "Network %s", code == null ? "?" : code.networkName), COLOR_MUTED));

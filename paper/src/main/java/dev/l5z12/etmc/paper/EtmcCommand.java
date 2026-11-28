@@ -2,6 +2,8 @@ package dev.l5z12.etmc.paper;
 
 import dev.l5z12.etmc.core.EtmcConfig;
 import dev.l5z12.etmc.core.JoinCode;
+import dev.l5z12.etmc.core.NatInfo;
+import dev.l5z12.etmc.core.NatType;
 import dev.l5z12.etmc.core.NetworkStatus;
 import dev.l5z12.etmc.core.Toml;
 import org.bukkit.command.Command;
@@ -13,7 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
 
-/** {@code /etmc <status|link|config|reload>} — admin controls for the mesh. */
+/** {@code /etmc <status [ip]|link|config|reload>} — admin controls for the mesh. */
 public final class EtmcCommand implements CommandExecutor, TabCompleter {
 
     private final EtmcPlugin plugin;
@@ -26,19 +28,20 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         String sub = args.length == 0 ? "status" : args[0].toLowerCase(Locale.ROOT);
         switch (sub) {
-            case "status" -> status(sender);
+            case "status" -> status(sender, args.length > 1 && args[1].equalsIgnoreCase("ip"));
             case "link" -> link(sender);
             case "config" -> config(sender);
             case "reload" -> {
                 sender.sendMessage("[etmc] Restarting mesh from config.yml…");
                 plugin.restart();
             }
-            default -> sender.sendMessage("[etmc] Usage: /etmc <status|link|config|reload>");
+            default -> sender.sendMessage("[etmc] Usage: /etmc <status [ip]|link|config|reload>");
         }
         return true;
     }
 
-    private void status(CommandSender sender) {
+    /** With {@code showIp}, the server's public addresses too, which are left out unless asked for. */
+    private void status(CommandSender sender, boolean showIp) {
         if (!plugin.isReady()) {
             String err = plugin.startError();
             sender.sendMessage(err != null ? "[etmc] Not running: " + err : "[etmc] Starting…");
@@ -57,11 +60,31 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage("  virtual ip: " + (st.virtualIp() == null ? "(assigning)" : st.virtualIp())
                 + "   peers: " + st.peerCount() + " (P2P " + st.directPeerCount() + ")"
                 + "   connections: " + plugin.session().activeConnections());
+        sender.sendMessage("  NAT type: " + (st.nat().known()
+                ? nat(st.nat(), showIp) + ". " + st.nat().grade().summary()
+                : "not known yet (EasyTier is still checking, or this network blocks UDP)"));
         for (NetworkStatus.Peer p : st.peers()) {
             sender.sendMessage("   - " + p.hostname() + " " + (p.ipv4() == null ? "" : p.ipv4())
                     + (p.latencyMs() >= 0 ? " " + p.latencyMs() + "ms" : "")
-                    + (p.relay() ? " (relay)" : ""));
+                    + (p.relay() ? " (relay" + (st.nat().blocksDirect(p.nat()) ? ": both NATs are symmetric" : "") + ")" : "")
+                    + (p.nat().known() ? "  NAT: " + p.nat().label() : ""));
         }
+    }
+
+    /**
+     * The NAT type in full, for an admin: its name, how it maps and filters, the TCP type and, with
+     * {@code showIp}, the public addresses.
+     */
+    private static String nat(NatInfo n, boolean showIp) {
+        NatType t = n.udp();
+        StringBuilder b = new StringBuilder(t.label()).append(" (EasyTier: ").append(t.easyTierName());
+        if (t.mapping() != null) b.append("; mapping: ").append(t.mapping());
+        if (t.filtering() != null) b.append("; filtering: ").append(t.filtering());
+        if (n.tcp().known()) b.append("; TCP: ").append(n.tcp().label());
+        if (!showIp && (n.ipv4() != null || n.ipv6() != null)) b.append("; public IP: hidden, see /etmc status ip");
+        if (showIp && n.ipv4() != null) b.append("; public IPv4: ").append(n.ipv4());
+        if (showIp && n.ipv6() != null) b.append("; public IPv6: ").append(n.ipv6());
+        return b.append(')').toString();
     }
 
     private void link(CommandSender sender) {
@@ -132,6 +155,10 @@ public final class EtmcCommand implements CommandExecutor, TabCompleter {
         if (args.length == 1) {
             String p = args[0].toLowerCase(Locale.ROOT);
             return Stream.of("status", "link", "config", "reload").filter(s -> s.startsWith(p)).toList();
+        }
+        if (args.length == 2 && args[0].equalsIgnoreCase("status")
+                && "ip".startsWith(args[1].toLowerCase(Locale.ROOT))) {
+            return List.of("ip");
         }
         return List.of();
     }

@@ -41,6 +41,25 @@ the host if you can. If you choose **Join anyway**, **Session status** shows tha
 
 Run `/etmc status` to see how many players are connected, and how many of them directly.
 
+To see how easily other players can connect to you directly, press <kbd>G</kbd> and choose **NAT type**, or run
+`/etmc nat`. etmc tells you who you get direct connections with:
+
+| Result | What it means |
+| --- | --- |
+| Direct connections with everyone | Your network doesn't get in the way, so you make a good host. |
+| Direct connections with most players | They work unless the other player's network makes them hard as well. |
+| Direct connections with some players | They only work with players who get direct connections with everyone. |
+
+When two players can't connect directly, the game still works, but it goes through a relay server, which can add lag.
+Phone hotspots and school or office networks often make direct connections hard. Turning on UPnP in your router can
+help. If etmc can't check at all, the network may be blocking UDP, and then every connection goes through the relay.
+
+The screen also says whether etmc is worth using on your network, and whether you should host or let a friend host.
+
+Choose **Details** on that screen to see the exact NAT type, such as port-restricted cone or symmetric, and how it maps
+and filters. In a session, it also shows every player's NAT type. Your public IP address stays hidden until you choose
+**Show IP**, so it doesn't end up on a stream or in a screenshot.
+
 ## Don't have a link?
 
 If a server admin gave you a config URL, see [Config URLs](/docs/connect-url). If you know the network details, you

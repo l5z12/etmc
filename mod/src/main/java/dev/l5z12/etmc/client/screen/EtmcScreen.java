@@ -67,7 +67,7 @@ public final class EtmcScreen extends EtmcBaseScreen {
         int subW = col(SUBTITLE_W);
         int subH = 0;
         for (StatusScreen.Line l : sub) subH += wrapped(l.text(), subW, SUBTITLE_LINES).size() * LINE_H;
-        int y = formTop(subH + 8 + (active && !hosting ? 1 : 2) * (ROW + GAP) + 6 + ROW, 2 * LINE_H);
+        int y = formTop(subH + 8 + (active && !hosting ? 1 : 2) * (ROW + GAP) + 6 + ROW + GAP + ROW, 2 * LINE_H);
         for (StatusScreen.Line l : sub) y = paragraph(l.text(), y, subW, l.color(), SUBTITLE_LINES);
         y += 8;
 
@@ -103,6 +103,9 @@ public final class EtmcScreen extends EtmcBaseScreen {
                 b -> goTo(new LinkGeneratorScreen(this))), x, y, w, 0, 2).build());
         add(cell(Ui.button(Txt.tr("etmc.menu.settings", "Settings & relays"),
                 b -> goTo(new SettingsScreen(this))), x, y, w, 1, 2).build());
+        y += ROW + GAP;
+
+        add(cell(Ui.button(Txt.tr("etmc.menu.nat", "NAT type"), b -> goTo(new NatScreen(this))), x, y, w, 0, 1).build());
 
         add(footer(Ui.button(Txt.translatable("gui.done"), b -> this.close()), 0, 1).build());
     }
